@@ -1,0 +1,8 @@
+name = "quest-of-harvest"
+pages_build_output_dir = "dist"
+
+# 将来的にCloudflare D1（データベース）などを使う場合はここに設定を追加します
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "my-database"
+# database_id = "..."
