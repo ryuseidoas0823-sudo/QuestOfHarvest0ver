@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft } from 'lucide-react';
+import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
 
 /**
  * ==========================================
- * FIREBASE SETUP
+ * FIREBASE 設定
  * ==========================================
  */
 // @ts-ignore
@@ -15,17 +15,27 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
 const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'quest-of-harvest';
 const appId = rawAppId.replace(/[\/.]/g, '_');
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// 設定チェック: API Keyがない場合は初期化しない（クラッシュ防止）
+const isConfigValid = firebaseConfig && firebaseConfig.apiKey;
+
+let app, auth, db;
+if (isConfigValid) {
+  try {
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+  } catch (e) {
+    console.error("Firebase Initialization Error:", e);
+  }
+}
 
 /**
  * ==========================================
- * ASSETS (SVG PIXEL ART)
+ * アセット (SVG ドット絵)
  * ==========================================
  */
 const ASSETS_SVG = {
-  // --- MONSTERS ---
+  // --- モンスター ---
   Slime: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
@@ -57,122 +67,122 @@ const ASSETS_SVG = {
     <path d="M6 13h1v3H6zm3 0h1v3H9z" fill="#5d4037" />
   </svg>`,
 
-  // --- PLAYERS (8 Variations) ---
+  // --- プレイヤー (8バリエーション) ---
   
-  // Swordsman (Male) - Standard Hero
+  // ソードマン (男)
   Swordsman_Male: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
-    <path d="M5 2h6v3H5z" fill="#ffd700" /> <!-- Blonde Hair -->
-    <path d="M5 5h6v3H5z" fill="#ffccaa" /> <!-- Face -->
-    <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" /> <!-- Eyes -->
-    <path d="M4 8h8v5H4z" fill="#1565c0" /> <!-- Blue Armor -->
-    <path d="M6 9h4v4H6z" fill="#64b5f6" opacity="0.3" /> <!-- Plate -->
-    <path d="M5 13h2v3H5zm4 0h2v3H9z" fill="#424242" /> <!-- Legs -->
-    <path d="M12 5h1v3h-1z" fill="#bdbdbd" /> <!-- Sword Blade -->
-    <path d="M11 8h3v1h-3z" fill="#5d4037" /> <!-- Guard -->
-    <path d="M12 9h1v2h-1z" fill="#5d4037" /> <!-- Hilt -->
+    <path d="M5 2h6v3H5z" fill="#ffd700" /> <!-- 金髪 -->
+    <path d="M5 5h6v3H5z" fill="#ffccaa" /> <!-- 顔 -->
+    <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" /> <!-- 目 -->
+    <path d="M4 8h8v5H4z" fill="#1565c0" /> <!-- 青い鎧 -->
+    <path d="M6 9h4v4H6z" fill="#64b5f6" opacity="0.3" /> <!-- プレート -->
+    <path d="M5 13h2v3H5zm4 0h2v3H9z" fill="#424242" /> <!-- 足 -->
+    <path d="M12 5h1v3h-1z" fill="#bdbdbd" /> <!-- 剣身 -->
+    <path d="M11 8h3v1h-3z" fill="#5d4037" /> <!-- 鍔 -->
+    <path d="M12 9h1v2h-1z" fill="#5d4037" /> <!-- 柄 -->
   </svg>`,
 
-  // Swordsman (Female) - Long Hair, Skirt Armor
+  // ソードマン (女)
   Swordsman_Female: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
-    <path d="M4 2h8v6H4z" fill="#ffab00" /> <!-- Orange Long Hair -->
+    <path d="M4 2h8v6H4z" fill="#ffab00" /> <!-- オレンジの長髪 -->
     <path d="M5 5h6v3H5z" fill="#ffccaa" />
     <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
-    <path d="M5 8h6v4H5z" fill="#1565c0" /> <!-- Armor -->
-    <path d="M4 12h8v2H4z" fill="#0d47a1" /> <!-- Skirt -->
+    <path d="M5 8h6v4H5z" fill="#1565c0" /> <!-- 鎧 -->
+    <path d="M4 12h8v2H4z" fill="#0d47a1" /> <!-- スカート -->
     <path d="M5 14h2v2H5zm4 0h2v2H9z" fill="#424242" />
     <path d="M12 5h1v3h-1z" fill="#bdbdbd" />
     <path d="M11 8h3v1h-3z" fill="#5d4037" />
     <path d="M12 9h1v2h-1z" fill="#5d4037" />
   </svg>`,
 
-  // Warrior (Male) - Heavy, Axe
+  // ウォリアー (男)
   Warrior_Male: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M3 14h10v1H3z" fill="rgba(0,0,0,0.3)" />
-    <path d="M5 2h6v3H5z" fill="#5d4037" /> <!-- Brown Hair -->
-    <path d="M4 3h1v2H4zm7 0h1v2h-1z" fill="#bcaaa4" /> <!-- Horns -->
+    <path d="M5 2h6v3H5z" fill="#5d4037" /> <!-- 茶髪 -->
+    <path d="M4 3h1v2H4zm7 0h1v2h-1z" fill="#bcaaa4" /> <!-- 角 -->
     <path d="M5 5h6v3H5z" fill="#d7ccc8" />
     <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
-    <path d="M3 8h10v5H3z" fill="#3e2723" /> <!-- Heavy Armor -->
+    <path d="M3 8h10v5H3z" fill="#3e2723" /> <!-- 重鎧 -->
     <path d="M5 9h6v3H5z" fill="#5d4037" />
     <path d="M4 13h3v3H4zm5 0h3v3H9z" fill="#212121" />
-    <path d="M13 4h2v4h-2z" fill="#757575" /> <!-- Axe Head -->
-    <path d="M14 8h1v5h-1z" fill="#5d4037" /> <!-- Handle -->
+    <path d="M13 4h2v4h-2z" fill="#757575" /> <!-- 斧頭 -->
+    <path d="M14 8h1v5h-1z" fill="#5d4037" /> <!-- 柄 -->
   </svg>`,
 
-  // Warrior (Female) - Valkyrie Style
+  // ウォリアー (女)
   Warrior_Female: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M3 14h10v1H3z" fill="rgba(0,0,0,0.3)" />
-    <path d="M5 2h6v2H5z" fill="#cfd8dc" /> <!-- Winged Helm -->
-    <path d="M3 3h2v2H3zm6 0h2v2H9z" fill="#fff" /> <!-- Wings -->
-    <path d="M5 4h6v7H5z" fill="#fdd835" /> <!-- Blonde Long Hair -->
+    <path d="M5 2h6v2H5z" fill="#cfd8dc" /> <!-- 翼付き兜 -->
+    <path d="M3 3h2v2H3zm6 0h2v2H9z" fill="#fff" /> <!-- 翼 -->
+    <path d="M5 4h6v7H5z" fill="#fdd835" /> <!-- 金髪ロング -->
     <path d="M5 5h6v3H5z" fill="#ffccaa" />
     <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
-    <path d="M5 8h6v4H5z" fill="#b71c1c" /> <!-- Red Armor -->
+    <path d="M5 8h6v4H5z" fill="#b71c1c" /> <!-- 赤い鎧 -->
     <path d="M5 12h2v4H5zm4 0h2v4H9z" fill="#4a148c" />
-    <path d="M13 5h2v3h-2z" fill="#90a4ae" /> <!-- Axe -->
+    <path d="M13 5h2v3h-2z" fill="#90a4ae" /> <!-- 斧 -->
     <path d="M14 8h1v5h-1z" fill="#5d4037" />
   </svg>`,
 
-  // Archer (Male) - Hooded, Green
+  // アーチャー (男)
   Archer_Male: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
-    <path d="M5 2h6v4H5z" fill="#33691e" /> <!-- Green Hood -->
+    <path d="M5 2h6v4H5z" fill="#33691e" /> <!-- 緑のフード -->
     <path d="M5 5h6v3H5z" fill="#ffccaa" />
     <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
-    <path d="M5 8h6v5H5z" fill="#558b2f" /> <!-- Green Tunic -->
+    <path d="M5 8h6v5H5z" fill="#558b2f" /> <!-- 緑のチュニック -->
     <path d="M6 9h4v3H6z" fill="#7cb342" />
     <path d="M5 13h2v3H5zm4 0h2v3H9z" fill="#3e2723" />
-    <path d="M12 6h1v6h-1z" fill="#8d6e63" /> <!-- Bow -->
+    <path d="M12 6h1v6h-1z" fill="#8d6e63" /> <!-- 弓 -->
     <path d="M12 6h-1v1h1zm-1 5h1v1h-1z" fill="#8d6e63" />
   </svg>`,
 
-  // Archer (Female) - Ponytail, Leather
+  // アーチャー (女)
   Archer_Female: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
-    <path d="M5 2h6v3H5z" fill="#a1887f" /> <!-- Light Brown Hair -->
-    <path d="M11 3h2v3h-2z" fill="#a1887f" /> <!-- Ponytail -->
+    <path d="M5 2h6v3H5z" fill="#a1887f" /> <!-- 茶髪 -->
+    <path d="M11 3h2v3h-2z" fill="#a1887f" /> <!-- ポニーテール -->
     <path d="M5 5h6v3H5z" fill="#ffccaa" />
     <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
-    <path d="M5 8h6v4H5z" fill="#33691e" /> <!-- Green Clothes -->
-    <path d="M5 12h2v4H5zm4 0h2v4H9z" fill="#5d4037" /> <!-- Boots -->
-    <path d="M12 6h1v6h-1z" fill="#8d6e63" /> <!-- Bow -->
+    <path d="M5 8h6v4H5z" fill="#33691e" /> <!-- 緑の服 -->
+    <path d="M5 12h2v4H5zm4 0h2v4H9z" fill="#5d4037" /> <!-- ブーツ -->
+    <path d="M12 6h1v6h-1z" fill="#8d6e63" /> <!-- 弓 -->
     <path d="M12 6h-1v1h1zm-1 5h1v1h-1z" fill="#8d6e63" />
   </svg>`,
 
-  // Mage (Male) - Wizard Hat, Robe
+  // メイジ (男)
   Mage_Male: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
-    <path d="M4 4h8v1H4z" fill="#311b92" /> <!-- Hat Brim -->
-    <path d="M5 1h6v3H5z" fill="#311b92" /> <!-- Hat Top -->
+    <path d="M4 4h8v1H4z" fill="#311b92" /> <!-- 帽子のつば -->
+    <path d="M5 1h6v3H5z" fill="#311b92" /> <!-- 帽子の上部 -->
     <path d="M5 5h6v3H5z" fill="#ffccaa" />
     <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
-    <path d="M4 8h8v6H4z" fill="#4527a0" /> <!-- Robe -->
+    <path d="M4 8h8v6H4z" fill="#4527a0" /> <!-- ローブ -->
     <path d="M6 8h4v6H6z" fill="#673ab7" />
-    <path d="M13 5h1v8h-1z" fill="#8d6e63" /> <!-- Staff -->
-    <path d="M12 4h3v1h-3z" fill="#ffeb3b" /> <!-- Orb/Gem -->
+    <path d="M13 5h1v8h-1z" fill="#8d6e63" /> <!-- 杖 -->
+    <path d="M12 4h3v1h-3z" fill="#ffeb3b" /> <!-- 宝玉 -->
   </svg>`,
 
-  // Mage (Female) - Witch Hat, Dress
+  // メイジ (女)
   Mage_Female: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
-    <path d="M3 4h10v1H3z" fill="#ad1457" /> <!-- Hat Brim (Pink/Red) -->
-    <path d="M5 1h6v3H5z" fill="#ad1457" /> <!-- Hat Top -->
-    <path d="M4 5h8v4H4z" fill="#f48fb1" /> <!-- Pink Hair -->
+    <path d="M3 4h10v1H3z" fill="#ad1457" /> <!-- 帽子のつば -->
+    <path d="M5 1h6v3H5z" fill="#ad1457" /> <!-- 帽子の上部 -->
+    <path d="M4 5h8v4H4z" fill="#f48fb1" /> <!-- ピンク髪 -->
     <path d="M5 5h6v3H5z" fill="#ffccaa" />
     <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
-    <path d="M5 8h6v6H5z" fill="#880e4f" /> <!-- Robe -->
-    <path d="M13 5h1v8h-1z" fill="#8d6e63" /> <!-- Staff -->
-    <path d="M12 4h3v1h-3z" fill="#00e676" /> <!-- Orb -->
+    <path d="M5 8h6v6H5z" fill="#880e4f" /> <!-- ローブ -->
+    <path d="M13 5h1v8h-1z" fill="#8d6e63" /> <!-- 杖 -->
+    <path d="M12 4h3v1h-3z" fill="#00e676" /> <!-- 宝玉 -->
   </svg>`
 };
 
@@ -181,7 +191,7 @@ const svgToUrl = (svgString: string) =>
 
 /**
  * ==========================================
- * CONSTANTS & CONFIG
+ * 定数 & 設定
  * ==========================================
  */
 const GAME_CONFIG = {
@@ -216,7 +226,7 @@ const THEME = {
 
 /**
  * ==========================================
- * TYPES
+ * 型定義
  * ==========================================
  */
 type TileType = 'grass' | 'dirt' | 'wall' | 'water' | 'floor' | 'portal_out' | 'town_entrance' | 'sand' | 'snow' | 'rock';
@@ -302,7 +312,7 @@ interface Attributes {
 
 interface PlayerEntity extends CombatEntity {
   job: Job;
-  gender: Gender; // Added Gender
+  gender: Gender;
   xp: number;
   nextLevelXp: number;
   gold: number;
@@ -381,18 +391,18 @@ interface GameState {
 
 /**
  * ==========================================
- * ITEM GENERATOR
+ * アイテム生成
  * ==========================================
  */
 const RARITY_MULTIPLIERS = { Common: 1.0, Uncommon: 1.2, Rare: 1.5, Epic: 2.0, Legendary: 3.0 };
 const ENCHANT_SLOTS = { Common: 0, Uncommon: 1, Rare: 2, Epic: 3, Legendary: 5 };
 
 const ITEM_BASE_NAMES = {
-  Weapon: { OneHanded: 'Sword', TwoHanded: 'Greatsword', DualWield: 'Twin Daggers' },
-  Helm: 'Helmet',
-  Armor: 'Plate Armor',
-  Shield: 'Shield',
-  Boots: 'Greaves'
+  Weapon: { OneHanded: '剣', TwoHanded: '大剣', DualWield: '双剣' },
+  Helm: '兜',
+  Armor: '板金鎧',
+  Shield: '盾',
+  Boots: '具足'
 };
 
 const ICONS = {
@@ -458,7 +468,14 @@ const generateRandomItem = (level: number, rankBonus: number = 0): Item | null =
     else if (eType === 'MaxHp') val = Math.floor(level * 5 * (strIdx + 1));
     else if (eType === 'Speed') val = Number((0.1 * (strIdx + 1)).toFixed(1));
 
-    enchantments.push({ type: eType, value: val, strength, name: `${strength} ${eType}` });
+    // 日本語名エンチャント
+    const jNames = { Weak: '微かな', Medium: '普通の', Strong: '強力な' };
+    const jTypes = { Attack: '攻撃', Defense: '防御', Speed: '敏捷', MaxHp: '体力' };
+    
+    enchantments.push({ 
+      type: eType, value: val, strength, 
+      name: `${jNames[strength]}${jTypes[eType]}` 
+    });
 
     if (eType === 'Attack') stats.attack += val;
     if (eType === 'Defense') stats.defense += val;
@@ -470,6 +487,8 @@ const generateRandomItem = (level: number, rankBonus: number = 0): Item | null =
   if (type === 'Weapon') name += ITEM_BASE_NAMES[type][subType!];
   else name += ITEM_BASE_NAMES[type];
 
+  // 簡易的なレアリティ翻訳（表示用ではないが、英語名で統一しておく）
+  
   return {
     id: crypto.randomUUID(),
     name, type, subType, rarity, level, stats, enchantments,
@@ -480,15 +499,15 @@ const generateRandomItem = (level: number, rankBonus: number = 0): Item | null =
 
 /**
  * ==========================================
- * DATA & GENERATORS
+ * データ & 生成
  * ==========================================
  */
 
 const JOB_DATA: Record<Job, { attributes: Attributes, desc: string, icon: string }> = {
-  Swordsman: { attributes: { vitality: 12, strength: 12, dexterity: 12, intelligence: 8, endurance: 11 }, icon: '⚔️', desc: 'Balanced warrior.' },
-  Warrior:   { attributes: { vitality: 14, strength: 16, dexterity: 9, intelligence: 6, endurance: 15 }, icon: '🪓', desc: 'Heavy hitter with high health.' },
-  Archer:    { attributes: { vitality: 10, strength: 10, dexterity: 16, intelligence: 10, endurance: 10 }, icon: '🏹', desc: 'Agile ranged attacker.' },
-  Mage:      { attributes: { vitality: 9, strength: 6, dexterity: 12, intelligence: 18, endurance: 8 }, icon: '🪄', desc: 'Master of spells.' },
+  Swordsman: { attributes: { vitality: 12, strength: 12, dexterity: 12, intelligence: 8, endurance: 11 }, icon: '⚔️', desc: 'バランスの取れた剣士。' },
+  Warrior:   { attributes: { vitality: 14, strength: 16, dexterity: 9, intelligence: 6, endurance: 15 }, icon: '🪓', desc: '体力が高い強力な戦士。' },
+  Archer:    { attributes: { vitality: 10, strength: 10, dexterity: 16, intelligence: 10, endurance: 10 }, icon: '🏹', desc: '素早い遠距離アタッカー。' },
+  Mage:      { attributes: { vitality: 9, strength: 6, dexterity: 12, intelligence: 18, endurance: 8 }, icon: '🪄', desc: '魔法のスペシャリスト。' },
 };
 
 const createPlayer = (job: Job, gender: Gender): PlayerEntity => {
@@ -521,35 +540,21 @@ const ENEMY_TYPES = [
   { name: 'Ghost',     hp: 20, atk: 7, spd: 1.0, color: '#cfd8dc', icon: '👻', xp: 28, shape: 'ghost',    w: 24, h: 24, vw: 32, vh: 40 },
 ];
 
-const generateEnemy = (x: number, y: number, level: number): EnemyEntity => {
-  const type = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)];
-  const rankRoll = Math.random();
-  let rank: 'Normal' | 'Elite' | 'Boss' = 'Normal';
-  let scale = 1 + (level * 0.1);
-  let color = type.color;
-
-  if (rankRoll < 0.05) { rank = 'Boss'; scale *= 3; color = '#ff0000'; }
-  else if (rankRoll < 0.2) { rank = 'Elite'; scale *= 1.5; color = '#ffeb3b'; }
-
-  return {
-    id: `enemy_${crypto.randomUUID()}`,
-    type: 'enemy', race: type.name, rank, x, y,
-    width: type.w * (rank === 'Boss' ? 1.5 : 1), height: type.h * (rank === 'Boss' ? 1.5 : 1),
-    visualWidth: type.vw! * (rank === 'Boss' ? 1.5 : 1), visualHeight: type.vh! * (rank === 'Boss' ? 1.5 : 1),
-    color, shape: type.shape as ShapeType,
-    hp: Math.floor(type.hp * scale), maxHp: Math.floor(type.hp * scale),
-    attack: Math.floor(type.atk * scale), defense: Math.floor(level * 2), speed: type.spd,
-    level, direction: 1, dead: false, lastAttackTime: 0, attackCooldown: 1000 + Math.random() * 500,
-    detectionRange: 350, xpValue: Math.floor(type.xp * scale * (rank === 'Boss' ? 5 : rank === 'Elite' ? 2 : 1))
-  };
-};
-
 const getBiome = (wx: number, wy: number): Biome => {
   if (wx === 0 && wy === 0) return 'Town';
   if (wy < -1) return 'Snow';
   if (wy > 1) return 'Desert';
   if (Math.abs(wx) > 2) return 'Wasteland';
   return 'Plains';
+};
+
+const BIOME_NAMES: Record<Biome, string> = {
+  Plains: '平原',
+  Forest: '森',
+  Desert: '砂漠',
+  Snow: '雪原',
+  Wasteland: '荒野',
+  Town: '街'
 };
 
 const generateChunk = (wx: number, wy: number): ChunkData => {
@@ -561,13 +566,13 @@ const generateChunk = (wx: number, wy: number): ChunkData => {
     Array(width).fill(null).map((_, x) => {
       let type: TileType = 'grass';
       
-      // Biome terrain
+      // バイオームごとの地形
       if (biome === 'Snow') type = 'snow';
       if (biome === 'Desert') type = 'sand';
       if (biome === 'Wasteland') type = 'dirt';
       if (biome === 'Town') type = 'floor';
 
-      // Random variation
+      // ランダムなバリエーション
       if (biome !== 'Town' && Math.random() < 0.05) type = Math.random() > 0.5 ? 'dirt' : 'rock';
 
       return {
@@ -608,7 +613,7 @@ const generateChunk = (wx: number, wy: number): ChunkData => {
 
 /**
  * ==========================================
- * LOGIC & PHYSICS
+ * ロジック & 物理演算
  * ==========================================
  */
 
@@ -690,31 +695,30 @@ const updatePlayerStats = (player: PlayerEntity) => {
 
 /**
  * ==========================================
- * RENDERER
+ * レンダラー
  * ==========================================
  */
 const renderGame = (
   ctx: CanvasRenderingContext2D, 
   state: GameState, 
-  images: Record<string, HTMLImageElement> // Added images arg
+  images: Record<string, HTMLImageElement>
 ) => {
   const { width, height } = ctx.canvas;
   const T = GAME_CONFIG.TILE_SIZE;
 
-  // Clear
+  // 画面クリア
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, width, height);
 
-  // Camera Transform
+  // カメラ移動
   ctx.save();
   const camX = Math.floor(state.player.x + state.player.width/2 - width/2);
   const camY = Math.floor(state.player.y + state.player.height/2 - height/2);
   ctx.translate(-camX, -camY);
 
-  // Store camera position for logic if needed, but mainly for rendering
   state.camera = { x: camX, y: camY };
 
-  // 1. Render Map - Optimized
+  // 1. マップ描画 (可視範囲のみ)
   const startCol = Math.floor(camX / T);
   const endCol = startCol + (width / T) + 1;
   const startRow = Math.floor(camY / T);
@@ -755,7 +759,7 @@ const renderGame = (
     }
   }
 
-  // 2. Dropped Items
+  // 2. ドロップアイテム
   state.droppedItems.forEach(drop => {
     const bob = Math.sin(state.gameTime / 10) * 5 + drop.bounceOffset;
     ctx.shadowColor = drop.item.color;
@@ -772,20 +776,18 @@ const renderGame = (
     ctx.shadowBlur = 0;
   });
 
-  // 3. Render Entities (Sorted by Y)
+  // 3. エンティティ描画 (Y座標順にソート)
   const allEntities = [...state.enemies, state.player].sort((a, b) => (a.y + a.height) - (b.y + b.height));
 
   const renderCharacter = (e: CombatEntity, icon?: string) => {
     const vw = e.visualWidth || e.width;
     const vh = e.visualHeight || e.height;
-    // const drawX = e.x + (e.width - vw) / 2;
-    // const drawY = e.y + e.height - vh;
 
-    // Center alignment
+    // 中心位置
     const centerX = e.x + e.width / 2;
     const bottomY = e.y + e.height;
 
-    // Determine Image Key
+    // 画像キーの決定
     let imgKey: string | null = null;
     
     if (e.type === 'player') {
@@ -797,58 +799,55 @@ const renderGame = (
       else if (raceName.includes('Bandit') || raceName.includes('Assassin')) imgKey = 'Bandit';
     }
 
-    // --- Draw Shadow ---
+    // --- 影の描画 ---
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.beginPath();
     const shadowSize = (e.shape === 'flying' || e.shape === 'ghost') ? 0.8 : 1.2;
     ctx.ellipse(centerX, bottomY - 2, e.width/2 * shadowSize, 4, 0, 0, Math.PI*2);
     ctx.fill();
 
-    // --- Draw Character ---
+    // --- キャラクター描画 ---
     if (imgKey && images[imgKey]) {
-      // ** IMAGE RENDERING **
+      // ** 画像レンダリング **
       const img = images[imgKey];
       
-      // Calculate Animation Transform
-      // Move bounce
+      // アニメーション計算
       const isMoving = Math.abs(e.vx || 0) > 0.1 || Math.abs(e.vy || 0) > 0.1;
       let scaleX = 1;
       let scaleY = 1;
       let offsetY = 0;
 
       if (isMoving) {
-        // Simple bounce: squeeze and stretch
+        // 歩行バウンス
         const bounce = Math.sin(state.gameTime / 2); // -1 to 1
         scaleX = 1 + (bounce * 0.1);
         scaleY = 1 - (bounce * 0.1);
-        // Jump a bit
+        // 少し跳ねる
         if (bounce > 0) offsetY = -bounce * 5;
       }
 
-      // Attack lunging
+      // 攻撃時のモーション
       if (e.isAttacking) {
-        // e.g. scale up momentarily
          scaleX = 1.2; 
          scaleY = 0.8;
       }
 
-      // Flip for direction
-      // Direction: 0=Right, 1=Down, 2=Left, 3=Up
+      // 向きによる反転 (0=右, 1=下, 2=左, 3=上)
       const isLeft = e.direction === 2;
 
-      // Drawing
+      // 描画実行
       const drawW = vw;
       const drawH = vh;
       
       ctx.save();
       ctx.translate(centerX, bottomY + offsetY);
       ctx.scale(isLeft ? -scaleX : scaleX, scaleY);
-      // Draw image centered at 0, -height
+      // 原点を足元に合わせて描画
       ctx.drawImage(img, -drawW / 2, -drawH, drawW, drawH);
       ctx.restore();
 
     } else {
-      // ** FALLBACK RECTANGLE RENDERING (Original Logic) **
+      // ** 矩形レンダリング (画像がない場合のフォールバック) **
       const drawX = e.x + (e.width - vw) / 2;
       const drawY = e.y + e.height - vh;
 
@@ -918,14 +917,14 @@ const renderGame = (
         ctx.fillText(icon, drawX + vw/2, iconY + bob);
         ctx.shadowBlur = 0;
       }
-    } // End Fallback
+    } // フォールバック終了
 
-    // HP Bar
+    // HPバー
     if (e.type === 'enemy' && e.hp < e.maxHp) {
       const hpPct = e.hp / e.maxHp;
       const barW = vw;
       const barX = centerX - barW / 2;
-      const barY = bottomY - vh - 12; // Above head
+      const barY = bottomY - vh - 12; // 頭上
 
       ctx.fillStyle = '#000';
       ctx.fillRect(barX, barY, barW, 4);
@@ -941,7 +940,7 @@ const renderGame = (
     renderCharacter(e as CombatEntity, icon);
   });
 
-  // 4. Projectiles & Effects
+  // 4. 投射物 & エフェクト
   state.projectiles.forEach(p => {
     ctx.fillStyle = p.color;
     ctx.beginPath();
@@ -984,7 +983,7 @@ const adjustColor = (color: string, _amount: number) => color;
 
 /**
  * ==========================================
- * MAIN COMPONENT
+ * メインコンポーネント
  * ==========================================
  */
 export default function App() {
@@ -1006,7 +1005,22 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Load Assets
+  // 設定エラー時のUI表示
+  if (!isConfigValid) {
+    return (
+      <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white p-8">
+        <AlertTriangle size={64} className="text-red-500 mb-4" />
+        <h2 className="text-2xl font-bold mb-2">設定エラー</h2>
+        <p className="text-center text-slate-400 mb-6 max-w-md">
+          FirebaseのAPIキーが見つかりません。<br/>
+          ビルド環境変数 <code>FIREBASE_CONFIG</code> を設定するか、<br/>
+          <code>vite.config.ts</code> に正しい設定を記述してください。
+        </p>
+      </div>
+    );
+  }
+
+  // アセット読み込み
   const loadedAssets = useMemo(() => {
     const images: Record<string, HTMLImageElement> = {};
     Object.entries(ASSETS_SVG).forEach(([key, svg]) => {
@@ -1017,15 +1031,21 @@ export default function App() {
     return images;
   }, []);
 
-  // AUTHENTICATION & INITIALIZATION
+  // 認証 & 初期化
   useEffect(() => {
+    if (!auth) return; // Authが初期化されていなければスキップ
+
     const initAuth = async () => {
-      // @ts-ignore
-      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+      try {
         // @ts-ignore
-        await signInWithCustomToken(auth, __initial_auth_token);
-      } else {
-        await signInAnonymously(auth);
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          // @ts-ignore
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (e) {
+        console.error("Auth Error:", e);
       }
     };
     initAuth();
@@ -1039,14 +1059,14 @@ export default function App() {
       }
     });
     
-    // Window Resize Handler
+    // ウィンドウリサイズ処理
     const handleResize = () => {
       setViewportSize({ width: window.innerWidth, height: window.innerHeight });
     };
     handleResize(); // Init
     window.addEventListener('resize', handleResize);
 
-    // Input Handlers
+    // 入力ハンドラ
     const handleKeyDown = (e: KeyboardEvent) => {
       input.current.keys[e.key.toLowerCase()] = true;
       if (e.key.toLowerCase() === 'i') setActiveMenu(prev => prev === 'inventory' ? 'none' : 'inventory');
@@ -1082,6 +1102,7 @@ export default function App() {
   }, []);
 
   const checkSaveData = async (uid: string) => {
+    if (!db) return;
     try {
       // Fix: Use correct path with even number of segments
       const docRef = doc(db, 'artifacts', appId, 'users', uid, 'saves', 'slot1');
@@ -1119,7 +1140,7 @@ export default function App() {
       player.y = (GAME_CONFIG.MAP_HEIGHT * GAME_CONFIG.TILE_SIZE) / 2;
       const starterSword = generateRandomItem(1); 
       if(starterSword) { 
-        starterSword.name = "Rusty Sword"; 
+        starterSword.name = "錆びた剣"; 
         starterSword.type = 'Weapon';
         starterSword.subType = 'OneHanded';
         player.inventory.push(starterSword);
@@ -1188,7 +1209,7 @@ export default function App() {
     state.projectiles = [];
     
     setWorldInfo({x: state.worldX, y: state.worldY, biome: state.currentBiome});
-    setMessage(`Entered ${state.currentBiome}`);
+    setMessage(`エリア移動：${BIOME_NAMES[state.currentBiome] || state.currentBiome}`);
     setTimeout(() => setMessage(null), 2000);
   };
 
@@ -1253,7 +1274,7 @@ export default function App() {
           drop.dead = true;
           p.inventory.push(drop.item);
           spawnFloatingText(p.x, p.y - 20, `${drop.item.name}`, drop.item.color);
-          setMessage(`Picked up ${drop.item.name}`);
+          setMessage(`拾った：${drop.item.name}`);
           setTimeout(() => setMessage(null), 2000);
         }
       });
@@ -1295,7 +1316,7 @@ export default function App() {
                 updatePlayerStats(p);
                 p.hp = p.maxHp;
                 spawnFloatingText(p.x, p.y - 40, "LEVEL UP!", '#00ff00');
-                setMessage("Level Up! Press C to allocate stats.");
+                setMessage("レベルアップ！Cキーで能力値を割り振れます。");
               }
               
               const dropChance = GAME_CONFIG.BASE_DROP_RATE * (e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 1);
@@ -1350,7 +1371,7 @@ export default function App() {
                
                p.x = (GAME_CONFIG.MAP_WIDTH * 32) / 2;
                p.y = (GAME_CONFIG.MAP_HEIGHT * 32) / 2;
-               setMessage("You died! Respawned in town.");
+               setMessage("死んでしまった！街で復活します。");
                setTimeout(() => setMessage(null), 3000);
             }
           }
@@ -1390,7 +1411,7 @@ export default function App() {
   }, [screen]);
 
   const saveGame = async () => {
-    if (!gameState.current || !user) return;
+    if (!gameState.current || !user || !db) return;
     setIsSaving(true);
     const data = {
       player: gameState.current.player,
@@ -1404,10 +1425,10 @@ export default function App() {
       // Fix: Correct path with even segments
       await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'saves', 'slot1'), data);
       setSaveData(data);
-      setMessage("Game Saved to Cloud!");
+      setMessage("クラウドに保存しました！");
     } catch(e) {
       console.error("Save failed", e);
-      setMessage("Save Failed!");
+      setMessage("保存に失敗しました！");
     } finally {
       setIsSaving(false);
       setTimeout(() => setMessage(null), 2000);
@@ -1439,7 +1460,7 @@ export default function App() {
     } else if (item.type === 'Shield') {
       const mh = p.equipment.mainHand;
       if (mh && (mh.subType === 'TwoHanded' || mh.subType === 'DualWield')) {
-        setMessage("Cannot equip Shield with Two-Handed Weapon!");
+        setMessage("両手武器と盾は同時に装備できません！");
         setTimeout(() => setMessage(null), 2000);
         return; 
       }
@@ -1484,7 +1505,7 @@ export default function App() {
     return (
       <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
         <Loader className="animate-spin text-yellow-500 mb-4" size={48} />
-        <h2 className="text-xl">Connecting to Cloud...</h2>
+        <h2 className="text-xl">クラウドに接続中...</h2>
       </div>
     );
   }
@@ -1502,14 +1523,14 @@ export default function App() {
           </div>
           <div className="flex flex-col gap-4 w-64 mx-auto">
             <button onClick={() => setScreen('job_select')} className="flex items-center justify-center gap-2 px-6 py-3 bg-yellow-700/20 border border-yellow-600/50 hover:bg-yellow-600/40 hover:scale-105 transition-all rounded text-yellow-100 font-semibold">
-              <Play size={20} /> NEW GAME
+              <Play size={20} /> ニューゲーム
             </button>
             <button onClick={() => startGame('Swordsman', true)} disabled={!saveData} className={`flex items-center justify-center gap-2 px-6 py-3 border transition-all rounded font-semibold ${saveData ? 'bg-slate-700/50 border-slate-500 hover:bg-slate-600/50 hover:scale-105 text-slate-200' : 'bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed'}`}>
-              <Save size={20} /> CONTINUE
+              <Save size={20} /> つづきから
             </button>
           </div>
         </div>
-        <div className="absolute bottom-4 text-xs text-slate-600 font-mono">WASD: Move • SPACE/CLICK: Attack • I: Inventory • C: Stats</div>
+        <div className="absolute bottom-4 text-xs text-slate-600 font-mono">WASD: 移動 • SPACE/クリック: 攻撃 • I:持ち物 • C:ステータス</div>
       </div>
     );
   }
@@ -1518,13 +1539,13 @@ export default function App() {
     return (
       <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white relative">
         <button onClick={() => setScreen('title')} className="absolute top-8 left-8 text-slate-500 hover:text-white flex items-center gap-2">
-          <ArrowLeft size={20} /> Back
+          <ArrowLeft size={20} /> 戻る
         </button>
         
-        <h2 className="text-3xl mb-2 font-bold text-slate-200">Character Creation</h2>
-        <p className="text-slate-400 mb-8">Choose your gender and class.</p>
+        <h2 className="text-3xl mb-2 font-bold text-slate-200">キャラクター作成</h2>
+        <p className="text-slate-400 mb-8">性別と職業を選択してください。</p>
 
-        {/* Gender Selection */}
+        {/* 性別選択 */}
         <div className="flex gap-4 mb-8 bg-slate-800 p-2 rounded-full border border-slate-700">
           {(['Male', 'Female'] as Gender[]).map(g => (
             <button
@@ -1536,12 +1557,12 @@ export default function App() {
                   : 'text-slate-400 hover:text-white hover:bg-slate-700'
               }`}
             >
-              {g}
+              {g === 'Male' ? '男性' : '女性'}
             </button>
           ))}
         </div>
 
-        {/* Job Selection */}
+        {/* 職業選択 */}
         <div className="flex gap-4 flex-wrap justify-center max-w-5xl">
           {(Object.keys(JOB_DATA) as Job[]).map(job => {
             const previewKey = `${job}_${selectedGender}`;
@@ -1553,7 +1574,7 @@ export default function App() {
                   {JOB_DATA[job].icon}
                 </div>
                 
-                {/* Preview Image */}
+                {/* プレビュー画像 */}
                 <div className="h-24 mb-4 flex items-center justify-center">
                   {previewImg ? (
                     <img src={previewImg.src} className="h-full w-auto pixel-art drop-shadow-xl group-hover:scale-110 transition-transform" style={{imageRendering: 'pixelated'}} />
@@ -1587,15 +1608,15 @@ export default function App() {
         className="bg-black shadow-2xl cursor-crosshair" 
       />
       
-      {/* HUD Info */}
+      {/* HUD 情報 */}
       <div className="absolute top-4 right-20 flex gap-4 text-white pointer-events-none">
          <div className="bg-slate-900/80 px-4 py-2 rounded border border-slate-700 flex items-center gap-2">
             <Compass size={16} className="text-yellow-500" />
-            <span className="font-mono">{worldInfo.biome} ({worldInfo.x}, {worldInfo.y})</span>
+            <span className="font-mono">{BIOME_NAMES[worldInfo.biome] || worldInfo.biome} ({worldInfo.x}, {worldInfo.y})</span>
          </div>
       </div>
 
-      {/* UI Overlay */}
+      {/* UI オーバーレイ */}
       <div className="absolute top-4 left-4 flex gap-4 pointer-events-none">
         {uiState && (
           <div className="bg-slate-900/90 border border-slate-700 p-3 rounded text-white w-64 shadow-lg pointer-events-auto">
@@ -1604,8 +1625,8 @@ export default function App() {
               <span className="text-xs text-slate-400">GOLD: {uiState.gold}</span>
             </div>
             <div className="mb-2 space-y-1 text-xs text-slate-300">
-               <div className="flex justify-between"><span>ATK: {uiState.attack}</span><span>DEF: {uiState.defense}</span></div>
-               <div className="flex justify-between"><span>SPD: {uiState.speed.toFixed(1)}</span></div>
+               <div className="flex justify-between"><span>攻撃: {uiState.attack}</span><span>防御: {uiState.defense}</span></div>
+               <div className="flex justify-between"><span>速度: {uiState.speed.toFixed(1)}</span></div>
             </div>
             <div className="mb-1">
               <div className="flex justify-between text-xs mb-0.5"><span>HP</span><span>{uiState.hp}/{uiState.maxHp}</span></div>
@@ -1633,49 +1654,49 @@ export default function App() {
 
       {message && <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-2 rounded-full border border-yellow-500/50 animate-bounce">{message}</div>}
 
-      {/* Menus */}
+      {/* メニュー */}
       {activeMenu !== 'none' && (
         <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50 p-8">
           
-          {/* Status/Pause Menu */}
+          {/* ステータス/ポーズ メニュー */}
           {activeMenu === 'status' && (
             <div className="bg-slate-800 p-8 rounded-lg border border-slate-600 min-w-[300px] text-white">
-              <h2 className="text-2xl font-bold mb-6 text-center border-b border-slate-600 pb-2">Menu</h2>
+              <h2 className="text-2xl font-bold mb-6 text-center border-b border-slate-600 pb-2">メニュー</h2>
               <div className="space-y-3">
                 <button onClick={saveGame} disabled={isSaving} className="w-full py-3 bg-blue-700 hover:bg-blue-600 rounded font-bold flex items-center justify-center gap-2">
                   {isSaving ? <Loader className="animate-spin" size={18} /> : <Save size={18} />}
-                  {isSaving ? 'Saving...' : 'Save Game'}
+                  {isSaving ? '保存中...' : 'ゲームを保存'}
                 </button>
-                <button onClick={() => { setScreen('title'); setActiveMenu('none'); }} className="w-full py-3 bg-red-900/50 hover:bg-red-900 rounded border border-red-800 text-red-100 mt-8">Return to Title</button>
-                <button onClick={() => setActiveMenu('none')} className="w-full py-2 text-slate-400 hover:text-white mt-2">Close</button>
+                <button onClick={() => { setScreen('title'); setActiveMenu('none'); }} className="w-full py-3 bg-red-900/50 hover:bg-red-900 rounded border border-red-800 text-red-100 mt-8">タイトルに戻る</button>
+                <button onClick={() => setActiveMenu('none')} className="w-full py-2 text-slate-400 hover:text-white mt-2">閉じる</button>
               </div>
             </div>
           )}
 
-          {/* Stats Menu */}
+          {/* ステータス画面 */}
           {activeMenu === 'stats' && uiState && (
             <div className="bg-slate-900 border border-slate-600 rounded-lg w-[500px] p-6 text-white shadow-2xl relative">
               <button onClick={() => setActiveMenu('none')} className="absolute top-4 right-4 p-1 hover:bg-slate-700 rounded"><X /></button>
-              <h2 className="text-2xl font-bold mb-4 text-yellow-500 flex items-center gap-2"><User /> Status</h2>
+              <h2 className="text-2xl font-bold mb-4 text-yellow-500 flex items-center gap-2"><User /> ステータス</h2>
               
               <div className="flex justify-between items-end mb-6 border-b border-slate-700 pb-4">
                 <div>
                   <div className="text-3xl font-bold">{uiState.job}</div>
-                  <div className="text-slate-400">Level {uiState.level}</div>
+                  <div className="text-slate-400">レベル {uiState.level}</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm text-slate-400">Available Points</div>
+                  <div className="text-sm text-slate-400">残りポイント</div>
                   <div className="text-3xl font-bold text-yellow-400">{uiState.statPoints}</div>
                 </div>
               </div>
 
               <div className="space-y-4 mb-6">
                 {[
-                  { key: 'vitality', label: 'Vitality', desc: 'Increases Max HP' },
-                  { key: 'strength', label: 'Strength', desc: 'Increases Physical Attack' },
-                  { key: 'dexterity', label: 'Dexterity', desc: 'Increases Attack Speed' },
-                  { key: 'intelligence', label: 'Intelligence', desc: 'Increases Max MP / Magic' },
-                  { key: 'endurance', label: 'Endurance', desc: 'Increases Defense' },
+                  { key: 'vitality', label: '体力', desc: '最大HPが増加' },
+                  { key: 'strength', label: '筋力', desc: '物理攻撃力が増加' },
+                  { key: 'dexterity', label: '器用さ', desc: '攻撃速度が増加' },
+                  { key: 'intelligence', label: '知力', desc: '最大MPと魔法攻撃力が増加' },
+                  { key: 'endurance', label: '耐久', desc: '防御力が増加' },
                 ].map((stat) => (
                   <div key={stat.key} className="flex items-center justify-between bg-slate-800 p-3 rounded">
                     <div>
@@ -1703,26 +1724,26 @@ export default function App() {
               <div className="grid grid-cols-2 gap-4 text-sm text-slate-300 bg-slate-800 p-4 rounded">
                 <div className="flex justify-between"><span>HP</span> <span className="font-bold text-white">{uiState.maxHp}</span></div>
                 <div className="flex justify-between"><span>MP</span> <span className="font-bold text-white">{uiState.maxMp}</span></div>
-                <div className="flex justify-between"><span>Attack</span> <span className="font-bold text-white">{uiState.attack}</span></div>
-                <div className="flex justify-between"><span>Defense</span> <span className="font-bold text-white">{uiState.defense}</span></div>
-                <div className="flex justify-between"><span>Speed</span> <span className="font-bold text-white">{uiState.speed.toFixed(1)}</span></div>
+                <div className="flex justify-between"><span>攻撃力</span> <span className="font-bold text-white">{uiState.attack}</span></div>
+                <div className="flex justify-between"><span>防御力</span> <span className="font-bold text-white">{uiState.defense}</span></div>
+                <div className="flex justify-between"><span>速度</span> <span className="font-bold text-white">{uiState.speed.toFixed(1)}</span></div>
               </div>
             </div>
           )}
 
-          {/* Inventory Menu */}
+          {/* インベントリ画面 */}
           {activeMenu === 'inventory' && uiState && (
             <div className="bg-slate-900 border border-slate-600 rounded-lg w-full max-w-4xl h-[600px] flex text-white overflow-hidden shadow-2xl">
-              {/* Equipment Panel */}
+              {/* 装備パネル */}
               <div className="w-1/3 bg-slate-800/50 p-6 border-r border-slate-700 flex flex-col gap-4">
-                <h3 className="text-xl font-bold text-yellow-500 mb-2 border-b border-slate-700 pb-2">Equipment</h3>
+                <h3 className="text-xl font-bold text-yellow-500 mb-2 border-b border-slate-700 pb-2">装備</h3>
                 
                 {[
-                  { slot: 'mainHand', label: 'Main Hand', icon: '⚔️' },
-                  { slot: 'offHand', label: 'Off Hand', icon: '🛡️' },
-                  { slot: 'helm', label: 'Helm', icon: '🪖' },
-                  { slot: 'armor', label: 'Armor', icon: '🛡️' },
-                  { slot: 'boots', label: 'Boots', icon: '👢' },
+                  { slot: 'mainHand', label: '右手', icon: '⚔️' },
+                  { slot: 'offHand', label: '左手', icon: '🛡️' },
+                  { slot: 'helm', label: '頭', icon: '🪖' },
+                  { slot: 'armor', label: '体', icon: '🛡️' },
+                  { slot: 'boots', label: '足', icon: '👢' },
                 ].map((s) => {
                   const item = uiState.equipment[s.slot as keyof typeof uiState.equipment];
                   return (
@@ -1733,7 +1754,7 @@ export default function App() {
                       <div className="flex-1">
                         <div className="text-xs text-slate-400 uppercase">{s.label}</div>
                         <div className={`font-bold text-sm ${item ? '' : 'text-slate-600'}`} style={{ color: item?.color }}>
-                          {item ? item.name : 'Empty'}
+                          {item ? item.name : 'なし'}
                         </div>
                       </div>
                       {item && (
@@ -1746,15 +1767,15 @@ export default function App() {
                 })}
                 
                 <div className="mt-auto pt-4 border-t border-slate-700 text-xs text-slate-400">
-                   <p>Click items on right to equip.</p>
-                   <p>Requires matching slot type.</p>
+                   <p>右のアイテムをクリックして装備。</p>
+                   <p>同じ種類のスロットが必要です。</p>
                 </div>
               </div>
 
-              {/* Inventory List */}
+              {/* インベントリリスト */}
               <div className="flex-1 p-6 overflow-y-auto bg-slate-900">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-xl font-bold text-white">Inventory ({uiState.inventory.length})</h3>
+                  <h3 className="text-xl font-bold text-white">持ち物 ({uiState.inventory.length})</h3>
                   <button onClick={() => setActiveMenu('none')} className="p-1 hover:bg-slate-700 rounded"><X /></button>
                 </div>
                 
@@ -1772,10 +1793,10 @@ export default function App() {
                         <div className="text-xs text-slate-400">{item.type} {item.subType ? `(${item.subType})` : ''}</div>
                         
                         <div className="text-xs mt-1 grid grid-cols-2 gap-x-2 text-slate-300">
-                          {item.stats.attack > 0 && <span>ATK +{item.stats.attack}</span>}
-                          {item.stats.defense > 0 && <span>DEF +{item.stats.defense}</span>}
-                          {item.stats.speed > 0 && <span>SPD +{item.stats.speed}</span>}
-                          {item.stats.maxHp > 0 && <span>HP +{item.stats.maxHp}</span>}
+                          {item.stats.attack > 0 && <span>攻撃 +{item.stats.attack}</span>}
+                          {item.stats.defense > 0 && <span>防御 +{item.stats.defense}</span>}
+                          {item.stats.speed > 0 && <span>敏捷 +{item.stats.speed}</span>}
+                          {item.stats.maxHp > 0 && <span>体力 +{item.stats.maxHp}</span>}
                         </div>
                         
                         {item.enchantments.length > 0 && (
@@ -1787,7 +1808,7 @@ export default function App() {
                     </div>
                   ))}
                   {uiState.inventory.length === 0 && (
-                    <div className="col-span-2 text-center text-slate-500 py-10">No items found. Defeat enemies to find loot!</div>
+                    <div className="col-span-2 text-center text-slate-500 py-10">アイテムがありません。敵を倒してドロップを探そう！</div>
                   )}
                 </div>
               </div>
@@ -1795,7 +1816,7 @@ export default function App() {
           )}
         </div>
       )}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.5.3</div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.5.5</div>
     </div>
   );
 }
