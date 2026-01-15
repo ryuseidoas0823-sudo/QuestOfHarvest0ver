@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken } from 'firebase/auth';
@@ -13,7 +13,6 @@ import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
 // @ts-ignore
 const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'quest-of-harvest';
-// Firestoreのパス区切り文字（/）やドットが含まれると階層がズレてエラーになるため、アンダースコアに置換します
 const appId = rawAppId.replace(/[\/.]/g, '_');
 
 const app = initializeApp(firebaseConfig);
@@ -22,12 +21,38 @@ const db = getFirestore(app);
 
 /**
  * ==========================================
+ * ASSETS (SVG PIXEL ART)
+ * ==========================================
+ */
+// SVGをData URI化して定義します。
+// プレビューで作ったスライムのSVGコードをここに埋め込みます。
+const ASSETS_SVG = {
+  Slime: `
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <!-- Shadow -->
+    <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
+    <!-- Body -->
+    <path d="M6 14h4v-1h3v-2h1v-5h-1v-1h-1v-1h-1v-1H5v1H4v1H3v1H2v5h1v2h3v1z" fill="#76ff03" />
+    <!-- Eyes -->
+    <path d="M5 8h2v2H5zm0 0h1v1h-1z" fill="#000" /><path d="M6 8h1v1H6z" fill="#fff" />
+    <path d="M9 8h2v2H9zm0 0h1v1h-1z" fill="#000" /><path d="M10 8h1v1h-1z" fill="#fff" />
+    <!-- Highlights -->
+    <path d="M6 5h2v1H6zm-1 1h1v2H5z" fill="#ccff90" opacity="0.5" />
+  </svg>
+  `
+};
+
+// SVG文字列を画像ソースとして使えるURL形式に変換するヘルパー
+const svgToUrl = (svgString: string) => 
+  "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgString.trim());
+
+/**
+ * ==========================================
  * CONSTANTS & CONFIG
  * ==========================================
  */
 const GAME_CONFIG = {
   TILE_SIZE: 32,
-  // Viewport dimensions will be set dynamically
   MAP_WIDTH: 40,
   MAP_HEIGHT: 30,
   PLAYER_SPEED: 5,
@@ -536,7 +561,7 @@ const updatePlayerStats = (player: PlayerEntity) => {
 const renderGame = (
   ctx: CanvasRenderingContext2D, 
   state: GameState, 
-  _mouse: {x: number, y: number}
+  images: Record<string, HTMLImageElement> // Added images arg
 ) => {
   const { width, height } = ctx.canvas;
   const T = GAME_CONFIG.TILE_SIZE;
@@ -618,89 +643,149 @@ const renderGame = (
   const renderCharacter = (e: CombatEntity, icon?: string) => {
     const vw = e.visualWidth || e.width;
     const vh = e.visualHeight || e.height;
-    const drawX = e.x + (e.width - vw) / 2;
-    const drawY = e.y + e.height - vh;
+    // const drawX = e.x + (e.width - vw) / 2;
+    // const drawY = e.y + e.height - vh;
 
-    const isMoving = Math.abs(e.vx || 0) > 0.1 || Math.abs(e.vy || 0) > 0.1;
-    let bob = Math.sin(state.gameTime / 3) * (isMoving ? 2 : 0);
-    if (e.shape === 'flying' || e.shape === 'ghost') bob = Math.sin(state.gameTime / 5) * 4;
+    // Center alignment
+    const centerX = e.x + e.width / 2;
+    const bottomY = e.y + e.height;
 
+    // Use loaded image for Slime
+    const raceName = (e as EnemyEntity).race; // e.g. "Slime"
+    // Check if we have an image asset for this race (e.g. "Slime")
+    // Simple matching for now: if race includes "Slime" or "Jelly" use Slime asset
+    let imgKey = null;
+    if (e.type === 'enemy') {
+       if (raceName.includes('Slime') || raceName.includes('Jelly')) imgKey = 'Slime';
+    }
+
+    // --- Draw Shadow ---
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.beginPath();
-    const shadowY = e.y + e.height - 2;
     const shadowSize = (e.shape === 'flying' || e.shape === 'ghost') ? 0.8 : 1.2;
-    ctx.ellipse(e.x + e.width/2, shadowY, e.width/2 * shadowSize, 4, 0, 0, Math.PI*2);
+    ctx.ellipse(centerX, bottomY - 2, e.width/2 * shadowSize, 4, 0, 0, Math.PI*2);
     ctx.fill();
 
-    ctx.fillStyle = e.color;
-    if (e.shape === 'ghost') ctx.globalAlpha = 0.6;
-    
-    const shape = e.shape || 'humanoid';
-
-    if (shape === 'humanoid' || shape === 'dragon' || shape === 'demon') {
-      ctx.fillRect(drawX + vw*0.1, drawY + vh*0.4 + bob, vw*0.8, vh*0.6);
-      ctx.fillStyle = adjustColor(e.color, 20);
-      ctx.fillRect(drawX, drawY + bob, vw, vh*0.4);
+    // --- Draw Character ---
+    if (imgKey && images[imgKey]) {
+      // ** IMAGE RENDERING **
+      const img = images[imgKey];
       
-      if (e.direction === 1 || e.direction === 0) {
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(drawX + vw*0.2, drawY + vh*0.15 + bob, 4, 4);
-        ctx.fillRect(drawX + vw*0.6, drawY + vh*0.15 + bob, 4, 4);
+      // Calculate Animation Transform
+      // Move bounce
+      const isMoving = Math.abs(e.vx || 0) > 0.1 || Math.abs(e.vy || 0) > 0.1;
+      let scaleX = 1;
+      let scaleY = 1;
+      let offsetY = 0;
+
+      if (isMoving) {
+        // Simple bounce: squeeze and stretch
+        const bounce = Math.sin(state.gameTime / 2); // -1 to 1
+        scaleX = 1 + (bounce * 0.1);
+        scaleY = 1 - (bounce * 0.1);
+        // Jump a bit
+        if (bounce > 0) offsetY = -bounce * 5;
       }
-    } 
-    else if (shape === 'beast' || shape === 'insect') {
-      ctx.fillRect(drawX, drawY + vh*0.3 + bob, vw, vh*0.7);
-      ctx.fillStyle = adjustColor(e.color, -20);
-      const headX = e.direction === 2 ? drawX : drawX + vw - 16;
-      const headY = drawY + bob + (shape === 'insect' ? 10 : 0);
-      ctx.fillRect(headX, headY, 20, 20);
-    }
-    else if (shape === 'flying') {
+
+      // Attack lunging
+      if (e.isAttacking) {
+        // e.g. scale up momentarily
+         scaleX = 1.2; 
+         scaleY = 0.8;
+      }
+
+      // Drawing
+      const drawW = vw * scaleX;
+      const drawH = vh * scaleY;
+      const drawX = centerX - drawW / 2;
+      const drawY = bottomY - drawH + offsetY;
+
+      ctx.drawImage(img, drawX, drawY, drawW, drawH);
+
+    } else {
+      // ** FALLBACK RECTANGLE RENDERING (Original Logic) **
+      const drawX = e.x + (e.width - vw) / 2;
+      const drawY = e.y + e.height - vh;
+
+      const isMoving = Math.abs(e.vx || 0) > 0.1 || Math.abs(e.vy || 0) > 0.1;
+      let bob = Math.sin(state.gameTime / 3) * (isMoving ? 2 : 0);
+      if (e.shape === 'flying' || e.shape === 'ghost') bob = Math.sin(state.gameTime / 5) * 4;
+
       ctx.fillStyle = e.color;
-      const wingFlap = Math.sin(state.gameTime / 2) * 5;
-      ctx.beginPath();
-      ctx.arc(drawX + vw/2, drawY + vh/2 + bob, 10, 0, Math.PI*2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(drawX + vw/2, drawY + vh/2 + bob);
-      ctx.lineTo(drawX - wingFlap, drawY + bob);
-      ctx.lineTo(drawX + vw/2, drawY + vh/2 + bob + 10);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(drawX + vw/2, drawY + vh/2 + bob);
-      ctx.lineTo(drawX + vw + wingFlap, drawY + bob);
-      ctx.lineTo(drawX + vw/2, drawY + vh/2 + bob + 10);
-      ctx.fill();
-    }
-    else if (shape === 'slime') {
-      ctx.beginPath();
-      ctx.roundRect(drawX + bob, drawY + vh*0.2 - bob, vw - bob*2, vh*0.8 + bob, 10);
-      ctx.fill();
-    }
-    else {
-      ctx.fillRect(drawX, drawY + bob, vw, vh);
-    }
+      if (e.shape === 'ghost') ctx.globalAlpha = 0.6;
+      
+      const shape = e.shape || 'humanoid';
 
-    ctx.globalAlpha = 1.0;
+      if (shape === 'humanoid' || shape === 'dragon' || shape === 'demon') {
+        ctx.fillRect(drawX + vw*0.1, drawY + vh*0.4 + bob, vw*0.8, vh*0.6);
+        ctx.fillStyle = adjustColor(e.color, 20);
+        ctx.fillRect(drawX, drawY + bob, vw, vh*0.4);
+        
+        if (e.direction === 1 || e.direction === 0) {
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(drawX + vw*0.2, drawY + vh*0.15 + bob, 4, 4);
+          ctx.fillRect(drawX + vw*0.6, drawY + vh*0.15 + bob, 4, 4);
+        }
+      } 
+      else if (shape === 'beast' || shape === 'insect') {
+        ctx.fillRect(drawX, drawY + vh*0.3 + bob, vw, vh*0.7);
+        ctx.fillStyle = adjustColor(e.color, -20);
+        const headX = e.direction === 2 ? drawX : drawX + vw - 16;
+        const headY = drawY + bob + (shape === 'insect' ? 10 : 0);
+        ctx.fillRect(headX, headY, 20, 20);
+      }
+      else if (shape === 'flying') {
+        ctx.fillStyle = e.color;
+        const wingFlap = Math.sin(state.gameTime / 2) * 5;
+        ctx.beginPath();
+        ctx.arc(drawX + vw/2, drawY + vh/2 + bob, 10, 0, Math.PI*2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(drawX + vw/2, drawY + vh/2 + bob);
+        ctx.lineTo(drawX - wingFlap, drawY + bob);
+        ctx.lineTo(drawX + vw/2, drawY + vh/2 + bob + 10);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(drawX + vw/2, drawY + vh/2 + bob);
+        ctx.lineTo(drawX + vw + wingFlap, drawY + bob);
+        ctx.lineTo(drawX + vw/2, drawY + vh/2 + bob + 10);
+        ctx.fill();
+      }
+      else if (shape === 'slime') {
+        ctx.beginPath();
+        ctx.roundRect(drawX + bob, drawY + vh*0.2 - bob, vw - bob*2, vh*0.8 + bob, 10);
+        ctx.fill();
+      }
+      else {
+        ctx.fillRect(drawX, drawY + bob, vw, vh);
+      }
+      
+      ctx.globalAlpha = 1.0;
 
-    if (icon) {
-      ctx.font = `${Math.min(vw, vh) * 0.6}px Arial`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.shadowColor = 'black';
-      ctx.shadowBlur = 2;
-      ctx.fillStyle = '#fff';
-      const iconY = shape === 'ghost' ? drawY + vh/3 : drawY + vh/2;
-      ctx.fillText(icon, drawX + vw/2, iconY + bob);
-      ctx.shadowBlur = 0;
-    }
+      if (icon) {
+        ctx.font = `${Math.min(vw, vh) * 0.6}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'black';
+        ctx.shadowBlur = 2;
+        ctx.fillStyle = '#fff';
+        const iconY = shape === 'ghost' ? drawY + vh/3 : drawY + vh/2;
+        ctx.fillText(icon, drawX + vw/2, iconY + bob);
+        ctx.shadowBlur = 0;
+      }
+    } // End Fallback
 
+    // HP Bar
     if (e.type === 'enemy' && e.hp < e.maxHp) {
       const hpPct = e.hp / e.maxHp;
+      const barW = vw;
+      const barX = centerX - barW / 2;
+      const barY = bottomY - vh - 12; // Above head
+
       ctx.fillStyle = '#000';
-      ctx.fillRect(drawX, drawY - 8 + bob, vw, 4);
+      ctx.fillRect(barX, barY, barW, 4);
       ctx.fillStyle = '#f44336';
-      ctx.fillRect(drawX, drawY - 8 + bob, vw * hpPct, 4);
+      ctx.fillRect(barX, barY, barW * hpPct, 4);
     }
   };
 
@@ -774,6 +859,17 @@ export default function App() {
   
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Load Assets
+  const loadedAssets = useMemo(() => {
+    const images: Record<string, HTMLImageElement> = {};
+    Object.entries(ASSETS_SVG).forEach(([key, svg]) => {
+      const img = new Image();
+      img.src = svgToUrl(svg);
+      images[key] = img;
+    });
+    return images;
+  }, []);
 
   // AUTHENTICATION & INITIALIZATION
   useEffect(() => {
@@ -1131,7 +1227,7 @@ export default function App() {
       state.floatingTexts = state.floatingTexts.filter(t => t.life > 0);
     }
 
-    renderGame(ctx, state, input.current.mouse);
+    renderGame(ctx, state, loadedAssets);
 
     if (state.gameTime % 10 === 0) {
       setUiState({...state.player});
