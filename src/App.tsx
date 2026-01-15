@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle } from 'lucide-react';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
+import { initializeApp, FirebaseApp } from 'firebase/app';
+import { getAuth, signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken, Auth } from 'firebase/auth';
+import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore';
 
 /**
  * ==========================================
@@ -18,7 +18,11 @@ const appId = rawAppId.replace(/[\/.]/g, '_');
 // 設定チェック: API Keyがない場合は初期化しない（クラッシュ防止）
 const isConfigValid = firebaseConfig && firebaseConfig.apiKey;
 
-let app, auth, db;
+// 型定義を明示して初期化
+let app: FirebaseApp | undefined;
+let auth: Auth | undefined;
+let db: Firestore | undefined;
+
 if (isConfigValid) {
   try {
     app = initializeApp(firebaseConfig);
@@ -540,6 +544,30 @@ const ENEMY_TYPES = [
   { name: 'Ghost',     hp: 20, atk: 7, spd: 1.0, color: '#cfd8dc', icon: '👻', xp: 28, shape: 'ghost',    w: 24, h: 24, vw: 32, vh: 40 },
 ];
 
+// Restore the missing generateEnemy function
+const generateEnemy = (x: number, y: number, level: number): EnemyEntity => {
+  const type = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)];
+  const rankRoll = Math.random();
+  let rank: 'Normal' | 'Elite' | 'Boss' = 'Normal';
+  let scale = 1 + (level * 0.1);
+  let color = type.color;
+
+  if (rankRoll < 0.05) { rank = 'Boss'; scale *= 3; color = '#ff0000'; }
+  else if (rankRoll < 0.2) { rank = 'Elite'; scale *= 1.5; color = '#ffeb3b'; }
+
+  return {
+    id: `enemy_${crypto.randomUUID()}`,
+    type: 'enemy', race: type.name, rank, x, y,
+    width: type.w * (rank === 'Boss' ? 1.5 : 1), height: type.h * (rank === 'Boss' ? 1.5 : 1),
+    visualWidth: type.vw! * (rank === 'Boss' ? 1.5 : 1), visualHeight: type.vh! * (rank === 'Boss' ? 1.5 : 1),
+    color, shape: type.shape as ShapeType,
+    hp: Math.floor(type.hp * scale), maxHp: Math.floor(type.hp * scale),
+    attack: Math.floor(type.atk * scale), defense: Math.floor(level * 2), speed: type.spd,
+    level, direction: 1, dead: false, lastAttackTime: 0, attackCooldown: 1000 + Math.random() * 500,
+    detectionRange: 350, xpValue: Math.floor(type.xp * scale * (rank === 'Boss' ? 5 : rank === 'Elite' ? 2 : 1))
+  };
+};
+
 const getBiome = (wx: number, wy: number): Biome => {
   if (wx === 0 && wy === 0) return 'Town';
   if (wy < -1) return 'Snow';
@@ -997,7 +1025,8 @@ export default function App() {
   const input = useRef({ keys: {} as Record<string, boolean>, mouse: {x:0, y:0, down: false} });
   
   const [uiState, setUiState] = useState<PlayerEntity | null>(null);
-  const [worldInfo, setWorldInfo] = useState<{x:number, y:number, biome:string}>({x:0, y:0, biome:'Town'});
+  // worldInfoの型定義を修正
+  const [worldInfo, setWorldInfo] = useState<{x:number, y:number, biome:Biome}>({x:0, y:0, biome:'Town'});
   const [activeMenu, setActiveMenu] = useState<'none' | 'status' | 'inventory' | 'stats'>('none');
   const [message, setMessage] = useState<string | null>(null);
   const [viewportSize, setViewportSize] = useState({ width: 800, height: 600 });
@@ -1042,6 +1071,7 @@ export default function App() {
           // @ts-ignore
           await signInWithCustomToken(auth, __initial_auth_token);
         } else {
+          // @ts-ignore - authがundefinedでないことは確認済みだが、TSが理解できない場合のため
           await signInAnonymously(auth);
         }
       } catch (e) {
@@ -1816,7 +1846,7 @@ export default function App() {
           )}
         </div>
       )}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.5.5</div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.5.6</div>
     </div>
   );
 }
