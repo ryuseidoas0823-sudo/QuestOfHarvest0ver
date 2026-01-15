@@ -1,5 +1,22 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { Camera, Save, Settings, Play, Shield, Sword, Hammer, Skull, Heart, Zap, Map as MapIcon, ChevronRight, Package, ShoppingBag, X, User, Compass } from 'lucide-react';
+import { Camera, Save, Settings, Play, Shield, Sword, Hammer, Skull, Heart, Zap, Map as MapIcon, ChevronRight, Package, ShoppingBag, X, User, Compass, Loader } from 'lucide-react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken } from 'firebase/auth';
+import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from 'firebase/firestore';
+
+/**
+ * ==========================================
+ * FIREBASE SETUP
+ * ==========================================
+ */
+// @ts-ignore
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+// @ts-ignore
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'quest-of-harvest';
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
 /**
  * ==========================================
@@ -8,10 +25,9 @@ import { Camera, Save, Settings, Play, Shield, Sword, Hammer, Skull, Heart, Zap,
  */
 const GAME_CONFIG = {
   TILE_SIZE: 32,
-  VIEWPORT_WIDTH: 800,
-  VIEWPORT_HEIGHT: 600,
-  MAP_WIDTH: 40,  // 1エリアの広さ
-  MAP_HEIGHT: 30, // 1エリアの高さ
+  // Viewport dimensions will be set dynamically
+  MAP_WIDTH: 40,
+  MAP_HEIGHT: 30,
   PLAYER_SPEED: 5,
   ENEMY_SPAWN_RATE: 0.02,
   BASE_DROP_RATE: 0.2,
@@ -50,7 +66,6 @@ type Job = 'Swordsman' | 'Warrior' | 'Archer' | 'Mage';
 type ShapeType = 'humanoid' | 'beast' | 'slime' | 'large' | 'insect' | 'ghost' | 'demon' | 'dragon' | 'flying';
 type Biome = 'Plains' | 'Forest' | 'Desert' | 'Snow' | 'Wasteland' | 'Town';
 
-// Item & Equipment Types
 type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary';
 type EquipmentType = 'Weapon' | 'Helm' | 'Armor' | 'Shield' | 'Boots';
 type WeaponStyle = 'OneHanded' | 'TwoHanded' | 'DualWield';
@@ -116,13 +131,12 @@ interface CombatEntity extends Entity {
   shape?: ShapeType;
 }
 
-// Stats Definition
 interface Attributes {
-  vitality: number;   // HP
-  strength: number;   // Physical Attack
-  dexterity: number;  // Attack Speed / Crit (Secondary Attack)
-  intelligence: number; // Magic Attack / MP
-  endurance: number;  // Defense / Stamina
+  vitality: number;
+  strength: number;
+  dexterity: number;
+  intelligence: number;
+  endurance: number;
 }
 
 interface PlayerEntity extends CombatEntity {
@@ -178,7 +192,6 @@ interface Projectile extends Entity {
   life: number;
 }
 
-// Chunk Data for saving state of each area
 interface ChunkData {
   map: Tile[][];
   enemies: EnemyEntity[];
@@ -187,13 +200,10 @@ interface ChunkData {
 }
 
 interface GameState {
-  // World State
   worldX: number;
   worldY: number;
   currentBiome: Biome;
-  savedChunks: Record<string, ChunkData>; // key: "x,y"
-
-  // Active Chunk State
+  savedChunks: Record<string, ChunkData>;
   map: Tile[][];
   player: PlayerEntity;
   enemies: EnemyEntity[];
@@ -212,7 +222,6 @@ interface GameState {
  * ITEM GENERATOR
  * ==========================================
  */
-const RARITY_WEIGHTS = { Common: 60, Uncommon: 25, Rare: 10, Epic: 4, Legendary: 1 };
 const RARITY_MULTIPLIERS = { Common: 1.0, Uncommon: 1.2, Rare: 1.5, Epic: 2.0, Legendary: 3.0 };
 const ENCHANT_SLOTS = { Common: 0, Uncommon: 1, Rare: 2, Epic: 3, Legendary: 5 };
 
@@ -309,7 +318,7 @@ const generateRandomItem = (level: number, rankBonus: number = 0): Item | null =
 
 /**
  * ==========================================
- * DATA & GENERATORS (Enemy/Player)
+ * DATA & GENERATORS
  * ==========================================
  */
 
@@ -408,16 +417,10 @@ const generateChunk = (wx: number, wy: number): ChunkData => {
     })
   );
 
-  // Border logic (Open borders for world map connection)
-  // Instead of walls everywhere, we only put walls randomly or for obstacles.
-  // The edge of the map will trigger travel, so no solid walls at very edge unless specific design.
-  
   for(let y=0; y<height; y++) {
     for(let x=0; x<width; x++) {
-      // Town walls
       if (biome === 'Town') {
         if (x===0 || x===width-1 || y===0 || y===height-1) {
-          // Leave gates
           if ((x === 0 || x === width-1) && Math.abs(y - height/2) < 3) { /* Gate */ }
           else if ((y === 0 || y === height-1) && Math.abs(x - width/2) < 3) { /* Gate */ }
           else {
@@ -426,7 +429,6 @@ const generateChunk = (wx: number, wy: number): ChunkData => {
           }
         }
       } else {
-        // Wild obstacles
         if (Math.random() < 0.08 && x > 2 && x < width-2 && y > 2 && y < height-2) {
            map[y][x].type = 'wall';
            map[y][x].solid = true;
@@ -439,12 +441,7 @@ const generateChunk = (wx: number, wy: number): ChunkData => {
     }
   }
 
-  return {
-    map,
-    enemies: [],
-    droppedItems: [],
-    biome
-  };
+  return { map, enemies: [], droppedItems: [], biome };
 };
 
 /**
@@ -474,8 +471,6 @@ const resolveMapCollision = (entity: Entity, dx: number, dy: number, map: Tile[]
 
   let collidedX = false;
 
-  // Check bounds loosely here (movement logic handles edge transition)
-  // Just avoid array index out of bounds error
   if (startX < 0 || endX >= GAME_CONFIG.MAP_WIDTH || startY < 0 || endY >= GAME_CONFIG.MAP_HEIGHT) {
     return { x: nextX, y: nextY };
   }
@@ -554,8 +549,10 @@ const renderGame = (
   const camY = Math.floor(state.player.y + state.player.height/2 - height/2);
   ctx.translate(-camX, -camY);
 
-  // 1. Render Map
-  // Optimization: Only render visible tiles
+  // Store camera position for logic if needed, but mainly for rendering
+  state.camera = { x: camX, y: camY };
+
+  // 1. Render Map - Optimized
   const startCol = Math.floor(camX / T);
   const endCol = startCol + (width / T) + 1;
   const startRow = Math.floor(camY / T);
@@ -584,7 +581,6 @@ const renderGame = (
       }
       ctx.fillRect(tile.x, tile.y, T, T);
       
-      // Grid/Texture detail
       ctx.strokeStyle = 'rgba(0,0,0,0.05)';
       ctx.strokeRect(tile.x, tile.y, T, T);
       
@@ -760,7 +756,7 @@ const adjustColor = (color: string, amount: number) => color;
  * ==========================================
  */
 export default function App() {
-  const [screen, setScreen] = useState<'title' | 'game' | 'job_select'>('title');
+  const [screen, setScreen] = useState<'auth' | 'title' | 'game' | 'job_select'>('auth');
   const [saveData, setSaveData] = useState<any>(null);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -772,11 +768,41 @@ export default function App() {
   const [worldInfo, setWorldInfo] = useState<{x:number, y:number, biome:string}>({x:0, y:0, biome:'Town'});
   const [activeMenu, setActiveMenu] = useState<'none' | 'status' | 'inventory' | 'stats'>('none');
   const [message, setMessage] = useState<string | null>(null);
+  const [viewportSize, setViewportSize] = useState({ width: 800, height: 600 });
+  
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
+  // AUTHENTICATION & INITIALIZATION
   useEffect(() => {
-    const saved = localStorage.getItem('qoh_save');
-    if (saved) setSaveData(JSON.parse(saved));
+    const initAuth = async () => {
+      // @ts-ignore
+      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+        // @ts-ignore
+        await signInWithCustomToken(auth, __initial_auth_token);
+      } else {
+        await signInAnonymously(auth);
+      }
+    };
+    initAuth();
+    
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (u) {
+        checkSaveData(u.uid);
+      } else {
+        setScreen('auth');
+      }
+    });
+    
+    // Window Resize Handler
+    const handleResize = () => {
+      setViewportSize({ width: window.innerWidth, height: window.innerHeight });
+    };
+    handleResize(); // Init
+    window.addEventListener('resize', handleResize);
 
+    // Input Handlers
     const handleKeyDown = (e: KeyboardEvent) => {
       input.current.keys[e.key.toLowerCase()] = true;
       if (e.key.toLowerCase() === 'i') setActiveMenu(prev => prev === 'inventory' ? 'none' : 'inventory');
@@ -800,6 +826,8 @@ export default function App() {
     window.addEventListener('mousemove', handleMouseInput);
 
     return () => {
+      unsubscribe();
+      window.removeEventListener('resize', handleResize);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('mousedown', handleMouseInput);
@@ -808,6 +836,25 @@ export default function App() {
       if (reqRef.current) cancelAnimationFrame(reqRef.current);
     };
   }, []);
+
+  const checkSaveData = async (uid: string) => {
+    try {
+      // Fix: Use correct path with even number of segments
+      const docRef = doc(db, 'artifacts', appId, 'users', uid, 'saves', 'slot1');
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data && data.player) {
+          setSaveData(data);
+        }
+      }
+      setScreen('title');
+    } catch (e) {
+      console.error("Failed to check save data:", e);
+      // Fallback to title anyway
+      setScreen('title');
+    }
+  };
 
   const startGame = (job: Job, load = false) => {
     let player: PlayerEntity;
@@ -835,7 +882,6 @@ export default function App() {
       }
     }
 
-    // Initialize first chunk
     const chunkKey = `${worldX},${worldY}`;
     let initialChunk: ChunkData;
     
@@ -871,7 +917,6 @@ export default function App() {
     if (!gameState.current) return;
     const state = gameState.current;
 
-    // Save current chunk
     const currentKey = `${state.worldX},${state.worldY}`;
     state.savedChunks[currentKey] = {
       map: state.map,
@@ -880,11 +925,9 @@ export default function App() {
       biome: state.currentBiome
     };
 
-    // Update coords
     state.worldX += dx;
     state.worldY += dy;
 
-    // Load or Generate new chunk
     const newKey = `${state.worldX},${state.worldY}`;
     let nextChunk: ChunkData;
 
@@ -894,12 +937,11 @@ export default function App() {
       nextChunk = generateChunk(state.worldX, state.worldY);
     }
 
-    // Apply
     state.map = nextChunk.map;
     state.enemies = nextChunk.enemies;
     state.droppedItems = nextChunk.droppedItems;
     state.currentBiome = nextChunk.biome;
-    state.projectiles = []; // clear projectiles
+    state.projectiles = [];
     
     setWorldInfo({x: state.worldX, y: state.worldY, biome: state.currentBiome});
     setMessage(`Entered ${state.currentBiome}`);
@@ -919,7 +961,6 @@ export default function App() {
       state.gameTime++;
       const p = state.player;
       
-      // Player Move
       let dx = 0, dy = 0;
       const spd = p.speed;
       if (input.current.keys['w'] || input.current.keys['arrowup']) dy = -spd;
@@ -945,7 +986,6 @@ export default function App() {
         p.x = nextPos.x;
         p.y = nextPos.y;
 
-        // Chunk Transition Check
         const maxX = GAME_CONFIG.MAP_WIDTH * GAME_CONFIG.TILE_SIZE;
         const maxY = GAME_CONFIG.MAP_HEIGHT * GAME_CONFIG.TILE_SIZE;
 
@@ -964,7 +1004,6 @@ export default function App() {
         }
       }
 
-      // Pickup Items
       state.droppedItems.forEach(drop => {
         if (checkCollision(p, drop)) {
           drop.dead = true;
@@ -975,8 +1014,12 @@ export default function App() {
         }
       });
 
-      // Attack
       const now = Date.now();
+      
+      // Calculate world mouse position for clicking
+      const worldMouseX = input.current.mouse.x + state.camera.x;
+      const worldMouseY = input.current.mouse.y + state.camera.y;
+
       if ((input.current.keys[' '] || input.current.mouse.down) && now - p.lastAttackTime > p.attackCooldown) {
         p.lastAttackTime = now;
         p.isAttacking = true;
@@ -995,7 +1038,6 @@ export default function App() {
             e.hp -= dmg;
             spawnFloatingText(e.x + e.width/2, e.y, `-${dmg}`, '#fff');
             
-            // Knockback
             const angle = Math.atan2(e.y - p.y, e.x - p.x);
             e.x += Math.cos(angle) * 10;
             e.y += Math.sin(angle) * 10;
@@ -1031,7 +1073,6 @@ export default function App() {
         });
       }
 
-      // Enemy AI & Spawning
       state.enemies.forEach(e => {
         if (e.dead) return;
         const dist = Math.sqrt((p.x - e.x)**2 + (p.y - e.y)**2);
@@ -1063,12 +1104,9 @@ export default function App() {
             p.hp -= dmg;
             spawnFloatingText(p.x + p.width/2, p.y, `-${dmg}`, '#ff0000');
             if (p.hp <= 0) {
-               // Respawn at Town 0,0
                p.hp = p.maxHp;
                state.worldX = 0; state.worldY = 0;
-               // Clear saved chunks to reset world? Or just move back.
-               // Let's just move back.
-               switchChunk(-state.worldX, -state.worldY); // Move to 0,0 hack
+               switchChunk(-state.worldX, -state.worldY);
                
                p.x = (GAME_CONFIG.MAP_WIDTH * 32) / 2;
                p.y = (GAME_CONFIG.MAP_HEIGHT * 32) / 2;
@@ -1079,7 +1117,6 @@ export default function App() {
         }
       });
 
-      // Spawn in Wild
       if (state.currentBiome !== 'Town' && state.enemies.length < 15 && Math.random() < GAME_CONFIG.ENEMY_SPAWN_RATE) {
         let sx, sy, dist;
         do {
@@ -1087,7 +1124,7 @@ export default function App() {
            sy = Math.random() * (GAME_CONFIG.MAP_HEIGHT * 32);
            dist = Math.sqrt((sx - p.x)**2 + (sy - p.y)**2);
         } while (dist < 500); 
-        state.enemies.push(generateEnemy(sx, sy, state.wave + Math.abs(state.worldX) + Math.abs(state.worldY))); // Harder further out
+        state.enemies.push(generateEnemy(sx, sy, state.wave + Math.abs(state.worldX) + Math.abs(state.worldY)));
       }
 
       state.enemies = state.enemies.filter(e => !e.dead);
@@ -1112,8 +1149,9 @@ export default function App() {
     return () => { if (reqRef.current) cancelAnimationFrame(reqRef.current); }
   }, [screen]);
 
-  const saveGame = () => {
-    if (!gameState.current) return;
+  const saveGame = async () => {
+    if (!gameState.current || !user) return;
+    setIsSaving(true);
     const data = {
       player: gameState.current.player,
       worldX: gameState.current.worldX,
@@ -1121,10 +1159,19 @@ export default function App() {
       savedChunks: gameState.current.savedChunks,
       wave: gameState.current.wave
     };
-    localStorage.setItem('qoh_save', JSON.stringify(data));
-    setSaveData(data);
-    setMessage("Game Saved!");
-    setTimeout(() => setMessage(null), 2000);
+    
+    try {
+      // Fix: Correct path with even segments
+      await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'saves', 'slot1'), data);
+      setSaveData(data);
+      setMessage("Game Saved to Cloud!");
+    } catch(e) {
+      console.error("Save failed", e);
+      setMessage("Save Failed!");
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setMessage(null), 2000);
+    }
   };
 
   const handleEquip = (item: Item) => {
@@ -1193,6 +1240,15 @@ export default function App() {
     }
   };
 
+  if (screen === 'auth') {
+    return (
+      <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
+        <Loader className="animate-spin text-yellow-500 mb-4" size={48} />
+        <h2 className="text-xl">Connecting to Cloud...</h2>
+      </div>
+    );
+  }
+
   if (screen === 'title') {
     return (
       <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white relative overflow-hidden font-sans">
@@ -1202,7 +1258,7 @@ export default function App() {
             <h1 className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-700 drop-shadow-lg mb-2">
               QUEST OF HARVEST
             </h1>
-            <p className="text-slate-400 tracking-[0.5em] text-sm uppercase">Rebuilt Edition</p>
+            <p className="text-slate-400 tracking-[0.5em] text-sm uppercase">Reborn Edition</p>
           </div>
           <div className="flex flex-col gap-4 w-64 mx-auto">
             <button onClick={() => setScreen('job_select')} className="flex items-center justify-center gap-2 px-6 py-3 bg-yellow-700/20 border border-yellow-600/50 hover:bg-yellow-600/40 hover:scale-105 transition-all rounded text-yellow-100 font-semibold">
@@ -1243,7 +1299,12 @@ export default function App() {
 
   return (
     <div className="w-full h-screen bg-black flex items-center justify-center overflow-hidden relative" onContextMenu={e => e.preventDefault()}>
-      <canvas ref={canvasRef} width={GAME_CONFIG.VIEWPORT_WIDTH} height={GAME_CONFIG.VIEWPORT_HEIGHT} className="bg-black shadow-2xl cursor-crosshair" />
+      <canvas 
+        ref={canvasRef} 
+        width={viewportSize.width} 
+        height={viewportSize.height} 
+        className="bg-black shadow-2xl cursor-crosshair" 
+      />
       
       {/* HUD Info */}
       <div className="absolute top-4 right-20 flex gap-4 text-white pointer-events-none">
@@ -1300,7 +1361,10 @@ export default function App() {
             <div className="bg-slate-800 p-8 rounded-lg border border-slate-600 min-w-[300px] text-white">
               <h2 className="text-2xl font-bold mb-6 text-center border-b border-slate-600 pb-2">Menu</h2>
               <div className="space-y-3">
-                <button onClick={saveGame} className="w-full py-3 bg-blue-700 hover:bg-blue-600 rounded font-bold flex items-center justify-center gap-2"><Save size={18} /> Save Game</button>
+                <button onClick={saveGame} disabled={isSaving} className="w-full py-3 bg-blue-700 hover:bg-blue-600 rounded font-bold flex items-center justify-center gap-2">
+                  {isSaving ? <Loader className="animate-spin" size={18} /> : <Save size={18} />}
+                  {isSaving ? 'Saving...' : 'Save Game'}
+                </button>
                 <button onClick={() => { setScreen('title'); setActiveMenu('none'); }} className="w-full py-3 bg-red-900/50 hover:bg-red-900 rounded border border-red-800 text-red-100 mt-8">Return to Title</button>
                 <button onClick={() => setActiveMenu('none')} className="w-full py-2 text-slate-400 hover:text-white mt-2">Close</button>
               </div>
@@ -1433,7 +1497,6 @@ export default function App() {
                           {item.stats.maxHp > 0 && <span>HP +{item.stats.maxHp}</span>}
                         </div>
                         
-                        {/* Enchantments Tooltip (Simple inline for now) */}
                         {item.enchantments.length > 0 && (
                           <div className="mt-1 pt-1 border-t border-slate-700/50 text-[10px] text-blue-300">
                              {item.enchantments.map(e => e.name).join(', ')}
@@ -1451,7 +1514,7 @@ export default function App() {
           )}
         </div>
       )}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.4.0</div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.5.0</div>
     </div>
   );
 }
