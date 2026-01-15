@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { Camera, Save, Settings, Play, Shield, Sword, Hammer, Skull, Heart, Zap, Map as MapIcon, ChevronRight, Package, ShoppingBag, X, User, Compass, Loader } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
 
 /**
  * ==========================================
@@ -12,7 +12,9 @@ import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from 'fireb
 // @ts-ignore
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
 // @ts-ignore
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'quest-of-harvest';
+const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'quest-of-harvest';
+// Firestoreのパス区切り文字（/）やドットが含まれると階層がズレてエラーになるため、アンダースコアに置換します
+const appId = rawAppId.replace(/[\/.]/g, '_');
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -375,7 +377,7 @@ const generateEnemy = (x: number, y: number, level: number): EnemyEntity => {
     width: type.w * (rank === 'Boss' ? 1.5 : 1), height: type.h * (rank === 'Boss' ? 1.5 : 1),
     visualWidth: type.vw! * (rank === 'Boss' ? 1.5 : 1), visualHeight: type.vh! * (rank === 'Boss' ? 1.5 : 1),
     color, shape: type.shape as ShapeType,
-    hp: Math.floor(type.hp * scale), maxHp: Math.floor(type.hp * scale), mp: 0, maxMp: 0,
+    hp: Math.floor(type.hp * scale), maxHp: Math.floor(type.hp * scale),
     attack: Math.floor(type.atk * scale), defense: Math.floor(level * 2), speed: type.spd,
     level, direction: 1, dead: false, lastAttackTime: 0, attackCooldown: 1000 + Math.random() * 500,
     detectionRange: 350, xpValue: Math.floor(type.xp * scale * (rank === 'Boss' ? 5 : rank === 'Elite' ? 2 : 1))
@@ -534,7 +536,7 @@ const updatePlayerStats = (player: PlayerEntity) => {
 const renderGame = (
   ctx: CanvasRenderingContext2D, 
   state: GameState, 
-  mouse: {x: number, y: number}
+  _mouse: {x: number, y: number}
 ) => {
   const { width, height } = ctx.canvas;
   const T = GAME_CONFIG.TILE_SIZE;
@@ -748,7 +750,7 @@ const renderGame = (
   ctx.restore();
 };
 
-const adjustColor = (color: string, amount: number) => color; 
+const adjustColor = (color: string, _amount: number) => color; 
 
 /**
  * ==========================================
@@ -1016,10 +1018,6 @@ export default function App() {
 
       const now = Date.now();
       
-      // Calculate world mouse position for clicking
-      const worldMouseX = input.current.mouse.x + state.camera.x;
-      const worldMouseY = input.current.mouse.y + state.camera.y;
-
       if ((input.current.keys[' '] || input.current.mouse.down) && now - p.lastAttackTime > p.attackCooldown) {
         p.lastAttackTime = now;
         p.isAttacking = true;
@@ -1478,7 +1476,7 @@ export default function App() {
                 </div>
                 
                 <div className="grid grid-cols-2 gap-3">
-                  {uiState.inventory.map((item, idx) => (
+                  {uiState.inventory.map((item, _idx) => (
                     <div key={item.id} 
                       onClick={() => handleEquip(item)}
                       className="flex gap-3 p-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-yellow-500 rounded cursor-pointer transition-colors group"
@@ -1514,7 +1512,7 @@ export default function App() {
           )}
         </div>
       )}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.5.0</div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.5.1</div>
     </div>
   );
 }
