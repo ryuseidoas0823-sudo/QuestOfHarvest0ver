@@ -1373,7 +1373,7 @@ export default function App() {
       state.floatingTexts = state.floatingTexts.filter(t => t.life > 0);
     }
 
-    renderGame(ctx, state, input.current.mouse);
+    renderGame(ctx, state, loadedAssets);
 
     if (state.gameTime % 10 === 0) {
       setUiState({...state.player});
@@ -1795,7 +1795,7 @@ export default function App() {
           )}
         </div>
       )}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.5.2</div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.5.3</div>
     </div>
   );
 }
