@@ -6,16 +6,24 @@ import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore
 
 /**
  * ==========================================
- * FIREBASE 設定
+ * FIREBASE 設定 (安全な読み込み)
  * ==========================================
  */
 // @ts-ignore
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+const rawConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
 // @ts-ignore
 const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'quest-of-harvest';
 const appId = rawAppId.replace(/[\/.]/g, '_');
 
+let firebaseConfig = {};
+try {
+  firebaseConfig = JSON.parse(rawConfig);
+} catch (e) {
+  console.error("Config Parse Error", e);
+}
+
 // 設定チェック: API Keyがない場合は初期化しない（クラッシュ防止）
+// @ts-ignore
 const isConfigValid = firebaseConfig && firebaseConfig.apiKey;
 
 // 型定義を明示して初期化
@@ -1018,6 +1026,7 @@ export default function App() {
   const [screen, setScreen] = useState<'auth' | 'title' | 'game' | 'job_select'>('auth');
   const [saveData, setSaveData] = useState<any>(null);
   const [selectedGender, setSelectedGender] = useState<Gender>('Male');
+  const [loadingMessage, setLoadingMessage] = useState('クラウドに接続中...');
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameState = useRef<GameState | null>(null);
@@ -1062,7 +1071,13 @@ export default function App() {
 
   // 認証 & 初期化
   useEffect(() => {
-    if (!auth) return; // Authが初期化されていなければスキップ
+    if (!auth) {
+      // Authが初期化されていない場合は、オフラインモードとしてタイトルへ
+      console.warn("Auth not initialized. Starting in offline mode.");
+      setLoadingMessage("オフラインモードで起動中...");
+      setTimeout(() => setScreen('title'), 1000);
+      return;
+    }
 
     const initAuth = async () => {
       try {
@@ -1071,11 +1086,14 @@ export default function App() {
           // @ts-ignore
           await signInWithCustomToken(auth, __initial_auth_token);
         } else {
-          // @ts-ignore - authがundefinedでないことは確認済みだが、TSが理解できない場合のため
+          // @ts-ignore
           await signInAnonymously(auth);
         }
       } catch (e) {
         console.error("Auth Error:", e);
+        // エラー時もタイトルへ遷移させる（オフライン動作）
+        setLoadingMessage("認証に失敗しました。オフラインで起動します。");
+        setTimeout(() => setScreen('title'), 1500);
       }
     };
     initAuth();
@@ -1085,7 +1103,9 @@ export default function App() {
       if (u) {
         checkSaveData(u.uid);
       } else {
-        setScreen('auth');
+        // ユーザーがいない場合も認証エラーと同様に扱うか、auth画面のままにするか
+        // ここでは通常フローとしてauth画面（ローディング）のままにしておくが、
+        // タイムアウトなどを入れたほうが親切かもしれない
       }
     });
     
@@ -1132,7 +1152,10 @@ export default function App() {
   }, []);
 
   const checkSaveData = async (uid: string) => {
-    if (!db) return;
+    if (!db) {
+        setScreen('title');
+        return;
+    }
     try {
       // Fix: Use correct path with even number of segments
       const docRef = doc(db, 'artifacts', appId, 'users', uid, 'saves', 'slot1');
@@ -1535,7 +1558,7 @@ export default function App() {
     return (
       <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
         <Loader className="animate-spin text-yellow-500 mb-4" size={48} />
-        <h2 className="text-xl">クラウドに接続中...</h2>
+        <h2 className="text-xl">{loadingMessage}</h2>
       </div>
     );
   }
@@ -1846,7 +1869,7 @@ export default function App() {
           )}
         </div>
       )}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.5.6</div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.5.7</div>
     </div>
   );
 }
