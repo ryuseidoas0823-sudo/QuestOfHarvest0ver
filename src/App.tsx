@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings } from 'lucide-react';
+import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
@@ -24,25 +24,158 @@ const db = getFirestore(app);
  * ASSETS (SVG PIXEL ART)
  * ==========================================
  */
-// SVGをData URI化して定義します。
-// プレビューで作ったスライムのSVGコードをここに埋め込みます。
 const ASSETS_SVG = {
+  // --- MONSTERS ---
   Slime: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-    <!-- Shadow -->
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
-    <!-- Body -->
     <path d="M6 14h4v-1h3v-2h1v-5h-1v-1h-1v-1h-1v-1H5v1H4v1H3v1H2v5h1v2h3v1z" fill="#76ff03" />
-    <!-- Eyes -->
     <path d="M5 8h2v2H5zm0 0h1v1h-1z" fill="#000" /><path d="M6 8h1v1H6z" fill="#fff" />
     <path d="M9 8h2v2H9zm0 0h1v1h-1z" fill="#000" /><path d="M10 8h1v1h-1z" fill="#fff" />
-    <!-- Highlights -->
     <path d="M6 5h2v1H6zm-1 1h1v2H5z" fill="#ccff90" opacity="0.5" />
-  </svg>
-  `
+  </svg>`,
+  Bandit: `
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
+    <path d="M5 2h6v4H5z" fill="#5d4037" />
+    <path d="M6 5h4v1H6z" fill="#000" opacity="0.8" />
+    <path d="M6 6h4v1H6z" fill="#ffccaa" />
+    <path d="M5 7h6v5H5z" fill="#8d6e63" />
+    <path d="M5 7h6v2H5z" fill="#4e342e" />
+    <path d="M5 12h2v4H5zm4 0h2v4H9z" fill="#3e2723" />
+    <path d="M11 9h3v1h-3z" fill="#cfd8dc" />
+    <path d="M11 9h1v3h-1z" fill="#5d4037" />
+  </svg>`,
+  Villager: `
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
+    <path d="M4 2h8v2H4z" fill="#fbc02d" />
+    <path d="M3 4h10v1H3z" fill="#fbc02d" />
+    <path d="M6 5h4v3H6z" fill="#ffccaa" />
+    <path d="M7 6h1v1H7zm2 0h1v1H9z" fill="#000" />
+    <path d="M5 8h6v5H5z" fill="#81c784" />
+    <path d="M6 13h1v3H6zm3 0h1v3H9z" fill="#5d4037" />
+  </svg>`,
+
+  // --- PLAYERS (8 Variations) ---
+  
+  // Swordsman (Male) - Standard Hero
+  Swordsman_Male: `
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
+    <path d="M5 2h6v3H5z" fill="#ffd700" /> <!-- Blonde Hair -->
+    <path d="M5 5h6v3H5z" fill="#ffccaa" /> <!-- Face -->
+    <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" /> <!-- Eyes -->
+    <path d="M4 8h8v5H4z" fill="#1565c0" /> <!-- Blue Armor -->
+    <path d="M6 9h4v4H6z" fill="#64b5f6" opacity="0.3" /> <!-- Plate -->
+    <path d="M5 13h2v3H5zm4 0h2v3H9z" fill="#424242" /> <!-- Legs -->
+    <path d="M12 5h1v3h-1z" fill="#bdbdbd" /> <!-- Sword Blade -->
+    <path d="M11 8h3v1h-3z" fill="#5d4037" /> <!-- Guard -->
+    <path d="M12 9h1v2h-1z" fill="#5d4037" /> <!-- Hilt -->
+  </svg>`,
+
+  // Swordsman (Female) - Long Hair, Skirt Armor
+  Swordsman_Female: `
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
+    <path d="M4 2h8v6H4z" fill="#ffab00" /> <!-- Orange Long Hair -->
+    <path d="M5 5h6v3H5z" fill="#ffccaa" />
+    <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
+    <path d="M5 8h6v4H5z" fill="#1565c0" /> <!-- Armor -->
+    <path d="M4 12h8v2H4z" fill="#0d47a1" /> <!-- Skirt -->
+    <path d="M5 14h2v2H5zm4 0h2v2H9z" fill="#424242" />
+    <path d="M12 5h1v3h-1z" fill="#bdbdbd" />
+    <path d="M11 8h3v1h-3z" fill="#5d4037" />
+    <path d="M12 9h1v2h-1z" fill="#5d4037" />
+  </svg>`,
+
+  // Warrior (Male) - Heavy, Axe
+  Warrior_Male: `
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path d="M3 14h10v1H3z" fill="rgba(0,0,0,0.3)" />
+    <path d="M5 2h6v3H5z" fill="#5d4037" /> <!-- Brown Hair -->
+    <path d="M4 3h1v2H4zm7 0h1v2h-1z" fill="#bcaaa4" /> <!-- Horns -->
+    <path d="M5 5h6v3H5z" fill="#d7ccc8" />
+    <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
+    <path d="M3 8h10v5H3z" fill="#3e2723" /> <!-- Heavy Armor -->
+    <path d="M5 9h6v3H5z" fill="#5d4037" />
+    <path d="M4 13h3v3H4zm5 0h3v3H9z" fill="#212121" />
+    <path d="M13 4h2v4h-2z" fill="#757575" /> <!-- Axe Head -->
+    <path d="M14 8h1v5h-1z" fill="#5d4037" /> <!-- Handle -->
+  </svg>`,
+
+  // Warrior (Female) - Valkyrie Style
+  Warrior_Female: `
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path d="M3 14h10v1H3z" fill="rgba(0,0,0,0.3)" />
+    <path d="M5 2h6v2H5z" fill="#cfd8dc" /> <!-- Winged Helm -->
+    <path d="M3 3h2v2H3zm6 0h2v2H9z" fill="#fff" /> <!-- Wings -->
+    <path d="M5 4h6v7H5z" fill="#fdd835" /> <!-- Blonde Long Hair -->
+    <path d="M5 5h6v3H5z" fill="#ffccaa" />
+    <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
+    <path d="M5 8h6v4H5z" fill="#b71c1c" /> <!-- Red Armor -->
+    <path d="M5 12h2v4H5zm4 0h2v4H9z" fill="#4a148c" />
+    <path d="M13 5h2v3h-2z" fill="#90a4ae" /> <!-- Axe -->
+    <path d="M14 8h1v5h-1z" fill="#5d4037" />
+  </svg>`,
+
+  // Archer (Male) - Hooded, Green
+  Archer_Male: `
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
+    <path d="M5 2h6v4H5z" fill="#33691e" /> <!-- Green Hood -->
+    <path d="M5 5h6v3H5z" fill="#ffccaa" />
+    <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
+    <path d="M5 8h6v5H5z" fill="#558b2f" /> <!-- Green Tunic -->
+    <path d="M6 9h4v3H6z" fill="#7cb342" />
+    <path d="M5 13h2v3H5zm4 0h2v3H9z" fill="#3e2723" />
+    <path d="M12 6h1v6h-1z" fill="#8d6e63" /> <!-- Bow -->
+    <path d="M12 6h-1v1h1zm-1 5h1v1h-1z" fill="#8d6e63" />
+  </svg>`,
+
+  // Archer (Female) - Ponytail, Leather
+  Archer_Female: `
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
+    <path d="M5 2h6v3H5z" fill="#a1887f" /> <!-- Light Brown Hair -->
+    <path d="M11 3h2v3h-2z" fill="#a1887f" /> <!-- Ponytail -->
+    <path d="M5 5h6v3H5z" fill="#ffccaa" />
+    <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
+    <path d="M5 8h6v4H5z" fill="#33691e" /> <!-- Green Clothes -->
+    <path d="M5 12h2v4H5zm4 0h2v4H9z" fill="#5d4037" /> <!-- Boots -->
+    <path d="M12 6h1v6h-1z" fill="#8d6e63" /> <!-- Bow -->
+    <path d="M12 6h-1v1h1zm-1 5h1v1h-1z" fill="#8d6e63" />
+  </svg>`,
+
+  // Mage (Male) - Wizard Hat, Robe
+  Mage_Male: `
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
+    <path d="M4 4h8v1H4z" fill="#311b92" /> <!-- Hat Brim -->
+    <path d="M5 1h6v3H5z" fill="#311b92" /> <!-- Hat Top -->
+    <path d="M5 5h6v3H5z" fill="#ffccaa" />
+    <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
+    <path d="M4 8h8v6H4z" fill="#4527a0" /> <!-- Robe -->
+    <path d="M6 8h4v6H6z" fill="#673ab7" />
+    <path d="M13 5h1v8h-1z" fill="#8d6e63" /> <!-- Staff -->
+    <path d="M12 4h3v1h-3z" fill="#ffeb3b" /> <!-- Orb/Gem -->
+  </svg>`,
+
+  // Mage (Female) - Witch Hat, Dress
+  Mage_Female: `
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
+    <path d="M3 4h10v1H3z" fill="#ad1457" /> <!-- Hat Brim (Pink/Red) -->
+    <path d="M5 1h6v3H5z" fill="#ad1457" /> <!-- Hat Top -->
+    <path d="M4 5h8v4H4z" fill="#f48fb1" /> <!-- Pink Hair -->
+    <path d="M5 5h6v3H5z" fill="#ffccaa" />
+    <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
+    <path d="M5 8h6v6H5z" fill="#880e4f" /> <!-- Robe -->
+    <path d="M13 5h1v8h-1z" fill="#8d6e63" /> <!-- Staff -->
+    <path d="M12 4h3v1h-3z" fill="#00e676" /> <!-- Orb -->
+  </svg>`
 };
 
-// SVG文字列を画像ソースとして使えるURL形式に変換するヘルパー
 const svgToUrl = (svgString: string) => 
   "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgString.trim());
 
@@ -90,6 +223,7 @@ type TileType = 'grass' | 'dirt' | 'wall' | 'water' | 'floor' | 'portal_out' | '
 interface Tile { x: number; y: number; type: TileType; solid: boolean; }
 type EntityType = 'player' | 'enemy' | 'npc' | 'projectile' | 'particle' | 'text' | 'drop';
 type Job = 'Swordsman' | 'Warrior' | 'Archer' | 'Mage';
+type Gender = 'Male' | 'Female';
 type ShapeType = 'humanoid' | 'beast' | 'slime' | 'large' | 'insect' | 'ghost' | 'demon' | 'dragon' | 'flying';
 type Biome = 'Plains' | 'Forest' | 'Desert' | 'Snow' | 'Wasteland' | 'Town';
 
@@ -168,6 +302,7 @@ interface Attributes {
 
 interface PlayerEntity extends CombatEntity {
   job: Job;
+  gender: Gender; // Added Gender
   xp: number;
   nextLevelXp: number;
   gold: number;
@@ -356,11 +491,11 @@ const JOB_DATA: Record<Job, { attributes: Attributes, desc: string, icon: string
   Mage:      { attributes: { vitality: 9, strength: 6, dexterity: 12, intelligence: 18, endurance: 8 }, icon: '🪄', desc: 'Master of spells.' },
 };
 
-const createPlayer = (job: Job): PlayerEntity => {
+const createPlayer = (job: Job, gender: Gender): PlayerEntity => {
   const baseAttrs = JOB_DATA[job].attributes;
   return {
     id: 'player', type: 'player', x: 0, y: 0, width: 20, height: 20, visualWidth: 32, visualHeight: 56,
-    color: THEME.colors.player, job, shape: 'humanoid',
+    color: THEME.colors.player, job, gender, shape: 'humanoid',
     hp: 100, maxHp: 100, mp: 50, maxMp: 50, attack: 10, defense: 0, speed: 4,
     level: 1, xp: 0, nextLevelXp: 100, gold: 0, statPoints: 0, attributes: { ...baseAttrs },
     dead: false, lastAttackTime: 0, attackCooldown: 500, direction: 1,
@@ -650,13 +785,16 @@ const renderGame = (
     const centerX = e.x + e.width / 2;
     const bottomY = e.y + e.height;
 
-    // Use loaded image for Slime
-    const raceName = (e as EnemyEntity).race; // e.g. "Slime"
-    // Check if we have an image asset for this race (e.g. "Slime")
-    // Simple matching for now: if race includes "Slime" or "Jelly" use Slime asset
-    let imgKey = null;
-    if (e.type === 'enemy') {
-       if (raceName.includes('Slime') || raceName.includes('Jelly')) imgKey = 'Slime';
+    // Determine Image Key
+    let imgKey: string | null = null;
+    
+    if (e.type === 'player') {
+      const p = e as PlayerEntity;
+      imgKey = `${p.job}_${p.gender}`; // e.g. "Swordsman_Male"
+    } else if (e.type === 'enemy') {
+      const raceName = (e as EnemyEntity).race;
+      if (raceName.includes('Slime') || raceName.includes('Jelly')) imgKey = 'Slime';
+      else if (raceName.includes('Bandit') || raceName.includes('Assassin')) imgKey = 'Bandit';
     }
 
     // --- Draw Shadow ---
@@ -694,13 +832,20 @@ const renderGame = (
          scaleY = 0.8;
       }
 
-      // Drawing
-      const drawW = vw * scaleX;
-      const drawH = vh * scaleY;
-      const drawX = centerX - drawW / 2;
-      const drawY = bottomY - drawH + offsetY;
+      // Flip for direction
+      // Direction: 0=Right, 1=Down, 2=Left, 3=Up
+      const isLeft = e.direction === 2;
 
-      ctx.drawImage(img, drawX, drawY, drawW, drawH);
+      // Drawing
+      const drawW = vw;
+      const drawH = vh;
+      
+      ctx.save();
+      ctx.translate(centerX, bottomY + offsetY);
+      ctx.scale(isLeft ? -scaleX : scaleX, scaleY);
+      // Draw image centered at 0, -height
+      ctx.drawImage(img, -drawW / 2, -drawH, drawW, drawH);
+      ctx.restore();
 
     } else {
       // ** FALLBACK RECTANGLE RENDERING (Original Logic) **
@@ -845,6 +990,7 @@ const adjustColor = (color: string, _amount: number) => color;
 export default function App() {
   const [screen, setScreen] = useState<'auth' | 'title' | 'game' | 'job_select'>('auth');
   const [saveData, setSaveData] = useState<any>(null);
+  const [selectedGender, setSelectedGender] = useState<Gender>('Male');
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameState = useRef<GameState | null>(null);
@@ -967,7 +1113,7 @@ export default function App() {
       savedChunks = saveData.savedChunks || {};
       updatePlayerStats(player);
     } else {
-      player = createPlayer(job);
+      player = createPlayer(job, selectedGender);
       updatePlayerStats(player);
       player.x = (GAME_CONFIG.MAP_WIDTH * GAME_CONFIG.TILE_SIZE) / 2;
       player.y = (GAME_CONFIG.MAP_HEIGHT * GAME_CONFIG.TILE_SIZE) / 2;
@@ -1227,7 +1373,7 @@ export default function App() {
       state.floatingTexts = state.floatingTexts.filter(t => t.life > 0);
     }
 
-    renderGame(ctx, state, loadedAssets);
+    renderGame(ctx, state, input.current.mouse);
 
     if (state.gameTime % 10 === 0) {
       setUiState({...state.player});
@@ -1370,23 +1516,64 @@ export default function App() {
 
   if (screen === 'job_select') {
     return (
-      <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
-        <h2 className="text-3xl mb-8 font-bold text-slate-200">Select Your Class</h2>
-        <div className="flex gap-4 flex-wrap justify-center max-w-4xl">
-          {(Object.keys(JOB_DATA) as Job[]).map(job => (
-            <button key={job} onClick={() => startGame(job)} className="w-48 bg-slate-800 border border-slate-700 p-6 rounded-lg hover:border-yellow-500 hover:bg-slate-700 transition-all group text-left">
-              <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">{JOB_DATA[job].icon}</div>
-              <h3 className="text-xl font-bold text-yellow-500 mb-1">{job}</h3>
-              <p className="text-xs text-slate-400 mb-4">{JOB_DATA[job].desc}</p>
-              <div className="space-y-1 text-xs text-slate-500">
-                <div className="flex justify-between"><span>VIT</span><span className="text-green-400">{JOB_DATA[job].attributes.vitality}</span></div>
-                <div className="flex justify-between"><span>STR</span><span className="text-red-400">{JOB_DATA[job].attributes.strength}</span></div>
-                <div className="flex justify-between"><span>DEX</span><span className="text-blue-400">{JOB_DATA[job].attributes.dexterity}</span></div>
-              </div>
+      <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white relative">
+        <button onClick={() => setScreen('title')} className="absolute top-8 left-8 text-slate-500 hover:text-white flex items-center gap-2">
+          <ArrowLeft size={20} /> Back
+        </button>
+        
+        <h2 className="text-3xl mb-2 font-bold text-slate-200">Character Creation</h2>
+        <p className="text-slate-400 mb-8">Choose your gender and class.</p>
+
+        {/* Gender Selection */}
+        <div className="flex gap-4 mb-8 bg-slate-800 p-2 rounded-full border border-slate-700">
+          {(['Male', 'Female'] as Gender[]).map(g => (
+            <button
+              key={g}
+              onClick={() => setSelectedGender(g)}
+              className={`px-6 py-2 rounded-full font-bold transition-all ${
+                selectedGender === g 
+                  ? 'bg-yellow-600 text-white shadow-lg' 
+                  : 'text-slate-400 hover:text-white hover:bg-slate-700'
+              }`}
+            >
+              {g}
             </button>
           ))}
         </div>
-        <button onClick={() => setScreen('title')} className="mt-8 text-slate-500 hover:text-white underline">Back</button>
+
+        {/* Job Selection */}
+        <div className="flex gap-4 flex-wrap justify-center max-w-5xl">
+          {(Object.keys(JOB_DATA) as Job[]).map(job => {
+            const previewKey = `${job}_${selectedGender}`;
+            const previewImg = loadedAssets[previewKey];
+
+            return (
+              <button key={job} onClick={() => startGame(job)} className="w-56 bg-slate-800 border border-slate-700 p-6 rounded-lg hover:border-yellow-500 hover:bg-slate-700 transition-all group text-left relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-6xl">
+                  {JOB_DATA[job].icon}
+                </div>
+                
+                {/* Preview Image */}
+                <div className="h-24 mb-4 flex items-center justify-center">
+                  {previewImg ? (
+                    <img src={previewImg.src} className="h-full w-auto pixel-art drop-shadow-xl group-hover:scale-110 transition-transform" style={{imageRendering: 'pixelated'}} />
+                  ) : (
+                    <div className="text-4xl">{JOB_DATA[job].icon}</div>
+                  )}
+                </div>
+
+                <h3 className="text-xl font-bold text-yellow-500 mb-1">{job}</h3>
+                <p className="text-xs text-slate-400 mb-4 h-8">{JOB_DATA[job].desc}</p>
+                <div className="space-y-1 text-xs text-slate-500 border-t border-slate-700 pt-2">
+                  <div className="flex justify-between"><span>VIT</span><span className="text-green-400">{JOB_DATA[job].attributes.vitality}</span></div>
+                  <div className="flex justify-between"><span>STR</span><span className="text-red-400">{JOB_DATA[job].attributes.strength}</span></div>
+                  <div className="flex justify-between"><span>DEX</span><span className="text-blue-400">{JOB_DATA[job].attributes.dexterity}</span></div>
+                  <div className="flex justify-between"><span>INT</span><span className="text-purple-400">{JOB_DATA[job].attributes.intelligence}</span></div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
     );
   }
@@ -1608,7 +1795,7 @@ export default function App() {
           )}
         </div>
       )}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.5.1</div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.5.2</div>
     </div>
   );
 }
