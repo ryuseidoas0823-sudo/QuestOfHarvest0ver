@@ -54,7 +54,7 @@ if (firebaseConfig && firebaseConfig.apiKey) {
  * ############################################################################
  */
 const ASSETS_SVG = {
-  Slime: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" /><path d="M6 14h4v-1h3v-2h1v-5h-1v-1h-1v-1h-1v-1H5v1H4v1H3v1H2v5h1v2h3v1z" fill="#76ff03" /><path d="M5 8h2v2H5zm0 0h1v1h-1z" fill="#000" /><path d="M6 8h1v1H6z" fill="#fff" /><path d="M9 8h2v2H9zm0 0h1v1h-1z" fill="#000" /><path d="M10 8h1v1h-1z" fill="#fff" /><path d="M6 5h2v1H6zm-1 1h1v2H5z" fill="#ccff90" opacity="0.5" /></svg>`,
+  Slime: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" /><path d="M6 14h4v-1h3v-2h1v-5h-1v-1h-1v-1H5v1H4v1H3v1H2v5h1v2h3v1z" fill="#76ff03" /><path d="M5 8h2v2H5zm0 0h1v1h-1z" fill="#000" /><path d="M6 8h1v1H6z" fill="#fff" /><path d="M9 8h2v2H9zm0 0h1v1h-1z" fill="#000" /><path d="M10 8h1v1h-1z" fill="#fff" /><path d="M6 5h2v1H6zm-1 1h1v2H5z" fill="#ccff90" opacity="0.5" /></svg>`,
   Bandit: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" /><path d="M5 2h6v4H5z" fill="#5d4037" /><path d="M6 5h4v1H6z" fill="#000" opacity="0.8" /><path d="M6 6h4v1H6z" fill="#ffccaa" /><path d="M5 7h6v5H5z" fill="#8d6e63" /><path d="M5 12h2v4H5zm4 0h2v4H9z" fill="#3e2723" /><path d="M11 9h3v1h-3z" fill="#cfd8dc" /><path d="M11 9h1v3h-1z" fill="#5d4037" /></svg>`,
   Zombie: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" /><path d="M5 2h6v3H5z" fill="#6d4c41" /><path d="M5 5h6v3H5z" fill="#81c784" /><path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" /><path d="M4 8h8v5H4z" fill="#5d4037" /><path d="M4 8h2v2H4zm6 0h2v2h-2z" fill="#4e342e" /><path d="M5 13h2v3H5zm4 0h2v3H9z" fill="#3e2723" /><path d="M2 8h3v2H2zm9 0h3v2h-3z" fill="#81c784" /></svg>`,
   Insect: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M2 14h12v1H2z" fill="rgba(0,0,0,0.3)" /><path d="M3 8h4v4H3z" fill="#3e2723" /><path d="M7 9h2v2H7z" fill="#5d4037" /><path d="M9 7h4v4H9z" fill="#3e2723" /><path d="M12 8h1v1h-1z" fill="#ffeb3b" /><path d="M4 12h1v2H4zm3 0h1v2H7zm4 0h1v2h-1z" fill="#000" /><path d="M13 7h2v-2h-2z" fill="#000" opacity="0.5" /></svg>`,
@@ -395,33 +395,109 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
  */
 
 // Title Screen Component
-const TitleScreen = ({ onStart, onContinue, canContinue }: { onStart: () => void, onContinue: () => void, canContinue: boolean }) => (
-  <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white relative overflow-hidden font-sans bg-mist">
-    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-30"></div>
-    <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl animate-float"></div>
-    <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl animate-float" style={{animationDelay: '1s'}}></div>
-    
-    <div className="z-10 text-center space-y-12 animate-fade-in relative">
-      <div className="relative">
-        <h1 className="text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-yellow-500 to-yellow-800 drop-shadow-lg mb-2 text-shadow-strong tracking-tighter" style={{ filter: 'drop-shadow(0 0 20px rgba(234,179,8,0.4))'}}>
-          QUEST OF HARVEST
-        </h1>
-        <p className="text-slate-400 tracking-[0.8em] text-sm uppercase font-serif mt-4 border-t border-b border-slate-700 py-2 inline-block">Reborn Edition</p>
+interface TitleScreenProps {
+  onStart: () => void;
+  onContinue: () => void;
+  canContinue: boolean;
+  resolution: ResolutionMode;
+  setResolution: (mode: ResolutionMode) => void;
+}
+
+const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setResolution }: TitleScreenProps) => {
+  const [showSettings, setShowSettings] = useState(false);
+
+  return (
+    <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white relative overflow-hidden font-sans bg-mist">
+      {/* Background Effects */}
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-30"></div>
+      <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl animate-float"></div>
+      <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl animate-float" style={{animationDelay: '1s'}}></div>
+      
+      {/* Main Title Content */}
+      <div className={`z-10 text-center space-y-12 animate-fade-in relative transition-all duration-300 ${showSettings ? 'blur-sm scale-95 opacity-50' : ''}`}>
+        <div className="relative">
+          <h1 className="text-8xl md:text-9xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-yellow-500 to-yellow-800 drop-shadow-2xl mb-4 text-shadow-strong tracking-tighter" 
+              style={{ filter: 'drop-shadow(0 0 30px rgba(234,179,8,0.6))'}}>
+            QUEST OF HARVEST
+          </h1>
+          <p className="text-slate-400 tracking-[1.2em] text-lg uppercase font-serif mt-6 border-t border-b border-slate-700 py-3 inline-block bg-black/20 backdrop-blur-sm px-8 rounded-full">
+            Reborn Edition
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-6 w-96 mx-auto">
+          <button onClick={onStart} className="group relative flex items-center justify-center gap-3 px-8 py-5 bg-gradient-to-r from-slate-800/90 to-slate-900/90 border-2 border-yellow-700/50 hover:border-yellow-400 hover:from-slate-800 hover:to-slate-800 transition-all duration-300 text-yellow-100 font-black tracking-widest uppercase text-xl shadow-lg hover:shadow-yellow-500/20 transform hover:-translate-y-1">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-400/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+            <Play size={28} className="group-hover:text-yellow-400 transition-colors" />
+            <span>New Game</span>
+          </button>
+          
+          <button onClick={onContinue} disabled={!canContinue} className={`flex items-center justify-center gap-3 px-8 py-4 border-2 font-bold tracking-widest uppercase transition-all text-lg backdrop-blur-sm ${canContinue ? 'bg-slate-800/50 border-slate-600 hover:border-blue-400 hover:bg-slate-700/80 text-slate-200 hover:shadow-blue-500/20' : 'bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed'}`}>
+            <Save size={24} />
+            <span>Continue</span>
+          </button>
+
+          <button onClick={() => setShowSettings(true)} className="flex items-center justify-center gap-3 px-8 py-4 border-2 border-slate-700 bg-slate-800/30 hover:bg-slate-800/60 hover:border-slate-500 font-bold tracking-widest uppercase transition-all text-slate-300 hover:text-white backdrop-blur-sm text-lg">
+            <Settings size={24} />
+            <span>Settings</span>
+          </button>
+        </div>
       </div>
 
-      <div className="flex flex-col gap-6 w-80 mx-auto">
-        <button onClick={onStart} className="group relative flex items-center justify-center gap-3 px-8 py-4 bg-slate-800/80 border-2 border-yellow-700 hover:border-yellow-400 hover:bg-slate-800 transition-all text-yellow-100 font-bold tracking-widest uppercase overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-400/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-          <Play size={24} className="group-hover:text-yellow-400 transition-colors" /><span>New Game</span>
-        </button>
-        <button onClick={onContinue} disabled={!canContinue} className={`flex items-center justify-center gap-3 px-8 py-4 border-2 font-bold tracking-widest uppercase transition-all ${canContinue ? 'bg-slate-800/50 border-slate-600 hover:border-blue-400 hover:bg-slate-700 text-slate-200' : 'bg-slate-900/50 border-slate-800 text-slate-700 cursor-not-allowed'}`}>
-          <Save size={24} /><span>Continue</span>
-        </button>
+      {/* Settings Modal Overlay */}
+      {showSettings && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-900 p-8 rounded-xl border-2 border-slate-600 w-[400px] shadow-2xl transform scale-100 transition-all">
+            <div className="flex justify-between items-center mb-8 border-b border-slate-700 pb-4">
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <Settings className="text-slate-400" /> SETTINGS
+              </h2>
+              <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-white transition-colors p-1 hover:bg-slate-800 rounded-full">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
+                  <Monitor size={16} /> Screen Resolution
+                </label>
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { label: 'AUTO (Fit Window)', val: 'auto', desc: 'Automatically adjusts to window size' }, 
+                    { label: 'SVGA (800x600)', val: '800x600', desc: 'Classic 4:3 Aspect Ratio' },
+                    { label: 'HD (1280x720)', val: '1280x720', desc: 'Widescreen 16:9' }
+                  ].map(opt => (
+                    <button 
+                      key={opt.val}
+                      onClick={() => setResolution(opt.val as ResolutionMode)}
+                      className={`flex flex-col items-start p-3 rounded border transition-all ${
+                        resolution === opt.val 
+                          ? 'bg-yellow-600/20 border-yellow-500 text-yellow-100 shadow-[0_0_10px_rgba(234,179,8,0.2)]' 
+                          : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:border-slate-500'
+                      }`}
+                    >
+                      <span className="font-bold text-sm">{opt.label}</span>
+                      <span className="text-[10px] opacity-70">{opt.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <button onClick={() => setShowSettings(false)} className="w-full mt-8 py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded transition-colors uppercase tracking-wider text-sm">
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="absolute bottom-8 text-xs text-slate-500 font-mono tracking-wider opacity-60">
+        WASD: MOVE • SPACE: ATTACK • MOUSE: INTERACT
       </div>
     </div>
-    <div className="absolute bottom-8 text-xs text-slate-500 font-mono tracking-wider opacity-60">WASD: MOVE • SPACE: ATTACK • MOUSE: INTERACT</div>
-  </div>
-);
+  );
+};
 
 // Job Select Screen Component
 const JobSelectScreen = ({ onBack, onSelect, loadedAssets }: { onBack: () => void, onSelect: (job: Job, gender: Gender) => void, loadedAssets: Record<string, HTMLImageElement> }) => {
@@ -826,7 +902,17 @@ export default function App() {
   // --- Render ---
   if (!isConfigValid) return <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white p-8"><AlertTriangle size={64} className="text-red-500 mb-4" /><h2 className="text-2xl font-bold mb-2">設定エラー</h2></div>;
   if (screen === 'auth') return <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white"><Loader className="animate-spin text-yellow-500 mb-4" size={48} /><h2 className="text-xl">{loadingMessage}</h2></div>;
-  if (screen === 'title') return <TitleScreen onStart={() => setScreen('job_select')} onContinue={() => startGame('Swordsman', 'Male', true)} canContinue={!!saveData} />;
+  
+  if (screen === 'title') return (
+    <TitleScreen 
+      onStart={() => setScreen('job_select')} 
+      onContinue={() => startGame('Swordsman', 'Male', true)} 
+      canContinue={!!saveData} 
+      resolution={resolution}
+      setResolution={setResolution}
+    />
+  );
+  
   if (screen === 'job_select') return <JobSelectScreen onBack={() => setScreen('title')} onSelect={(j, g) => startGame(j, g)} loadedAssets={loadedAssets} />;
 
   return (
