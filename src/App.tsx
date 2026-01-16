@@ -291,13 +291,15 @@ const generateEnemy = (x: number, y: number, level: number): EnemyEntity => {
 const generateFloor = (level: number): FloorData => {
   const width = GAME_CONFIG.MAP_WIDTH;
   const height = GAME_CONFIG.MAP_HEIGHT;
+  
+  // Initialize map array
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
       return { x: x * GAME_CONFIG.TILE_SIZE, y: y * GAME_CONFIG.TILE_SIZE, type: 'grass', solid: false };
     })
   );
 
   const enemies: EnemyEntity[] = [];
-  const lights: LightSource[] = []; // Phase 3: Static lights
+  const lights: LightSource[] = [];
   const biome: Biome = level === 0 ? 'Town' : (['Dungeon', 'Plains', 'Forest', 'Wasteland', 'Snow', 'Desert'] as Biome[])[(level % 5) + 1] || 'Dungeon';
 
   // --- Town Generation (Level 0) ---
@@ -320,50 +322,121 @@ const generateFloor = (level: number): FloorData => {
   }
 
   // --- Dungeon Generation (Level > 0) ---
+  
+  // 1. Fill with walls first
   for(let y=0; y<height; y++) {
     for(let x=0; x<width; x++) {
-      if (x===0 || x===width-1 || y===0 || y===height-1) {
-        map[y][x].type = 'wall'; map[y][x].solid = true;
-        continue;
+      map[y][x].type = 'wall'; 
+      map[y][x].solid = true;
+    }
+  }
+
+  // 2. Room Generation
+  const rooms: {x: number, y: number, w: number, h: number}[] = [];
+  const minRoomSize = 6;
+  const maxRoomSize = 12;
+  const maxRooms = 8;
+
+  for (let i = 0; i < maxRooms; i++) {
+    const w = Math.floor(Math.random() * (maxRoomSize - minRoomSize + 1)) + minRoomSize;
+    const h = Math.floor(Math.random() * (maxRoomSize - minRoomSize + 1)) + minRoomSize;
+    const x = Math.floor(Math.random() * (width - w - 2)) + 1;
+    const y = Math.floor(Math.random() * (height - h - 2)) + 1;
+
+    const newRoom = { x, y, w, h };
+    rooms.push(newRoom);
+
+    // Carve room
+    for (let ry = y; ry < y + h; ry++) {
+      for (let rx = x; rx < x + w; rx++) {
+        if (ry > 0 && ry < height -1 && rx > 0 && rx < width -1) {
+            let floorType: TileType = 'floor';
+            if (biome === 'Snow') floorType = 'snow';
+            else if (biome === 'Desert') floorType = 'sand';
+            else if (biome === 'Wasteland') floorType = 'dirt';
+            
+            map[ry][rx].type = floorType;
+            map[ry][rx].solid = false;
+        }
       }
-      if (biome === 'Snow') map[y][x].type = 'snow';
-      else if (biome === 'Desert') map[y][x].type = 'sand';
-      else if (biome === 'Wasteland') map[y][x].type = 'dirt';
-      else map[y][x].type = 'floor'; 
-      if (Math.random() < 0.1) { map[y][x].type = 'wall'; map[y][x].solid = true; }
-      else if (Math.random() < 0.05) { map[y][x].type = 'water'; map[y][x].solid = true; }
     }
   }
 
-  let stairsPlaced = false;
-  while(!stairsPlaced) {
-    const sx = Math.floor(Math.random() * (width - 4)) + 2;
-    const sy = Math.floor(Math.random() * (height - 4)) + 2;
-    if (!map[sy][sx].solid) { 
-        map[sy][sx].type = 'stairs_down'; 
-        lights.push({ x: sx * 32 + 16, y: sy * 32 + 16, radius: 100, flicker: false, color: '#ffffff' });
-        stairsPlaced = true; 
-    }
+  // 3. Connect Rooms (Simple Corridor)
+  for (let i = 1; i < rooms.length; i++) {
+      const prev = rooms[i-1];
+      const curr = rooms[i];
+      const prevCx = Math.floor(prev.x + prev.w / 2);
+      const prevCy = Math.floor(prev.y + prev.h / 2);
+      const currCx = Math.floor(curr.x + curr.w / 2);
+      const currCy = Math.floor(curr.y + curr.h / 2);
+
+      // Horizontal then Vertical with wide corridors
+      const carveH = (y: number, x1: number, x2: number) => {
+          for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x++) {
+              if (y > 0 && y < height-1 && x > 0 && x < width-1) {
+                let floorType: TileType = 'floor';
+                if (biome === 'Snow') floorType = 'snow';
+                else if (biome === 'Desert') floorType = 'sand';
+                else if (biome === 'Wasteland') floorType = 'dirt';
+                
+                map[y][x].type = floorType; map[y][x].solid = false;
+                map[y+1][x].type = floorType; map[y+1][x].solid = false; // width 2
+              }
+          }
+      };
+      const carveV = (x: number, y1: number, y2: number) => {
+          for (let y = Math.min(y1, y2); y <= Math.max(y1, y2); y++) {
+              if (y > 0 && y < height-1 && x > 0 && x < width-1) {
+                let floorType: TileType = 'floor';
+                if (biome === 'Snow') floorType = 'snow';
+                else if (biome === 'Desert') floorType = 'sand';
+                else if (biome === 'Wasteland') floorType = 'dirt';
+
+                map[y][x].type = floorType; map[y][x].solid = false;
+                map[y][x+1].type = floorType; map[y][x+1].solid = false; // width 2
+              }
+          }
+      };
+
+      if (Math.random() < 0.5) {
+          carveH(prevCy, prevCx, currCx);
+          carveV(currCx, prevCy, currCy);
+      } else {
+          carveV(prevCx, prevCy, currCy);
+          carveH(currCy, prevCx, currCx);
+      }
   }
 
+  // Helper to find random floor tile
+  const getRandomFloorTile = () => {
+      let limit = 1000;
+      while(limit-- > 0) {
+          const rx = Math.floor(Math.random() * (width - 2)) + 1;
+          const ry = Math.floor(Math.random() * (height - 2)) + 1;
+          if (!map[ry][rx].solid) return {x: rx, y: ry};
+      }
+      return {x: Math.floor(width/2), y: Math.floor(height/2)}; // fallback
+  };
+
+  // Stairs Down
+  const stairsPos = getRandomFloorTile();
+  map[stairsPos.y][stairsPos.x].type = 'stairs_down';
+  lights.push({ x: stairsPos.x * 32 + 16, y: stairsPos.y * 32 + 16, radius: 100, flicker: false, color: '#ffffff' });
+
+  // Return Portal (Level % 5 === 0)
   if (level % 5 === 0) {
-    let portalPlaced = false;
-    while(!portalPlaced) {
-      const px = Math.floor(Math.random() * (width - 4)) + 2;
-      const py = Math.floor(Math.random() * (height - 4)) + 2;
-      if (!map[py][px].solid && map[py][px].type !== 'stairs_down') { 
-          map[py][px].type = 'return_portal'; 
-          lights.push({ x: px * 32 + 16, y: py * 32 + 16, radius: 120, flicker: true, color: '#00e676' });
-          portalPlaced = true; 
-      }
-    }
+      let portalPos = getRandomFloorTile();
+      while (portalPos.x === stairsPos.x && portalPos.y === stairsPos.y) portalPos = getRandomFloorTile();
+      map[portalPos.y][portalPos.x].type = 'return_portal';
+      lights.push({ x: portalPos.x * 32 + 16, y: portalPos.y * 32 + 16, radius: 120, flicker: true, color: '#00e676' });
   }
 
+  // Enemies
   const enemyCount = 5 + Math.floor(level * 0.5);
   for(let i=0; i<enemyCount; i++) {
-    let ex, ey;
-    do { ex = Math.floor(Math.random() * (width - 2)) + 1; ey = Math.floor(Math.random() * (height - 2)) + 1; } while(map[ey][ex].solid);
-    enemies.push(generateEnemy(ex * GAME_CONFIG.TILE_SIZE, ey * GAME_CONFIG.TILE_SIZE, level));
+    const pos = getRandomFloorTile();
+    enemies.push(generateEnemy(pos.x * GAME_CONFIG.TILE_SIZE, pos.y * GAME_CONFIG.TILE_SIZE, level));
   }
 
   return { map, enemies, droppedItems: [], biome, level, lights };
@@ -1029,10 +1102,16 @@ export default function App() {
       setMessage("街に戻りました。");
     } else {
       let px, py;
+      let limit = 1000;
       do {
          px = Math.floor(Math.random() * (GAME_CONFIG.MAP_WIDTH - 2)) + 1;
          py = Math.floor(Math.random() * (GAME_CONFIG.MAP_HEIGHT - 2)) + 1;
-      } while (state.map[py][px].solid);
+         limit--;
+      } while (state.map[py][px].solid && limit > 0);
+      
+      // Fallback if no space found (rare in new generator but safe to have)
+      if (limit <= 0) { px = 1; py = 1; }
+
       state.player.x = px * GAME_CONFIG.TILE_SIZE;
       state.player.y = py * GAME_CONFIG.TILE_SIZE;
       setMessage(`B${newLevel}F に到達！`);
@@ -1268,8 +1347,6 @@ export default function App() {
   const handleEquip = (item: Item) => {
     if (!gameState.current) return;
     const p = gameState.current.player;
-    if (item.type === 'Consumable') { setMessage("消耗品は装備できません。Fキーで使用します。"); setTimeout(()=>setMessage(null), 2000); return; }
-
     let slot: keyof PlayerEntity['equipment'] = 'mainHand';
     if (item.type === 'Helm') slot = 'helm'; if (item.type === 'Armor') slot = 'armor'; if (item.type === 'Boots') slot = 'boots'; if (item.type === 'Shield') slot = 'offHand';
     if (item.type === 'Weapon') {
