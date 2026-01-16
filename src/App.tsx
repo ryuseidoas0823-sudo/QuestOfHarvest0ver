@@ -12,12 +12,12 @@ import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore
  * これにより、認証とセーブデータの保存が可能になります。
  */
 const MANUAL_FIREBASE_CONFIG = {
-  apiKey: "",             // 例: "AIzaSy..."
-  authDomain: "",         // 例: "your-app.firebaseapp.com"
-  projectId: "",          // 例: "your-app"
-  storageBucket: "",      // 例: "your-app.appspot.com"
-  messagingSenderId: "",  // 例: "123456789"
-  appId: ""               // 例: "1:123456789:web:abcde..."
+  apiKey: "AIzaSyD2ENlLHumh4O4uzFe_dKAZSaV54ohS8pI",             // 例: "AIzaSy..."
+  authDomain: "questofharvest0ver.firebaseapp.com",         // 例: "your-app.firebaseapp.com"
+  projectId: "questofharvest0ver",          // 例: "your-app"
+  storageBucket: "questofharvest0ver.firebasestorage.app",      // 例: "your-app.appspot.com"
+  messagingSenderId: "931709039861",  // 例: "123456789"
+  appId: "1:931709039861:web:9ec0565ed233338cc341bc"               // 例: "1:123456789:web:abcde..."
 };
 
 /**
