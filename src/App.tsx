@@ -6,36 +6,60 @@ import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore
 
 /**
  * ==========================================
- * FIREBASE 設定 (安全な読み込み)
+ * FIREBASE 設定エリア
+ * ==========================================
+ * ★ここにFirebaseコンソールから取得した設定値を入力してください。
+ * これにより、認証とセーブデータの保存が可能になります。
+ */
+const MANUAL_FIREBASE_CONFIG = {
+  apiKey: "",             // 例: "AIzaSy..."
+  authDomain: "",         // 例: "your-app.firebaseapp.com"
+  projectId: "",          // 例: "your-app"
+  storageBucket: "",      // 例: "your-app.appspot.com"
+  messagingSenderId: "",  // 例: "123456789"
+  appId: ""               // 例: "1:123456789:web:abcde..."
+};
+
+/**
+ * ==========================================
+ * 設定の読み込みと初期化ロジック
  * ==========================================
  */
+// ビルド環境変数やグローバル変数からの設定があれば取得（手動設定が優先されます）
 // @ts-ignore
 const rawConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
 // @ts-ignore
 const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'quest-of-harvest';
 const appId = rawAppId.replace(/[\/.]/g, '_');
 
-let firebaseConfig = {};
-try {
-  firebaseConfig = JSON.parse(rawConfig);
-} catch (e) {
-  console.error("Config Parse Error", e);
-}
+let firebaseConfig: any = MANUAL_FIREBASE_CONFIG;
 
-// 設定チェック: API Keyがない場合は初期化しない（クラッシュ防止）
-// @ts-ignore
-const isConfigValid = firebaseConfig && firebaseConfig.apiKey;
+// 手動設定が空で、かつ環境変数から設定が渡されている場合はそちらを使用
+const isManualConfigEmpty = !firebaseConfig.apiKey;
+if (isManualConfigEmpty) {
+  try {
+    const parsedConfig = JSON.parse(rawConfig);
+    if (parsedConfig && parsedConfig.apiKey) {
+      firebaseConfig = parsedConfig;
+    }
+  } catch (e) {
+    console.error("Config Parse Error", e);
+  }
+}
 
 // 型定義を明示して初期化
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 let db: Firestore | undefined;
+let isConfigValid = false;
 
-if (isConfigValid) {
+// 設定が有効（API Keyが存在する）場合のみ初期化
+if (firebaseConfig && firebaseConfig.apiKey) {
   try {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
+    isConfigValid = true;
   } catch (e) {
     console.error("Firebase Initialization Error:", e);
   }
@@ -496,6 +520,7 @@ const generateRandomItem = (level: number, rankBonus: number = 0): Item | null =
   }
 
   let name = rarity === 'Common' ? '' : `${rarity} `;
+  // @ts-ignore
   if (type === 'Weapon') name += ITEM_BASE_NAMES[type][subType!];
   else name += ITEM_BASE_NAMES[type];
 
@@ -552,7 +577,6 @@ const ENEMY_TYPES = [
   { name: 'Ghost',     hp: 20, atk: 7, spd: 1.0, color: '#cfd8dc', icon: '👻', xp: 28, shape: 'ghost',    w: 24, h: 24, vw: 32, vh: 40 },
 ];
 
-// Restore the missing generateEnemy function
 const generateEnemy = (x: number, y: number, level: number): EnemyEntity => {
   const type = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)];
   const rankRoll = Math.random();
@@ -1034,7 +1058,6 @@ export default function App() {
   const input = useRef({ keys: {} as Record<string, boolean>, mouse: {x:0, y:0, down: false} });
   
   const [uiState, setUiState] = useState<PlayerEntity | null>(null);
-  // worldInfoの型定義を修正
   const [worldInfo, setWorldInfo] = useState<{x:number, y:number, biome:Biome}>({x:0, y:0, biome:'Town'});
   const [activeMenu, setActiveMenu] = useState<'none' | 'status' | 'inventory' | 'stats'>('none');
   const [message, setMessage] = useState<string | null>(null);
@@ -1051,8 +1074,8 @@ export default function App() {
         <h2 className="text-2xl font-bold mb-2">設定エラー</h2>
         <p className="text-center text-slate-400 mb-6 max-w-md">
           FirebaseのAPIキーが見つかりません。<br/>
-          ビルド環境変数 <code>FIREBASE_CONFIG</code> を設定するか、<br/>
-          <code>vite.config.ts</code> に正しい設定を記述してください。
+          App.tsx内の <code>MANUAL_FIREBASE_CONFIG</code> に<br/>
+          正しい設定値を入力してください。
         </p>
       </div>
     );
@@ -1072,7 +1095,6 @@ export default function App() {
   // 認証 & 初期化
   useEffect(() => {
     if (!auth) {
-      // Authが初期化されていない場合は、オフラインモードとしてタイトルへ
       console.warn("Auth not initialized. Starting in offline mode.");
       setLoadingMessage("オフラインモードで起動中...");
       setTimeout(() => setScreen('title'), 1000);
@@ -1086,12 +1108,10 @@ export default function App() {
           // @ts-ignore
           await signInWithCustomToken(auth, __initial_auth_token);
         } else {
-          // @ts-ignore
           await signInAnonymously(auth);
         }
       } catch (e) {
         console.error("Auth Error:", e);
-        // エラー時もタイトルへ遷移させる（オフライン動作）
         setLoadingMessage("認証に失敗しました。オフラインで起動します。");
         setTimeout(() => setScreen('title'), 1500);
       }
@@ -1103,9 +1123,7 @@ export default function App() {
       if (u) {
         checkSaveData(u.uid);
       } else {
-        // ユーザーがいない場合も認証エラーと同様に扱うか、auth画面のままにするか
-        // ここでは通常フローとしてauth画面（ローディング）のままにしておくが、
-        // タイムアウトなどを入れたほうが親切かもしれない
+        // 未ログイン状態でもタイトルへ（auth完了を待たずに進むケース）
       }
     });
     
@@ -1157,7 +1175,6 @@ export default function App() {
         return;
     }
     try {
-      // Fix: Use correct path with even number of segments
       const docRef = doc(db, 'artifacts', appId, 'users', uid, 'saves', 'slot1');
       const snap = await getDoc(docRef);
       if (snap.exists()) {
@@ -1169,7 +1186,6 @@ export default function App() {
       setScreen('title');
     } catch (e) {
       console.error("Failed to check save data:", e);
-      // Fallback to title anyway
       setScreen('title');
     }
   };
@@ -1475,7 +1491,6 @@ export default function App() {
     };
     
     try {
-      // Fix: Correct path with even segments
       await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'saves', 'slot1'), data);
       setSaveData(data);
       setMessage("クラウドに保存しました！");
