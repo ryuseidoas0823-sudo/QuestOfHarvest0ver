@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Zap, Heart, Activity } from 'lucide-react';
+import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Zap, Heart, Activity, Monitor } from 'lucide-react';
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken, Auth } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore';
@@ -91,6 +91,7 @@ type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary';
 type EquipmentType = 'Weapon' | 'Helm' | 'Armor' | 'Shield' | 'Boots';
 type WeaponStyle = 'OneHanded' | 'TwoHanded' | 'DualWield';
 type MenuType = 'none' | 'status' | 'inventory' | 'stats'; 
+type ResolutionMode = 'auto' | '800x600' | '1024x768' | '1280x720';
 
 interface Tile { x: number; y: number; type: TileType; solid: boolean; }
 interface Enchantment { type: 'Attack' | 'Defense' | 'Speed' | 'MaxHp'; value: number; strength: 'Weak' | 'Medium' | 'Strong'; name: string; }
@@ -570,6 +571,7 @@ export default function App() {
   const [activeMenu, setActiveMenu] = useState<MenuType>('none');
   const [message, setMessage] = useState<string | null>(null);
   const [viewportSize, setViewportSize] = useState({ width: 800, height: 600 });
+  const [resolution, setResolution] = useState<ResolutionMode>('auto'); // Added resolution state
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -618,10 +620,19 @@ export default function App() {
     return onAuthStateChanged(auth, (u) => { setUser(u); if (u) checkSaveData(u.uid); });
   }, []);
 
-  // --- Event Listeners ---
+  // --- Event Listeners & Resize Logic ---
   useEffect(() => {
-    const handleResize = () => setViewportSize({ width: window.innerWidth, height: window.innerHeight });
-    handleResize(); window.addEventListener('resize', handleResize);
+    const handleResize = () => {
+      if (resolution === 'auto') {
+        setViewportSize({ width: window.innerWidth, height: window.innerHeight });
+      } else {
+        const [w, h] = resolution.split('x').map(Number);
+        setViewportSize({ width: w, height: h });
+      }
+    };
+    handleResize(); 
+    window.addEventListener('resize', handleResize);
+
     const handleKeyDown = (e: KeyboardEvent) => {
       input.current.keys[e.key.toLowerCase()] = true;
       if (e.key.toLowerCase() === 'i') setActiveMenu(prev => prev === 'inventory' ? 'none' : 'inventory');
@@ -642,7 +653,7 @@ export default function App() {
       window.removeEventListener('mousedown', handleMouseInput); window.removeEventListener('mouseup', handleMouseInput); window.removeEventListener('mousemove', handleMouseInput);
       if (reqRef.current) cancelAnimationFrame(reqRef.current);
     };
-  }, []);
+  }, [resolution]); // Added resolution dependency
 
   // --- Game Functions ---
   const checkSaveData = async (uid: string) => {
@@ -829,6 +840,33 @@ export default function App() {
           {activeMenu === 'status' && (
             <div className="bg-slate-800 p-8 rounded-lg border border-slate-600 min-w-[300px] text-white">
               <h2 className="text-2xl font-bold mb-6 text-center border-b border-slate-600 pb-2">メニュー</h2>
+              
+              <div className="mb-6">
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-2 flex items-center gap-2">
+                  <Monitor size={14} /> Screen Size
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: 'AUTO', val: 'auto' }, 
+                    { label: 'SVGA (800x600)', val: '800x600' },
+                    { label: 'XGA (1024x768)', val: '1024x768' },
+                    { label: 'HD (1280x720)', val: '1280x720' }
+                  ].map(opt => (
+                    <button 
+                      key={opt.val}
+                      onClick={() => setResolution(opt.val as ResolutionMode)}
+                      className={`px-3 py-2 text-xs rounded border transition-colors ${
+                        resolution === opt.val 
+                          ? 'bg-yellow-600 border-yellow-500 text-white' 
+                          : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="space-y-3">
                 <button onClick={saveGame} disabled={isSaving} className="w-full py-3 bg-blue-700 hover:bg-blue-600 rounded font-bold flex items-center justify-center gap-2">{isSaving ? <Loader className="animate-spin" size={18} /> : <Save size={18} />}{isSaving ? '保存中...' : 'ゲームを保存'}</button>
                 <button onClick={() => { setScreen('title'); setActiveMenu('none'); }} className="w-full py-3 bg-red-900/50 hover:bg-red-900 rounded border border-red-800 text-red-100 mt-8">タイトルに戻る</button>
