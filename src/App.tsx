@@ -90,7 +90,7 @@ type Biome = 'Plains' | 'Forest' | 'Desert' | 'Snow' | 'Wasteland' | 'Town';
 type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary';
 type EquipmentType = 'Weapon' | 'Helm' | 'Armor' | 'Shield' | 'Boots';
 type WeaponStyle = 'OneHanded' | 'TwoHanded' | 'DualWield';
-type MenuType = 'none' | 'status' | 'inventory' | 'stats'; // Added MenuType
+type MenuType = 'none' | 'status' | 'inventory' | 'stats'; 
 
 interface Tile { x: number; y: number; type: TileType; solid: boolean; }
 interface Enchantment { type: 'Attack' | 'Defense' | 'Speed' | 'MaxHp'; value: number; strength: 'Weak' | 'Medium' | 'Strong'; name: string; }
@@ -821,7 +821,7 @@ export default function App() {
   return (
     <div className="w-full h-screen bg-black flex items-center justify-center overflow-hidden relative" onContextMenu={e => e.preventDefault()}>
       <canvas ref={canvasRef} width={viewportSize.width} height={viewportSize.height} className="bg-black shadow-2xl cursor-crosshair" />
-      {uiState && <GameHUD uiState={uiState} worldInfo={worldInfo} activeMenu={activeMenu} toggleMenu={(m) => setActiveMenu(activeMenu === m ? 'none' : m)} />}
+      {uiState && <GameHUD uiState={uiState} worldInfo={worldInfo} toggleMenu={(m) => setActiveMenu(activeMenu === m ? 'none' : m)} />}
       {message && <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-2 rounded-full border border-yellow-500/50 animate-bounce">{message}</div>}
       
       {activeMenu !== 'none' && (
