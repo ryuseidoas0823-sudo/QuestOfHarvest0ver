@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Zap, Heart, Activity, Monitor } from 'lucide-react';
+import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Zap, Heart, Activity, Monitor, Skull, CornerUpLeft, ArrowDownCircle } from 'lucide-react';
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken, Auth } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore';
@@ -78,12 +78,13 @@ const svgToUrl = (s: string) => "data:image/svg+xml;charset=utf-8," + encodeURIC
  * SECTION 3: TYPE DEFINITIONS
  * ############################################################################
  */
-type TileType = 'grass' | 'dirt' | 'wall' | 'water' | 'floor' | 'portal_out' | 'town_entrance' | 'sand' | 'snow' | 'rock';
+// Added 'stairs_down' and 'dungeon_entrance' and 'return_portal'
+type TileType = 'grass' | 'dirt' | 'wall' | 'water' | 'floor' | 'portal_out' | 'town_entrance' | 'sand' | 'snow' | 'rock' | 'stairs_down' | 'dungeon_entrance' | 'return_portal' | 'town_floor';
 type EntityType = 'player' | 'enemy' | 'npc' | 'projectile' | 'particle' | 'text' | 'drop';
 type Job = 'Swordsman' | 'Warrior' | 'Archer' | 'Mage';
 type Gender = 'Male' | 'Female';
 type ShapeType = 'humanoid' | 'beast' | 'slime' | 'large' | 'insect' | 'ghost' | 'demon' | 'dragon' | 'flying';
-type Biome = 'Plains' | 'Forest' | 'Desert' | 'Snow' | 'Wasteland' | 'Town';
+type Biome = 'Plains' | 'Forest' | 'Desert' | 'Snow' | 'Wasteland' | 'Town' | 'Dungeon';
 type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary';
 type EquipmentType = 'Weapon' | 'Helm' | 'Armor' | 'Shield' | 'Boots';
 type WeaponStyle = 'OneHanded' | 'TwoHanded' | 'DualWield';
@@ -102,8 +103,25 @@ interface EnemyEntity extends CombatEntity { targetId?: string; detectionRange: 
 interface Particle extends Entity { life: number; maxLife: number; size: number; }
 interface FloatingText extends Entity { text: string; life: number; color: string; }
 interface Projectile extends Entity { damage: number; ownerId: string; life: number; }
-interface ChunkData { map: Tile[][]; enemies: EnemyEntity[]; droppedItems: DroppedItem[]; biome: Biome; }
-interface GameState { worldX: number; worldY: number; currentBiome: Biome; savedChunks: Record<string, ChunkData>; map: Tile[][]; player: PlayerEntity; enemies: EnemyEntity[]; droppedItems: DroppedItem[]; projectiles: Projectile[]; particles: Particle[]; floatingTexts: FloatingText[]; camera: { x: number; y: number }; gameTime: number; isPaused: boolean; wave: number; }
+interface FloorData { map: Tile[][]; enemies: EnemyEntity[]; droppedItems: DroppedItem[]; biome: Biome; level: number; }
+
+// Modified GameState for Roguelike Cycle
+interface GameState { 
+  dungeonLevel: number; // 0 = Town, 1+ = Dungeon
+  currentBiome: Biome; 
+  map: Tile[][]; 
+  player: PlayerEntity; 
+  enemies: EnemyEntity[]; 
+  droppedItems: DroppedItem[]; 
+  projectiles: Projectile[]; 
+  particles: Particle[]; 
+  floatingTexts: FloatingText[]; 
+  camera: { x: number; y: number }; 
+  gameTime: number; 
+  isPaused: boolean; 
+  // No longer saving all chunks to prevent easy backtracking. 
+  // State is transient for the current run, persists on town return/save.
+}
 
 /**
  * ############################################################################
@@ -149,7 +167,7 @@ const ENEMY_TYPES = [
   { name: 'Wolf',      hp: 35, atk: 9, spd: 4.2, color: '#757575', icon: '🐺', xp: 25, shape: 'beast',    w: 32, h: 24, vw: 48, vh: 32 },
   { name: 'Ghost',     hp: 20, atk: 7, spd: 1.0, color: '#cfd8dc', icon: '👻', xp: 28, shape: 'ghost',    w: 24, h: 24, vw: 32, vh: 40 },
 ];
-const BIOME_NAMES: Record<Biome, string> = { Plains: '平原', Forest: '森', Desert: '砂漠', Snow: '雪原', Wasteland: '荒野', Town: '街' };
+const BIOME_NAMES: Record<Biome, string> = { Plains: '平原', Forest: '森', Desert: '砂漠', Snow: '雪原', Wasteland: '荒野', Town: '街', Dungeon: 'ダンジョン' };
 
 /**
  * ############################################################################
@@ -165,7 +183,7 @@ const generateRandomItem = (level: number, rankBonus: number = 0): Item | null =
   if (type === 'Weapon') subType = (['OneHanded', 'TwoHanded', 'DualWield'] as WeaponStyle[])[Math.floor(Math.random() * 3)];
 
   const mult = RARITY_MULTIPLIERS[rarity];
-  const baseVal = level * 2;
+  const baseVal = Math.max(1, level * 2);
   const stats = { attack: 0, defense: 0, speed: 0, maxHp: 0 };
 
   if (type === 'Weapon') {
@@ -221,38 +239,95 @@ const generateEnemy = (x: number, y: number, level: number): EnemyEntity => {
   };
 };
 
-const getBiome = (wx: number, wy: number): Biome => {
-  if (wx === 0 && wy === 0) return 'Town';
-  if (wy < -1) return 'Snow';
-  if (wy > 1) return 'Desert';
-  if (Math.abs(wx) > 2) return 'Wasteland';
-  return 'Plains';
-};
-
-const generateChunk = (wx: number, wy: number): ChunkData => {
-  const biome = getBiome(wx, wy);
+// NEW: Floor Generation Logic for Roguelike
+const generateFloor = (level: number): FloorData => {
   const width = GAME_CONFIG.MAP_WIDTH;
   const height = GAME_CONFIG.MAP_HEIGHT;
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
-      let type: TileType = 'grass';
-      if (biome === 'Snow') type = 'snow'; else if (biome === 'Desert') type = 'sand'; else if (biome === 'Wasteland') type = 'dirt'; else if (biome === 'Town') type = 'floor';
-      if (biome !== 'Town' && Math.random() < 0.05) type = Math.random() > 0.5 ? 'dirt' : 'rock';
-      return { x: x * GAME_CONFIG.TILE_SIZE, y: y * GAME_CONFIG.TILE_SIZE, type, solid: false };
+      return { x: x * GAME_CONFIG.TILE_SIZE, y: y * GAME_CONFIG.TILE_SIZE, type: 'grass', solid: false };
     })
   );
+
+  const enemies: EnemyEntity[] = [];
+  const biome: Biome = level === 0 ? 'Town' : (['Dungeon', 'Plains', 'Forest', 'Wasteland', 'Snow', 'Desert'] as Biome[])[(level % 5) + 1] || 'Dungeon';
+
+  // --- Town Generation (Level 0) ---
+  if (level === 0) {
+    for(let y=0; y<height; y++) {
+      for(let x=0; x<width; x++) {
+        map[y][x].type = 'town_floor';
+        if (x===0 || x===width-1 || y===0 || y===height-1) {
+           map[y][x].type = 'wall'; map[y][x].solid = true;
+        }
+      }
+    }
+    // Dungeon Entrance
+    const cx = Math.floor(width/2), cy = Math.floor(height/2);
+    map[cy][cx].type = 'dungeon_entrance';
+    
+    // Decorations (Simulated Buildings)
+    for(let y=5; y<10; y++) for(let x=5; x<12; x++) { map[y][x].type = 'wall'; map[y][x].solid = true; } // Shop
+    for(let y=5; y<10; y++) for(let x=width-12; x<width-5; x++) { map[y][x].type = 'wall'; map[y][x].solid = true; } // Blacksmith
+    
+    return { map, enemies: [], droppedItems: [], biome: 'Town', level: 0 };
+  }
+
+  // --- Dungeon Generation (Level > 0) ---
   for(let y=0; y<height; y++) {
     for(let x=0; x<width; x++) {
-      if (biome === 'Town') {
-        if (x===0 || x===width-1 || y===0 || y===height-1) {
-          if (!((x === 0 || x === width-1) && Math.abs(y - height/2) < 3) && !((y === 0 || y === height-1) && Math.abs(x - width/2) < 3)) { map[y][x].type = 'wall'; map[y][x].solid = true; }
-        }
-      } else {
-        if (Math.random() < 0.08 && x > 2 && x < width-2 && y > 2 && y < height-2) { map[y][x].type = 'wall'; map[y][x].solid = true; }
-        if (Math.random() < 0.05 && x > 2 && x < width-2 && y > 2 && y < height-2) { map[y][x].type = 'water'; map[y][x].solid = true; }
+      // Outer walls
+      if (x===0 || x===width-1 || y===0 || y===height-1) {
+        map[y][x].type = 'wall'; map[y][x].solid = true;
+        continue;
+      }
+      // Biome specific floor
+      if (biome === 'Snow') map[y][x].type = 'snow';
+      else if (biome === 'Desert') map[y][x].type = 'sand';
+      else if (biome === 'Wasteland') map[y][x].type = 'dirt';
+      else map[y][x].type = 'floor'; // Default dungeon floor
+
+      // Random obstacles
+      if (Math.random() < 0.1) { map[y][x].type = 'wall'; map[y][x].solid = true; }
+      else if (Math.random() < 0.05) { map[y][x].type = 'water'; map[y][x].solid = true; }
+    }
+  }
+
+  // Ensure stairs down exists and is reachable (simple placement for now)
+  let stairsPlaced = false;
+  while(!stairsPlaced) {
+    const sx = Math.floor(Math.random() * (width - 4)) + 2;
+    const sy = Math.floor(Math.random() * (height - 4)) + 2;
+    if (!map[sy][sx].solid) {
+      map[sy][sx].type = 'stairs_down';
+      stairsPlaced = true;
+    }
+  }
+
+  // Return Portal every 5 levels
+  if (level % 5 === 0) {
+    let portalPlaced = false;
+    while(!portalPlaced) {
+      const px = Math.floor(Math.random() * (width - 4)) + 2;
+      const py = Math.floor(Math.random() * (height - 4)) + 2;
+      if (!map[py][px].solid && map[py][px].type !== 'stairs_down') {
+        map[py][px].type = 'return_portal';
+        portalPlaced = true;
       }
     }
   }
-  return { map, enemies: [], droppedItems: [], biome };
+
+  // Spawn Enemies
+  const enemyCount = 5 + Math.floor(level * 0.5);
+  for(let i=0; i<enemyCount; i++) {
+    let ex, ey;
+    do {
+      ex = Math.floor(Math.random() * (width - 2)) + 1;
+      ey = Math.floor(Math.random() * (height - 2)) + 1;
+    } while(map[ey][ex].solid);
+    enemies.push(generateEnemy(ex * GAME_CONFIG.TILE_SIZE, ey * GAME_CONFIG.TILE_SIZE, level));
+  }
+
+  return { map, enemies, droppedItems: [], biome, level };
 };
 
 const checkCollision = (rect1: Entity, rect2: Entity) => rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y;
@@ -261,7 +336,7 @@ const resolveMapCollision = (entity: Entity, dx: number, dy: number, map: Tile[]
   const T = GAME_CONFIG.TILE_SIZE;
   const nextX = entity.x + dx, nextY = entity.y + dy;
   const startX = Math.floor(nextX / T), endX = Math.floor((nextX + entity.width) / T), startY = Math.floor(nextY / T), endY = Math.floor((nextY + entity.height) / T);
-  if (startX < 0 || endX >= GAME_CONFIG.MAP_WIDTH || startY < 0 || endY >= GAME_CONFIG.MAP_HEIGHT) return { x: nextX, y: nextY };
+  if (startX < 0 || endX >= GAME_CONFIG.MAP_WIDTH || startY < 0 || endY >= GAME_CONFIG.MAP_HEIGHT) return { x: entity.x, y: entity.y }; // Stop at edge
   for (let y = startY; y <= endY; y++) for (let x = startX; x <= endX; x++) if (map[y]?.[x]?.solid) return { x: entity.x, y: entity.y };
   return { x: nextX, y: nextY };
 };
@@ -300,17 +375,42 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
     for (let x = startCol; x <= endCol; x++) {
       const tile = state.map[y]?.[x];
       if (!tile) continue;
-      // Added missing types: portal_out, town_entrance to fix TS error.
-      // @ts-ignore
-      ctx.fillStyle = {
-        grass:'#1b2e1b', dirt:'#3e2723', sand:'#fbc02d', snow:'#e3f2fd', 
-        rock:'#616161', wall:'#424242', water:'#1a237e', floor:'#5d4037',
-        portal_out: '#000', town_entrance: '#000'
-      }[tile.type] || '#000';
       
+      let color = '#000';
+      if (tile.type === 'grass') color = '#1b2e1b';
+      else if (tile.type === 'dirt') color = '#3e2723';
+      else if (tile.type === 'sand') color = '#fbc02d';
+      else if (tile.type === 'snow') color = '#e3f2fd';
+      else if (tile.type === 'rock') color = '#616161';
+      else if (tile.type === 'wall') color = '#424242';
+      else if (tile.type === 'water') color = '#1a237e';
+      else if (tile.type === 'floor') color = '#37474f'; // Dungeon Floor
+      else if (tile.type === 'town_floor') color = '#5d4037';
+      else if (tile.type === 'dungeon_entrance') color = '#000';
+      else if (tile.type === 'stairs_down') color = '#000';
+      else if (tile.type === 'return_portal') color = '#000';
+
+      ctx.fillStyle = color;
       ctx.fillRect(tile.x, tile.y, T, T);
       ctx.strokeStyle = 'rgba(0,0,0,0.05)'; ctx.strokeRect(tile.x, tile.y, T, T);
-      if (tile.type === 'wall') { ctx.fillStyle = '#555'; ctx.fillRect(tile.x, tile.y, T, T-4); ctx.fillStyle = '#333'; ctx.fillRect(tile.x, tile.y+T-4, T, 4); }
+
+      // Special Tile Rendering
+      if (tile.type === 'wall') { 
+        ctx.fillStyle = '#555'; ctx.fillRect(tile.x, tile.y, T, T-4); 
+        ctx.fillStyle = '#333'; ctx.fillRect(tile.x, tile.y+T-4, T, 4); 
+      }
+      if (tile.type === 'stairs_down') {
+        ctx.fillStyle = '#000'; ctx.fillRect(tile.x + 8, tile.y + 8, 16, 16);
+        ctx.strokeStyle = '#fff'; ctx.strokeRect(tile.x + 8, tile.y + 8, 16, 16);
+        ctx.fillStyle = '#fff'; ctx.font = '10px Arial'; ctx.textAlign='center'; ctx.fillText('DOWN', tile.x+16, tile.y+20);
+      }
+      if (tile.type === 'dungeon_entrance') {
+        ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(tile.x+16, tile.y+16, 12, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#f00'; ctx.font = '10px Arial'; ctx.textAlign='center'; ctx.fillText('IN', tile.x+16, tile.y+20);
+      }
+      if (tile.type === 'return_portal') {
+        ctx.fillStyle = '#00e676'; ctx.beginPath(); ctx.arc(tile.x+16, tile.y+16, 10 + Math.sin(state.gameTime/5)*2, 0, Math.PI*2); ctx.fill();
+      }
     }
   }
 
@@ -406,29 +506,22 @@ const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setResoluti
       <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl animate-float"></div>
       <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl animate-float" style={{animationDelay: '1s'}}></div>
       
-      {/* Safe Area Container (Letterboxing)
-        w-full h-full on parent ensures it fills the viewport.
-        Inside, we use aspect-video and max-width/max-height logic to constrain to 16:9.
-        m-auto centers it.
-      */}
       <div className="relative z-10 w-full h-full max-w-[177.78vh] max-h-[56.25vw] aspect-video m-auto flex flex-col items-center justify-center p-8">
-        
-        {/* Main Title Content */}
         <div className={`text-center space-y-10 animate-fade-in transition-all duration-300 w-full ${showSettings ? 'blur-sm scale-95 opacity-50' : ''}`}>
           <div className="relative">
             <h1 className="text-6xl md:text-8xl lg:text-9xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-yellow-500 to-yellow-800 drop-shadow-2xl mb-4 text-shadow-strong tracking-tighter" 
                 style={{ filter: 'drop-shadow(0 0 30px rgba(234,179,8,0.6))'}}>
               QUEST OF HARVEST
             </h1>
-            <p className="text-slate-400 tracking-[1.2em] text-sm md:text-lg uppercase font-serif mt-6 border-t border-b border-slate-700 py-3 inline-block bg-black/20 backdrop-blur-sm px-8 rounded-full">
-              Reborn Edition
+            <p className="text-red-400 tracking-[1.2em] text-sm md:text-lg uppercase font-serif mt-6 border-t border-b border-red-900 py-3 inline-block bg-black/40 backdrop-blur-sm px-8 rounded-full">
+              Roguelike Edition
             </p>
           </div>
 
           <div className="flex flex-col gap-4 w-80 md:w-96 mx-auto">
-            <button onClick={onStart} className="group relative flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-slate-800/90 to-slate-900/90 border-2 border-yellow-700/50 hover:border-yellow-400 hover:from-slate-800 hover:to-slate-800 transition-all duration-300 text-yellow-100 font-black tracking-widest uppercase text-lg shadow-lg hover:shadow-yellow-500/20 transform hover:-translate-y-1">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-400/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-              <Play size={24} className="group-hover:text-yellow-400 transition-colors" />
+            <button onClick={onStart} className="group relative flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-red-900/90 to-black/90 border-2 border-red-700/50 hover:border-red-500 transition-all duration-300 text-red-100 font-black tracking-widest uppercase text-lg shadow-lg hover:shadow-red-500/20 transform hover:-translate-y-1">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-red-600/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+              <Play size={24} className="group-hover:text-red-400 transition-colors" />
               <span>New Game</span>
             </button>
             
@@ -444,7 +537,6 @@ const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setResoluti
           </div>
         </div>
 
-        {/* Settings Modal Overlay - Placed absolutely within the safe container so it scales with it */}
         {showSettings && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-fade-in">
             <div className="bg-slate-900 p-8 rounded-xl border-2 border-slate-600 w-[400px] shadow-2xl transform scale-100 transition-all">
@@ -500,7 +592,7 @@ const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setResoluti
   );
 };
 
-// Job Select Screen Component
+// Job Select Screen Component (Unchanged mostly)
 const JobSelectScreen = ({ onBack, onSelect, loadedAssets }: { onBack: () => void, onSelect: (job: Job, gender: Gender) => void, loadedAssets: Record<string, HTMLImageElement> }) => {
   const [selectedGender, setSelectedGender] = useState<Gender>('Male');
   const [selectedJob, setSelectedJob] = useState<Job>('Swordsman');
@@ -558,12 +650,14 @@ const JobSelectScreen = ({ onBack, onSelect, loadedAssets }: { onBack: () => voi
 };
 
 // Game HUD Component
-const GameHUD = ({ uiState, worldInfo, toggleMenu }: { uiState: PlayerEntity, worldInfo: {x:number, y:number, biome:Biome}, toggleMenu: (m: MenuType) => void }) => (
+const GameHUD = ({ uiState, dungeonLevel, toggleMenu }: { uiState: PlayerEntity, dungeonLevel: number, toggleMenu: (m: MenuType) => void }) => (
   <>
     <div className="absolute top-4 right-20 flex gap-4 text-white pointer-events-none">
        <div className="bg-slate-900/80 px-4 py-2 rounded border border-slate-700 flex items-center gap-2">
-          <Compass size={16} className="text-yellow-500" />
-          <span className="font-mono">{BIOME_NAMES[worldInfo.biome] || worldInfo.biome} ({worldInfo.x}, {worldInfo.y})</span>
+          {dungeonLevel === 0 ? <Compass size={16} className="text-yellow-500" /> : <ArrowDownCircle size={16} className="text-red-500" />}
+          <span className="font-mono font-bold text-lg">
+            {dungeonLevel === 0 ? "Town of Beginnings" : `Floor B${dungeonLevel}`}
+          </span>
        </div>
     </div>
 
@@ -644,11 +738,11 @@ export default function App() {
   const reqRef = useRef<number>();
   const input = useRef({ keys: {} as Record<string, boolean>, mouse: {x:0, y:0, down: false} });
   const [uiState, setUiState] = useState<PlayerEntity | null>(null);
-  const [worldInfo, setWorldInfo] = useState<{x:number, y:number, biome:Biome}>({x:0, y:0, biome:'Town'});
+  const [dungeonLevel, setDungeonLevel] = useState(0);
   const [activeMenu, setActiveMenu] = useState<MenuType>('none');
   const [message, setMessage] = useState<string | null>(null);
   const [viewportSize, setViewportSize] = useState({ width: 800, height: 600 });
-  const [resolution, setResolution] = useState<ResolutionMode>('auto'); // Added resolution state
+  const [resolution, setResolution] = useState<ResolutionMode>('auto'); 
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -689,9 +783,6 @@ export default function App() {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token); else await signInAnonymously(auth);
       } catch (e: any) {
         console.warn("Firebase Auth Failed:", e.message);
-        if (e.code === 'auth/configuration-not-found') {
-            console.info("NOTE: Firebase Authenticationで「匿名」プロバイダが有効になっていない可能性があります。");
-        }
         setLoadingMessage("オフラインモードで起動します...");
         setTimeout(() => setScreen('title'), 1500);
       }
@@ -733,7 +824,7 @@ export default function App() {
       window.removeEventListener('mousedown', handleMouseInput); window.removeEventListener('mouseup', handleMouseInput); window.removeEventListener('mousemove', handleMouseInput);
       if (reqRef.current) cancelAnimationFrame(reqRef.current);
     };
-  }, [resolution]); // Added resolution dependency
+  }, [resolution]);
 
   // --- Game Functions ---
   const checkSaveData = async (uid: string) => {
@@ -746,34 +837,93 @@ export default function App() {
   };
 
   const startGame = (job: Job, gender: Gender = 'Male', load = false) => {
-    let player: PlayerEntity, worldX = 0, worldY = 0, savedChunks = {};
+    let player: PlayerEntity, dungeonLevel = 0;
     if (load && saveData) {
-      player = { ...saveData.player }; worldX = saveData.worldX; worldY = saveData.worldY; savedChunks = saveData.savedChunks || {}; updatePlayerStats(player);
+      player = { ...saveData.player };
+      // Always start in town upon load to prevent getting stuck
+      dungeonLevel = 0; 
+      updatePlayerStats(player);
     } else {
       player = createPlayer(job, gender); updatePlayerStats(player);
-      player.x = (GAME_CONFIG.MAP_WIDTH * GAME_CONFIG.TILE_SIZE) / 2; player.y = (GAME_CONFIG.MAP_HEIGHT * GAME_CONFIG.TILE_SIZE) / 2;
       const starterSword = generateRandomItem(1); 
       if(starterSword) { starterSword.name = "錆びた剣"; starterSword.type = 'Weapon'; starterSword.subType = 'OneHanded'; player.inventory.push(starterSword); }
     }
-    const chunkKey = `${worldX},${worldY}`;
-    // @ts-ignore
-    const initialChunk = savedChunks[chunkKey] || generateChunk(worldX, worldY);
+    
+    const floorData = generateFloor(dungeonLevel);
+    // Center player in town or random safe spot in dungeon
+    player.x = (GAME_CONFIG.MAP_WIDTH * GAME_CONFIG.TILE_SIZE) / 2;
+    player.y = (GAME_CONFIG.MAP_HEIGHT * GAME_CONFIG.TILE_SIZE) / 2;
+
     gameState.current = {
-      worldX, worldY, currentBiome: initialChunk.biome, savedChunks, map: initialChunk.map, player, enemies: initialChunk.enemies, droppedItems: initialChunk.droppedItems,
-      projectiles: [], particles: [], floatingTexts: [], camera: { x: 0, y: 0 }, gameTime: 0, isPaused: false, wave: 1
+      dungeonLevel,
+      currentBiome: floorData.biome,
+      map: floorData.map,
+      player,
+      enemies: floorData.enemies,
+      droppedItems: floorData.droppedItems,
+      projectiles: [], particles: [], floatingTexts: [],
+      camera: { x: 0, y: 0 }, gameTime: 0, isPaused: false
     };
+    setDungeonLevel(dungeonLevel);
     setScreen('game');
   };
 
-  const switchChunk = (dx: number, dy: number) => {
+  const transitionLevel = (newLevel: number) => {
     if (!gameState.current) return;
     const state = gameState.current;
-    state.savedChunks[`${state.worldX},${state.worldY}`] = { map: state.map, enemies: state.enemies, droppedItems: state.droppedItems, biome: state.currentBiome };
-    state.worldX += dx; state.worldY += dy;
-    const nextChunk = state.savedChunks[`${state.worldX},${state.worldY}`] || generateChunk(state.worldX, state.worldY);
-    state.map = nextChunk.map; state.enemies = nextChunk.enemies; state.droppedItems = nextChunk.droppedItems; state.currentBiome = nextChunk.biome; state.projectiles = [];
-    setWorldInfo({x: state.worldX, y: state.worldY, biome: state.currentBiome});
-    setMessage(`エリア移動：${BIOME_NAMES[state.currentBiome] || state.currentBiome}`); setTimeout(() => setMessage(null), 2000);
+    
+    // Generate new floor
+    const floorData = generateFloor(newLevel);
+    
+    state.dungeonLevel = newLevel;
+    state.currentBiome = floorData.biome;
+    state.map = floorData.map;
+    state.enemies = floorData.enemies;
+    state.droppedItems = floorData.droppedItems;
+    state.projectiles = [];
+    state.particles = [];
+    
+    // Position player
+    if (newLevel === 0) {
+      // Return to town center
+      state.player.x = (GAME_CONFIG.MAP_WIDTH * GAME_CONFIG.TILE_SIZE) / 2;
+      state.player.y = (GAME_CONFIG.MAP_HEIGHT * GAME_CONFIG.TILE_SIZE) / 2;
+      setMessage("街に戻りました。");
+    } else {
+      // Find a safe spot in dungeon
+      let px, py;
+      do {
+         px = Math.floor(Math.random() * (GAME_CONFIG.MAP_WIDTH - 2)) + 1;
+         py = Math.floor(Math.random() * (GAME_CONFIG.MAP_HEIGHT - 2)) + 1;
+      } while (state.map[py][px].solid);
+      state.player.x = px * GAME_CONFIG.TILE_SIZE;
+      state.player.y = py * GAME_CONFIG.TILE_SIZE;
+      setMessage(`B${newLevel}F に到達！`);
+    }
+    
+    setDungeonLevel(newLevel);
+    setTimeout(() => setMessage(null), 3000);
+  };
+
+  const handleDeath = () => {
+    if (!gameState.current) return;
+    const p = gameState.current.player;
+    
+    // 1. Loss Penalty
+    p.inventory = [];
+    p.equipment = {};
+    p.gold = Math.floor(p.gold / 2);
+    p.xp = 0; // Optional: Reset XP progress
+    p.hp = p.maxHp;
+    
+    updatePlayerStats(p); // Re-calc stats without equipment
+    
+    // 2. Return to Town
+    transitionLevel(0);
+    
+    // 3. UI Feedback
+    setMessage("YOU DIED - 全アイテムを失いました");
+    setTimeout(() => setMessage(null), 5000);
   };
 
   // --- Game Loop ---
@@ -794,12 +944,24 @@ export default function App() {
 
       if (dx !== 0 || dy !== 0) {
         const nextPos = resolveMapCollision(p, dx, dy, state.map); p.x = nextPos.x; p.y = nextPos.y;
-        const maxX = GAME_CONFIG.MAP_WIDTH * GAME_CONFIG.TILE_SIZE, maxY = GAME_CONFIG.MAP_HEIGHT * GAME_CONFIG.TILE_SIZE;
-        if (p.x < -10) { switchChunk(-1, 0); p.x = maxX - 40; } else if (p.x > maxX - 10) { switchChunk(1, 0); p.x = 20; }
-        else if (p.y < -10) { switchChunk(0, -1); p.y = maxY - 40; } else if (p.y > maxY - 10) { switchChunk(0, 1); p.y = 20; }
       }
 
-      // Collisions & Interaction
+      // Tile Interaction (Stairs / Portals)
+      const cx = Math.floor((p.x + p.width/2) / GAME_CONFIG.TILE_SIZE);
+      const cy = Math.floor((p.y + p.height/2) / GAME_CONFIG.TILE_SIZE);
+      const currentTile = state.map[cy]?.[cx];
+      
+      if (currentTile) {
+        if (currentTile.type === 'dungeon_entrance') {
+           transitionLevel(1);
+        } else if (currentTile.type === 'stairs_down') {
+           transitionLevel(state.dungeonLevel + 1);
+        } else if (currentTile.type === 'return_portal') {
+           transitionLevel(0);
+        }
+      }
+
+      // Collisions & Interaction (Drops)
       state.droppedItems.forEach(drop => {
         if (checkCollision(p, drop)) {
           drop.dead = true; p.inventory.push(drop.item);
@@ -819,7 +981,7 @@ export default function App() {
             state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#fff', type: 'text', dead: false, text: `-${dmg}`, life: 30 });
             const angle = Math.atan2(e.y - p.y, e.x - p.x); e.x += Math.cos(angle) * 10; e.y += Math.sin(angle) * 10;
             if (e.hp <= 0) {
-              e.dead = true; p.xp += e.xpValue; p.gold += Math.floor(Math.random() * 5) + 1;
+              e.dead = true; p.xp += e.xpValue; p.gold += Math.floor(Math.random() * 5 * (state.dungeonLevel || 1)) + 1;
               state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#ffd700', type: 'text', dead: false, text: `+${e.xpValue} XP`, life: 45 });
               if (p.xp >= p.nextLevelXp) {
                 p.level++; p.xp -= p.nextLevelXp; p.nextLevelXp = Math.floor(p.nextLevelXp * 1.5); p.statPoints += 3; updatePlayerStats(p); p.hp = p.maxHp;
@@ -828,7 +990,7 @@ export default function App() {
               }
               const dropChance = GAME_CONFIG.BASE_DROP_RATE * (e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 1);
               if (Math.random() < dropChance) {
-                const item = generateRandomItem(e.level, e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 0);
+                const item = generateRandomItem(state.dungeonLevel || 1, e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 0);
                 if (item) state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: e.x, y: e.y, width: 32, height: 32, color: item.color, item, life: 3000, bounceOffset: Math.random() * 10, dead: false });
               }
             }
@@ -848,16 +1010,14 @@ export default function App() {
           if (dist < 40 && now - e.lastAttackTime > e.attackCooldown) {
             e.lastAttackTime = now; const dmg = Math.max(1, Math.floor(e.attack - p.defense/2)); p.hp -= dmg;
             state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y, width:0, height:0, color: '#ff0000', type: 'text', dead: false, text: `-${dmg}`, life: 30 });
-            if (p.hp <= 0) { p.hp = p.maxHp; state.worldX=0; state.worldY=0; switchChunk(-state.worldX, -state.worldY); p.x=(GAME_CONFIG.MAP_WIDTH*32)/2; p.y=(GAME_CONFIG.MAP_HEIGHT*32)/2; setMessage("死んでしまった！街で復活します。"); setTimeout(() => setMessage(null), 3000); }
+            if (p.hp <= 0) { 
+              handleDeath();
+            }
           }
         }
       });
 
-      // Spawning & Cleanup
-      if (state.currentBiome !== 'Town' && state.enemies.length < 15 && Math.random() < GAME_CONFIG.ENEMY_SPAWN_RATE) {
-        let sx, sy, dist; do { sx = Math.random() * (GAME_CONFIG.MAP_WIDTH * 32); sy = Math.random() * (GAME_CONFIG.MAP_HEIGHT * 32); dist = Math.sqrt((sx - p.x)**2 + (sy - p.y)**2); } while (dist < 500);
-        state.enemies.push(generateEnemy(sx, sy, state.wave + Math.abs(state.worldX) + Math.abs(state.worldY)));
-      }
+      // Cleanup
       state.enemies = state.enemies.filter(e => !e.dead); state.droppedItems = state.droppedItems.filter(d => !d.dead);
       state.floatingTexts.forEach(t => { t.y -= 0.5; t.life--; }); state.floatingTexts = state.floatingTexts.filter(t => t.life > 0);
     }
@@ -871,7 +1031,13 @@ export default function App() {
   const saveGame = async () => {
     if (!gameState.current || !user || !db) return;
     setIsSaving(true);
-    const data = { player: gameState.current.player, worldX: gameState.current.worldX, worldY: gameState.current.worldY, savedChunks: gameState.current.savedChunks, wave: gameState.current.wave };
+    // Only save persistent player data. Map state is lost on save/exit (Roguelike style)
+    const data = { 
+      player: gameState.current.player, 
+      // We save dungeon level if we want to allow resuming on the same floor, 
+      // OR reset to 0 to force town return on load. Let's allow resume for now.
+      dungeonLevel: gameState.current.dungeonLevel
+    };
     try { await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'saves', 'slot1'), data); setSaveData(data); setMessage("クラウドに保存しました！"); } catch(e) { console.error("Save failed", e); setMessage("保存に失敗しました！"); } finally { setIsSaving(false); setTimeout(() => setMessage(null), 2000); }
   };
 
@@ -922,8 +1088,8 @@ export default function App() {
   return (
     <div className="w-full h-screen bg-black flex items-center justify-center overflow-hidden relative" onContextMenu={e => e.preventDefault()}>
       <canvas ref={canvasRef} width={viewportSize.width} height={viewportSize.height} className="bg-black shadow-2xl cursor-crosshair" />
-      {uiState && <GameHUD uiState={uiState} worldInfo={worldInfo} toggleMenu={(m) => setActiveMenu(activeMenu === m ? 'none' : m)} />}
-      {message && <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-2 rounded-full border border-yellow-500/50 animate-bounce">{message}</div>}
+      {uiState && <GameHUD uiState={uiState} dungeonLevel={dungeonLevel} toggleMenu={(m) => setActiveMenu(activeMenu === m ? 'none' : m)} />}
+      {message && <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-2 rounded-full border border-yellow-500/50 animate-bounce text-center whitespace-nowrap">{message}</div>}
       
       {activeMenu !== 'none' && (
         <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50 p-8">
@@ -982,7 +1148,7 @@ export default function App() {
           {activeMenu === 'inventory' && uiState && <InventoryMenu uiState={uiState} onEquip={handleEquip} onUnequip={handleUnequip} onClose={() => setActiveMenu('none')} />}
         </div>
       )}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.8.0</div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest: Roguelike Edition v2.0</div>
     </div>
   );
 }
