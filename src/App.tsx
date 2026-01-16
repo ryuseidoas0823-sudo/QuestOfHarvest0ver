@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Zap, Heart, Activity, Monitor, ArrowDownCircle, Droplets, Wind } from 'lucide-react';
+import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Zap, Heart, Activity, Monitor, ArrowDownCircle, Droplets, Wind, Flame } from 'lucide-react';
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken, Auth } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore';
@@ -69,7 +69,8 @@ const ASSETS_SVG = {
   Archer_Male: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" /><path d="M5 2h6v4H5z" fill="#33691e" /><path d="M5 5h6v3H5z" fill="#ffccaa" /><path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" /><path d="M5 8h6v5H5z" fill="#558b2f" /><path d="M6 9h4v3H6z" fill="#7cb342" /><path d="M5 13h2v3H5zm4 0h2v3H9z" fill="#3e2723" /><path d="M12 6h1v6h-1z" fill="#8d6e63" /><path d="M12 6h-1v1h1zm-1 5h1v1h-1z" fill="#8d6e63" /></svg>`,
   Archer_Female: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" /><path d="M5 2h6v3H5z" fill="#a1887f" /><path d="M11 3h2v3h-2z" fill="#a1887f" /><path d="M5 5h6v3H5z" fill="#ffccaa" /><path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" /><path d="M5 8h6v4H5z" fill="#33691e" /><path d="M5 12h2v4H5zm4 0h2v4H9z" fill="#5d4037" /><path d="M12 6h1v6h-1z" fill="#8d6e63" /><path d="M12 6h-1v1h1zm-1 5h1v1h-1z" fill="#8d6e63" /></svg>`,
   Mage_Male: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" /><path d="M4 4h8v1H4z" fill="#311b92" /><path d="M5 1h6v3H5z" fill="#311b92" /><path d="M5 5h6v3H5z" fill="#ffccaa" /><path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" /><path d="M4 8h8v6H4z" fill="#4527a0" /><path d="M6 8h4v6H6z" fill="#673ab7" /><path d="M13 5h1v8h-1z" fill="#8d6e63" /><path d="M12 4h3v1h-3z" fill="#ffeb3b" /></svg>`,
-  Mage_Female: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" /><path d="M3 4h10v1H3z" fill="#ad1457" /><path d="M5 1h6v3H5z" fill="#ad1457" /><path d="M4 5h8v4H4z" fill="#f48fb1" /><path d="M5 5h6v3H5z" fill="#ffccaa" /><path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" /><path d="M5 8h6v6H5z" fill="#880e4f" /><path d="M13 5h1v8h-1z" fill="#8d6e63" /><path d="M12 4h3v1h-3z" fill="#00e676" /></svg>`
+  Mage_Female: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" /><path d="M3 4h10v1H3z" fill="#ad1457" /><path d="M5 1h6v3H5z" fill="#ad1457" /><path d="M4 5h8v4H4z" fill="#f48fb1" /><path d="M5 5h6v3H5z" fill="#ffccaa" /><path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" /><path d="M5 8h6v6H5z" fill="#880e4f" /><path d="M13 5h1v8h-1z" fill="#8d6e63" /><path d="M12 4h3v1h-3z" fill="#00e676" /></svg>`,
+  Torch: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M6 8h4v8H6z" fill="#5d4037" /><path d="M7 6h2v2H7z" fill="#ffeb3b" /><path d="M6 4h4v3H6z" fill="#ff9800" opacity="0.8" /><path d="M7 2h2v4H7z" fill="#ff5722" opacity="0.8" /></svg>`
 };
 const svgToUrl = (s: string) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(s.trim());
 
@@ -85,18 +86,21 @@ type Gender = 'Male' | 'Female';
 type ShapeType = 'humanoid' | 'beast' | 'slime' | 'large' | 'insect' | 'ghost' | 'demon' | 'dragon' | 'flying';
 type Biome = 'Plains' | 'Forest' | 'Desert' | 'Snow' | 'Wasteland' | 'Town' | 'Dungeon';
 type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary';
-type EquipmentType = 'Weapon' | 'Helm' | 'Armor' | 'Shield' | 'Boots';
+type EquipmentType = 'Weapon' | 'Helm' | 'Armor' | 'Shield' | 'Boots' | 'Consumable'; // Added Consumable
 type WeaponStyle = 'OneHanded' | 'TwoHanded' | 'DualWield';
 type MenuType = 'none' | 'status' | 'inventory' | 'stats' | 'level_up'; 
 type ResolutionMode = 'auto' | '800x600' | '1024x768' | '1280x720';
 
 interface Tile { x: number; y: number; type: TileType; solid: boolean; }
 interface Enchantment { type: 'Attack' | 'Defense' | 'Speed' | 'MaxHp'; value: number; strength: 'Weak' | 'Medium' | 'Strong'; name: string; }
-interface Item { id: string; name: string; type: EquipmentType; subType?: WeaponStyle; rarity: Rarity; level: number; stats: { attack: number; defense: number; speed: number; maxHp: number; }; enchantments: Enchantment[]; icon: string; color: string; }
+interface Item { id: string; name: string; type: EquipmentType; subType?: WeaponStyle; rarity: Rarity; level: number; stats: { attack: number; defense: number; speed: number; maxHp: number; }; enchantments: Enchantment[]; icon: string; color: string; count?: number; }
 interface Entity { id: string; x: number; y: number; width: number; height: number; visualWidth?: number; visualHeight?: number; color: string; type: EntityType; dead: boolean; vx?: number; vy?: number; }
 interface DroppedItem extends Entity { type: 'drop'; item: Item; life: number; bounceOffset: number; }
 interface CombatEntity extends Entity { hp: number; maxHp: number; level: number; attack: number; defense: number; speed: number; lastAttackTime: number; attackCooldown: number; isAttacking?: boolean; direction: number; shape?: ShapeType; }
 interface Attributes { vitality: number; strength: number; dexterity: number; intelligence: number; endurance: number; }
+
+// --- PHASE 3: LIGHT & STAMINA ---
+interface LightSource { x: number; y: number; radius: number; flicker: boolean; color: string; }
 
 // --- PHASE 2: NEW PERK TYPES ---
 interface PerkData {
@@ -113,15 +117,19 @@ interface PlayerEntity extends CombatEntity {
   attributes: Attributes; 
   inventory: Item[]; 
   equipment: { mainHand?: Item; offHand?: Item; helm?: Item; armor?: Item; boots?: Item; }; 
-  calculatedStats: { maxHp: number; maxMp: number; attack: number; defense: number; speed: number; };
-  perks: string[]; // List of Acquired Perk IDs
+  calculatedStats: { maxHp: number; maxMp: number; attack: number; defense: number; speed: number; maxStamina: number; staminaRegen: number; };
+  perks: string[];
+  
+  // Phase 3: Stamina
+  stamina: number; 
+  lastStaminaUse: number;
 }
 
 interface EnemyEntity extends CombatEntity { targetId?: string; detectionRange: number; race: string; xpValue: number; rank: 'Normal' | 'Elite' | 'Boss'; }
 interface Particle extends Entity { life: number; maxLife: number; size: number; }
 interface FloatingText extends Entity { text: string; life: number; color: string; }
 interface Projectile extends Entity { damage: number; ownerId: string; life: number; }
-interface FloorData { map: Tile[][]; enemies: EnemyEntity[]; droppedItems: DroppedItem[]; biome: Biome; level: number; }
+interface FloorData { map: Tile[][]; enemies: EnemyEntity[]; droppedItems: DroppedItem[]; biome: Biome; level: number; lights: LightSource[]; }
 
 interface GameState { 
   dungeonLevel: number; 
@@ -136,7 +144,8 @@ interface GameState {
   camera: { x: number; y: number }; 
   gameTime: number; 
   isPaused: boolean; 
-  levelUpOptions: PerkData[] | null; // For Level Up Modal
+  levelUpOptions: PerkData[] | null;
+  lights: LightSource[]; // Placed torches + dynamic lights
 }
 
 /**
@@ -146,6 +155,9 @@ interface GameState {
  */
 const GAME_CONFIG = {
   TILE_SIZE: 32, MAP_WIDTH: 40, MAP_HEIGHT: 30, PLAYER_SPEED: 5, ENEMY_SPAWN_RATE: 0.02, BASE_DROP_RATE: 0.2,
+  STAMINA_ATTACK_COST: 15,
+  STAMINA_DASH_COST: 1, // Per frame while dashing
+  STAMINA_REGEN: 0.5,
 };
 
 const THEME = {
@@ -157,8 +169,8 @@ const THEME = {
 
 const RARITY_MULTIPLIERS = { Common: 1.0, Uncommon: 1.2, Rare: 1.5, Epic: 2.0, Legendary: 3.0 };
 const ENCHANT_SLOTS = { Common: 0, Uncommon: 1, Rare: 2, Epic: 3, Legendary: 5 };
-const ITEM_BASE_NAMES = { Weapon: { OneHanded: '剣', TwoHanded: '大剣', DualWield: '双剣' }, Helm: '兜', Armor: '板金鎧', Shield: '盾', Boots: '具足' };
-const ICONS = { Weapon: { OneHanded: '⚔️', TwoHanded: '🗡️', DualWield: '⚔️' }, Helm: '🪖', Armor: '🛡️', Shield: '🛡️', Boots: '👢' };
+const ITEM_BASE_NAMES = { Weapon: { OneHanded: '剣', TwoHanded: '大剣', DualWield: '双剣' }, Helm: '兜', Armor: '板金鎧', Shield: '盾', Boots: '具足', Consumable: '道具' };
+const ICONS = { Weapon: { OneHanded: '⚔️', TwoHanded: '🗡️', DualWield: '⚔️' }, Helm: '🪖', Armor: '🛡️', Shield: '🛡️', Boots: '👢', Consumable: '🎒' };
 
 // --- PHASE 2: PERK DEFINITIONS ---
 const PERK_DEFINITIONS: Record<string, PerkData> = {
@@ -193,6 +205,7 @@ const ENEMY_TYPES = [
   { name: 'Wolf',      hp: 35, atk: 9, spd: 4.2, color: '#757575', icon: '🐺', xp: 25, shape: 'beast',    w: 32, h: 24, vw: 48, vh: 32 },
   { name: 'Ghost',     hp: 20, atk: 7, spd: 1.0, color: '#cfd8dc', icon: '👻', xp: 28, shape: 'ghost',    w: 24, h: 24, vw: 32, vh: 40 },
 ];
+const BIOME_NAMES: Record<Biome, string> = { Plains: '平原', Forest: '森', Desert: '砂漠', Snow: '雪原', Wasteland: '荒野', Town: '街', Dungeon: 'ダンジョン' };
 
 /**
  * ############################################################################
@@ -201,6 +214,15 @@ const ENEMY_TYPES = [
  */
 const generateRandomItem = (level: number, rankBonus: number = 0): Item | null => {
   let roll = Math.random() * 100 - rankBonus * 5;
+  
+  // Phase 3: Chance for Torch
+  if (Math.random() < 0.15) {
+      return { 
+          id: crypto.randomUUID(), name: "松明", type: "Consumable", rarity: "Common", level: 1, 
+          stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🔥", color: "#ff9800", count: 1
+      };
+  }
+
   let rarity: Rarity = roll < 1 ? 'Legendary' : roll < 5 ? 'Epic' : roll < 15 ? 'Rare' : roll < 40 ? 'Uncommon' : 'Common';
   const types: EquipmentType[] = ['Weapon', 'Helm', 'Armor', 'Shield', 'Boots'];
   const type = types[Math.floor(Math.random() * types.length)];
@@ -245,8 +267,9 @@ const createPlayer = (job: Job, gender: Gender): PlayerEntity => {
   return {
     id: 'player', type: 'player', x: 0, y: 0, width: 20, height: 20, visualWidth: 32, visualHeight: 56, color: THEME.colors.player, job, gender, shape: 'humanoid',
     hp: 100, maxHp: 100, mp: 50, maxMp: 50, attack: 10, defense: 0, speed: 4, level: 1, xp: 0, nextLevelXp: 100, gold: 0, statPoints: 0, attributes: { ...baseAttrs },
-    dead: false, lastAttackTime: 0, attackCooldown: 500, direction: 1, inventory: [], equipment: {}, calculatedStats: { maxHp: 100, maxMp: 50, attack: 10, defense: 0, speed: 4 },
-    perks: [] 
+    dead: false, lastAttackTime: 0, attackCooldown: 500, direction: 1, inventory: [], equipment: {}, calculatedStats: { maxHp: 100, maxMp: 50, attack: 10, defense: 0, speed: 4, maxStamina: 100, staminaRegen: 0.5 },
+    perks: [],
+    stamina: 100, lastStaminaUse: 0
   };
 };
 
@@ -274,6 +297,7 @@ const generateFloor = (level: number): FloorData => {
   );
 
   const enemies: EnemyEntity[] = [];
+  const lights: LightSource[] = []; // Phase 3: Static lights
   const biome: Biome = level === 0 ? 'Town' : (['Dungeon', 'Plains', 'Forest', 'Wasteland', 'Snow', 'Desert'] as Biome[])[(level % 5) + 1] || 'Dungeon';
 
   // --- Town Generation (Level 0) ---
@@ -288,9 +312,11 @@ const generateFloor = (level: number): FloorData => {
     }
     const cx = Math.floor(width/2), cy = Math.floor(height/2);
     map[cy][cx].type = 'dungeon_entrance';
+    lights.push({ x: cx * 32 + 16, y: cy * 32 + 16, radius: 150, flicker: true, color: '#f59e0b' });
+
     for(let y=5; y<10; y++) for(let x=5; x<12; x++) { map[y][x].type = 'wall'; map[y][x].solid = true; } // Shop
     for(let y=5; y<10; y++) for(let x=width-12; x<width-5; x++) { map[y][x].type = 'wall'; map[y][x].solid = true; } // Blacksmith
-    return { map, enemies: [], droppedItems: [], biome: 'Town', level: 0 };
+    return { map, enemies: [], droppedItems: [], biome: 'Town', level: 0, lights };
   }
 
   // --- Dungeon Generation (Level > 0) ---
@@ -313,7 +339,11 @@ const generateFloor = (level: number): FloorData => {
   while(!stairsPlaced) {
     const sx = Math.floor(Math.random() * (width - 4)) + 2;
     const sy = Math.floor(Math.random() * (height - 4)) + 2;
-    if (!map[sy][sx].solid) { map[sy][sx].type = 'stairs_down'; stairsPlaced = true; }
+    if (!map[sy][sx].solid) { 
+        map[sy][sx].type = 'stairs_down'; 
+        lights.push({ x: sx * 32 + 16, y: sy * 32 + 16, radius: 100, flicker: false, color: '#ffffff' });
+        stairsPlaced = true; 
+    }
   }
 
   if (level % 5 === 0) {
@@ -321,7 +351,11 @@ const generateFloor = (level: number): FloorData => {
     while(!portalPlaced) {
       const px = Math.floor(Math.random() * (width - 4)) + 2;
       const py = Math.floor(Math.random() * (height - 4)) + 2;
-      if (!map[py][px].solid && map[py][px].type !== 'stairs_down') { map[py][px].type = 'return_portal'; portalPlaced = true; }
+      if (!map[py][px].solid && map[py][px].type !== 'stairs_down') { 
+          map[py][px].type = 'return_portal'; 
+          lights.push({ x: px * 32 + 16, y: py * 32 + 16, radius: 120, flicker: true, color: '#00e676' });
+          portalPlaced = true; 
+      }
     }
   }
 
@@ -332,7 +366,7 @@ const generateFloor = (level: number): FloorData => {
     enemies.push(generateEnemy(ex * GAME_CONFIG.TILE_SIZE, ey * GAME_CONFIG.TILE_SIZE, level));
   }
 
-  return { map, enemies, droppedItems: [], biome, level };
+  return { map, enemies, droppedItems: [], biome, level, lights };
 };
 
 const checkCollision = (rect1: Entity, rect2: Entity) => rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y;
@@ -358,7 +392,11 @@ const updatePlayerStats = (player: PlayerEntity) => {
   if (player.perks.includes('vitality_boost')) maxHp += 20;
   if (player.perks.includes('swift_step')) baseSpd *= 1.1;
 
-  player.calculatedStats = { maxHp: maxHp + equipHp, maxMp: maxMp, attack: baseAtk + equipAtk, defense: baseDef + equipDef, speed: baseSpd + equipSpd };
+  // Phase 3: Stamina Stats
+  let maxStamina = 100 + (attr.endurance * 2);
+  let staminaRegen = GAME_CONFIG.STAMINA_REGEN + (attr.endurance * 0.05);
+
+  player.calculatedStats = { maxHp: maxHp + equipHp, maxMp: maxMp, attack: baseAtk + equipAtk, defense: baseDef + equipDef, speed: baseSpd + equipSpd, maxStamina, staminaRegen };
   Object.assign(player, player.calculatedStats);
   if (player.hp > player.maxHp) player.hp = player.maxHp; if (player.mp > player.maxMp) player.mp = player.maxMp;
 };
@@ -371,7 +409,9 @@ const updatePlayerStats = (player: PlayerEntity) => {
 const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Record<string, HTMLImageElement>) => {
   const { width, height } = ctx.canvas;
   const T = GAME_CONFIG.TILE_SIZE;
+  // Clear Canvas
   ctx.fillStyle = '#111'; ctx.fillRect(0, 0, width, height);
+  
   ctx.save();
   const camX = Math.floor(state.player.x + state.player.width/2 - width/2);
   const camY = Math.floor(state.player.y + state.player.height/2 - height/2);
@@ -383,6 +423,7 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
   const startRow = Math.max(0, Math.floor(camY / T));
   const endRow = Math.min(GAME_CONFIG.MAP_HEIGHT - 1, startRow + (height / T) + 1);
 
+  // --- Layer 1: World ---
   for (let y = startRow; y <= endRow; y++) {
     for (let x = startCol; x <= endCol; x++) {
       const tile = state.map[y]?.[x];
@@ -413,12 +454,24 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
     }
   }
 
+  // --- Layer 2: Entities & Objects ---
   state.droppedItems.forEach(drop => {
     const bob = Math.sin(state.gameTime / 10) * 5 + drop.bounceOffset;
     ctx.shadowColor = drop.item.color; ctx.shadowBlur = 10;
     ctx.fillStyle = '#8d6e63'; ctx.fillRect(drop.x + 8, drop.y + 8 + bob, 16, 16);
     ctx.fillStyle = drop.item.color; ctx.fillRect(drop.x + 8, drop.y + 12 + bob, 16, 4);
     ctx.font = '16px Arial'; ctx.textAlign = 'center'; ctx.fillText(drop.item.icon, drop.x + 16, drop.y + 4 + bob); ctx.shadowBlur = 0;
+  });
+
+  // Render Placed Torches (Using particles logic or just drawing them)
+  // For simplicity, drawn directly. In lights array we have their positions.
+  state.lights.forEach(l => {
+      // Only draw torch graphic if it's not a special tile light
+      if (l.color === '#ff9800') { // Torch color
+          const flick = l.flicker ? Math.random() * 2 : 0;
+          ctx.fillStyle = '#5d4037'; ctx.fillRect(l.x - 2, l.y, 4, 10); // stick
+          ctx.fillStyle = '#ffeb3b'; ctx.beginPath(); ctx.arc(l.x, l.y, 4 + flick, 0, Math.PI*2); ctx.fill();
+      }
   });
 
   const renderCharacter = (e: CombatEntity, icon?: string) => {
@@ -477,6 +530,42 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
     ctx.font = 'bold 16px monospace'; ctx.fillStyle = 'black'; ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.textAlign = 'center';
     ctx.strokeText(t.text, t.x, t.y); ctx.fillStyle = t.color; ctx.fillText(t.text, t.x, t.y);
   });
+
+  // --- Layer 3: Lighting System (Phase 3) ---
+  if (state.currentBiome === 'Dungeon') {
+      ctx.globalCompositeOperation = 'multiply';
+      // Create dark overlay
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(camX, camY, width, height); // Fill whole world space
+      
+      ctx.globalCompositeOperation = 'destination-out';
+      
+      // Cut out holes for lights
+      const drawLight = (x: number, y: number, r: number, flicker: boolean) => {
+          const flickVal = flicker ? Math.random() * 5 : 0;
+          const gradient = ctx.createRadialGradient(x, y, r * 0.2, x, y, r + flickVal);
+          gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+          gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(x, y, r + flickVal, 0, Math.PI * 2);
+          ctx.fill();
+      };
+
+      // Player Light
+      drawLight(state.player.x + state.player.width/2, state.player.y + state.player.height/2, 180, false);
+
+      // Placed/Static Lights
+      state.lights.forEach(l => {
+          drawLight(l.x, l.y, l.radius, l.flicker);
+      });
+
+      // Projectiles can emit light too
+      // ...
+
+      ctx.globalCompositeOperation = 'source-over'; // Reset
+  }
+
   ctx.restore();
 };
 
@@ -512,7 +601,7 @@ const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setResoluti
               QUEST OF HARVEST
             </h1>
             <p className="text-red-400 tracking-[1.2em] text-sm md:text-lg uppercase font-serif mt-6 border-t border-b border-red-900 py-3 inline-block bg-black/40 backdrop-blur-sm px-8 rounded-full">
-              Roguelike Edition
+              Phase 3: Darkness
             </p>
           </div>
 
@@ -579,7 +668,7 @@ const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setResoluti
         )}
       </div>
       <div className="absolute bottom-8 text-xs text-slate-500 font-mono tracking-wider opacity-60">
-        WASD: MOVE • SPACE: ATTACK • MOUSE: INTERACT
+        WASD: MOVE • SHIFT: DASH • SPACE: ATTACK • F: TORCH
       </div>
     </div>
   );
@@ -660,6 +749,13 @@ const GameHUD = ({ uiState, dungeonLevel, toggleMenu }: { uiState: PlayerEntity,
            <div className="flex justify-between"><span>攻撃: {uiState.attack}</span><span>防御: {uiState.defense}</span></div>
            <div className="flex justify-between"><span>速度: {uiState.speed.toFixed(1)}</span></div>
         </div>
+        
+        {/* Phase 3: Stamina Bar */}
+        <div className="mb-1">
+          <div className="flex justify-between text-xs mb-0.5"><span className="text-green-400">ST</span><span>{Math.floor(uiState.stamina)}/{uiState.calculatedStats.maxStamina}</span></div>
+          <div className="h-1 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-green-500 transition-all duration-75" style={{ width: `${(uiState.stamina/uiState.calculatedStats.maxStamina)*100}%` }}></div></div>
+        </div>
+
         <div className="mb-1">
           <div className="flex justify-between text-xs mb-0.5"><span>HP</span><span>{uiState.hp}/{uiState.maxHp}</span></div>
           <div className="h-2 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-red-600 transition-all duration-300" style={{ width: `${(uiState.hp/uiState.maxHp)*100}%` }}></div></div>
@@ -687,7 +783,7 @@ const GameHUD = ({ uiState, dungeonLevel, toggleMenu }: { uiState: PlayerEntity,
   </>
 );
 
-// Inventory Menu (Unchanged)
+// Inventory Menu (Updated for Count)
 const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: any) => (
   <div className="bg-slate-900 border border-slate-600 rounded-lg w-full max-w-4xl h-[600px] flex text-white overflow-hidden shadow-2xl">
     <div className="w-1/3 bg-slate-800/50 p-6 border-r border-slate-700 flex flex-col gap-4">
@@ -708,12 +804,16 @@ const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: any) => (
       <div className="grid grid-cols-2 gap-3">
         {uiState.inventory.map((item: any) => (
           <div key={item.id} onClick={() => onEquip(item)} className="flex gap-3 p-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-yellow-500 rounded cursor-pointer transition-colors group">
-            <div className="w-12 h-12 bg-slate-900 flex items-center justify-center text-2xl border border-slate-600 rounded shrink-0">{item.icon}</div>
+            <div className="w-12 h-12 bg-slate-900 flex items-center justify-center text-2xl border border-slate-600 rounded shrink-0 relative">
+                {item.icon}
+                {item.count && item.count > 1 && <span className="absolute bottom-0 right-0 bg-black/80 text-white text-[10px] px-1 rounded">{item.count}</span>}
+            </div>
             <div className="flex-1 min-w-0">
               <div className="font-bold truncate" style={{ color: item.color }}>{item.name}</div>
               <div className="text-xs text-slate-400">{item.type} {item.subType ? `(${item.subType})` : ''}</div>
               <div className="text-xs mt-1 grid grid-cols-2 gap-x-2 text-slate-300">
                 {item.stats.attack > 0 && <span>攻撃 +{item.stats.attack}</span>} {item.stats.defense > 0 && <span>防御 +{item.stats.defense}</span>}
+                {item.type === 'Consumable' && <span className="text-yellow-300">消耗品 (Fキーで使用)</span>}
               </div>
             </div>
           </div>
@@ -840,9 +940,12 @@ export default function App() {
     window.addEventListener('resize', handleResize);
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!input.current.keys[e.key.toLowerCase()]) { // Prevent repeat on hold for toggles
+          if (e.key.toLowerCase() === 'i') setActiveMenu(prev => prev === 'inventory' ? 'none' : 'inventory');
+          if (e.key.toLowerCase() === 'c') setActiveMenu(prev => prev === 'stats' ? 'none' : 'stats');
+          if (e.key.toLowerCase() === 'f') useTorch(); // Phase 3
+      }
       input.current.keys[e.key.toLowerCase()] = true;
-      if (e.key.toLowerCase() === 'i') setActiveMenu(prev => prev === 'inventory' ? 'none' : 'inventory');
-      if (e.key.toLowerCase() === 'c') setActiveMenu(prev => prev === 'stats' ? 'none' : 'stats');
       if (e.key === 'Escape') setActiveMenu('none');
     };
     const handleKeyUp = (e: KeyboardEvent) => input.current.keys[e.key.toLowerCase()] = false;
@@ -879,6 +982,11 @@ export default function App() {
       updatePlayerStats(player);
     } else {
       player = createPlayer(job, gender); updatePlayerStats(player);
+      // Give initial torches
+      player.inventory.push({ 
+          id: crypto.randomUUID(), name: "松明", type: "Consumable", rarity: "Common", level: 1, 
+          stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🔥", color: "#ff9800", count: 3 
+      });
       const starterSword = generateRandomItem(1); 
       if(starterSword) { starterSword.name = "錆びた剣"; starterSword.type = 'Weapon'; starterSword.subType = 'OneHanded'; player.inventory.push(starterSword); }
     }
@@ -895,7 +1003,8 @@ export default function App() {
       droppedItems: floorData.droppedItems,
       projectiles: [], particles: [], floatingTexts: [],
       camera: { x: 0, y: 0 }, gameTime: 0, isPaused: false,
-      levelUpOptions: null
+      levelUpOptions: null,
+      lights: floorData.lights
     };
     setDungeonLevel(dungeonLevel);
     setScreen('game');
@@ -910,6 +1019,7 @@ export default function App() {
     state.map = floorData.map;
     state.enemies = floorData.enemies;
     state.droppedItems = floorData.droppedItems;
+    state.lights = floorData.lights; // Load new lights
     state.projectiles = [];
     state.particles = [];
     
@@ -939,29 +1049,54 @@ export default function App() {
     p.gold = Math.floor(p.gold / 2);
     p.xp = 0; 
     p.hp = p.maxHp;
-    p.perks = []; // Optional: Reset perks on death if true roguelike
+    p.perks = []; 
     updatePlayerStats(p); 
     transitionLevel(0);
     setMessage("YOU DIED - 全アイテムを失いました");
     setTimeout(() => setMessage(null), 5000);
   };
 
+  // --- PHASE 3: TORCH USAGE ---
+  const useTorch = () => {
+      if (!gameState.current || gameState.current.isPaused) return;
+      const p = gameState.current.player;
+      
+      // Find torch in inventory
+      const torchIndex = p.inventory.findIndex(i => i.name === "松明");
+      if (torchIndex === -1) {
+          setMessage("松明を持っていません！");
+          setTimeout(() => setMessage(null), 1500);
+          return;
+      }
+
+      // Consume
+      const torch = p.inventory[torchIndex];
+      if (torch.count && torch.count > 1) {
+          torch.count--;
+      } else {
+          p.inventory.splice(torchIndex, 1);
+      }
+
+      // Place
+      gameState.current.lights.push({
+          x: p.x + p.width/2,
+          y: p.y + p.height/2,
+          radius: 120,
+          flicker: true,
+          color: '#ff9800'
+      });
+      setMessage("松明を設置しました");
+      setTimeout(() => setMessage(null), 1500);
+  };
+
   // --- PHASE 2: PERK HANDLING ---
   const triggerLevelUp = () => {
     if (!gameState.current) return;
     gameState.current.isPaused = true;
-    
-    // Select 3 random unique perks
     const availablePerks = Object.values(PERK_DEFINITIONS).filter(p => !gameState.current!.player.perks.includes(p.id));
     const shuffled = availablePerks.sort(() => 0.5 - Math.random());
     const selected = shuffled.slice(0, 3);
-    
-    // Fallback if no perks left (give stat points or gold instead ideally, but for now just fallback)
-    if (selected.length === 0) {
-        gameState.current.isPaused = false;
-        return;
-    }
-    
+    if (selected.length === 0) { gameState.current.isPaused = false; return; }
     setLevelUpOptions(selected);
     setActiveMenu('level_up');
   };
@@ -970,8 +1105,7 @@ export default function App() {
     if (!gameState.current) return;
     const p = gameState.current.player;
     p.perks.push(perkId);
-    updatePlayerStats(p); // Update stats for passive perks
-    
+    updatePlayerStats(p);
     gameState.current.isPaused = false;
     setActiveMenu('none');
     setLevelUpOptions(null);
@@ -986,20 +1120,33 @@ export default function App() {
     if (!state.isPaused && activeMenu === 'none') {
       state.gameTime++;
       const p = state.player;
-      let dx = 0, dy = 0, spd = p.speed;
+      
+      // Phase 3: Stamina Regen
+      if (p.stamina < p.calculatedStats.maxStamina) {
+          p.stamina = Math.min(p.calculatedStats.maxStamina, p.stamina + p.calculatedStats.staminaRegen);
+      }
+
+      // Phase 3: Dash Logic (Shift key)
+      const isDashing = (input.current.keys['shift']) && p.stamina > 0;
+      let spd = p.speed * (isDashing ? 1.8 : 1);
+      if (isDashing) {
+          p.stamina = Math.max(0, p.stamina - GAME_CONFIG.STAMINA_DASH_COST);
+      }
+
+      let dx = 0, dy = 0;
       if (input.current.keys['w'] || input.current.keys['arrowup']) dy = -spd;
       if (input.current.keys['s'] || input.current.keys['arrowdown']) dy = spd;
       if (input.current.keys['a'] || input.current.keys['arrowleft']) dx = -spd;
       if (input.current.keys['d'] || input.current.keys['arrowright']) dx = spd;
       if (dx > 0) p.direction = 0; if (dx < 0) p.direction = 2; if (dy > 0) p.direction = 1; if (dy < 0) p.direction = 3;
-      if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; } // Normalize diagonal
+      if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
       p.vx = dx; p.vy = dy;
 
       if (dx !== 0 || dy !== 0) {
         const nextPos = resolveMapCollision(p, dx, dy, state.map); p.x = nextPos.x; p.y = nextPos.y;
       }
 
-      // Tile Interaction (Stairs / Portals)
+      // Tile Interaction
       const cx = Math.floor((p.x + p.width/2) / GAME_CONFIG.TILE_SIZE);
       const cy = Math.floor((p.y + p.height/2) / GAME_CONFIG.TILE_SIZE);
       const currentTile = state.map[cy]?.[cx];
@@ -1012,7 +1159,20 @@ export default function App() {
       // Collisions & Interaction (Drops)
       state.droppedItems.forEach(drop => {
         if (checkCollision(p, drop)) {
-          drop.dead = true; p.inventory.push(drop.item);
+          drop.dead = true; 
+          
+          // Stack consumable check
+          if (drop.item.type === 'Consumable') {
+              const existing = p.inventory.find(i => i.name === drop.item.name);
+              if (existing) {
+                  existing.count = (existing.count || 1) + (drop.item.count || 1);
+              } else {
+                  p.inventory.push(drop.item);
+              }
+          } else {
+              p.inventory.push(drop.item);
+          }
+
           state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 20, width:0, height:0, color: drop.item.color, type: 'text', dead: false, text: drop.item.name, life: 60 });
           setMessage(`拾った：${drop.item.name}`); setTimeout(() => setMessage(null), 2000);
         }
@@ -1021,48 +1181,53 @@ export default function App() {
       // Attack Logic
       const now = Date.now();
       if ((input.current.keys[' '] || input.current.mouse.down) && now - p.lastAttackTime > p.attackCooldown) {
-        p.lastAttackTime = now; p.isAttacking = true; setTimeout(() => { if(gameState.current) gameState.current.player.isAttacking = false; }, 200);
-        const attackRect = { x: p.x + p.width/2 - 30, y: p.y + p.height/2 - 30, width: 60, height: 60 } as Entity;
-        state.enemies.forEach(e => {
-          if (checkCollision(attackRect, e)) {
-            let dmg = Math.max(1, Math.floor((p.attack - e.defense/2) * (0.9 + Math.random() * 0.2))); 
+        // Phase 3: Stamina Check
+        if (p.stamina >= GAME_CONFIG.STAMINA_ATTACK_COST) {
+            p.stamina -= GAME_CONFIG.STAMINA_ATTACK_COST;
+            p.lastAttackTime = now; p.isAttacking = true; setTimeout(() => { if(gameState.current) gameState.current.player.isAttacking = false; }, 200);
             
-            // --- PHASE 2: ATTACK PERK EFFECTS ---
-            if (p.perks.includes('thunder_strike') && Math.random() < 0.2) {
-                dmg += 15;
-                state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y - 20, width:0, height:0, color: '#fbbf24', type: 'text', dead: false, text: "⚡ THUNDER!", life: 45 });
-            }
+            const attackRect = { x: p.x + p.width/2 - 30, y: p.y + p.height/2 - 30, width: 60, height: 60 } as Entity;
+            state.enemies.forEach(e => {
+              if (checkCollision(attackRect, e)) {
+                let dmg = Math.max(1, Math.floor((p.attack - e.defense/2) * (0.9 + Math.random() * 0.2))); 
+                
+                if (p.perks.includes('thunder_strike') && Math.random() < 0.2) {
+                    dmg += 15;
+                    state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y - 20, width:0, height:0, color: '#fbbf24', type: 'text', dead: false, text: "⚡ THUNDER!", life: 45 });
+                }
 
-            e.hp -= dmg;
-            state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#fff', type: 'text', dead: false, text: `-${dmg}`, life: 30 });
-            
-            const angle = Math.atan2(e.y - p.y, e.x - p.x); e.x += Math.cos(angle) * 10; e.y += Math.sin(angle) * 10;
-            
-            if (e.hp <= 0) {
-              e.dead = true; p.xp += e.xpValue; p.gold += Math.floor(Math.random() * 5 * (state.dungeonLevel || 1)) + 1;
-              state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#ffd700', type: 'text', dead: false, text: `+${e.xpValue} XP`, life: 45 });
-              
-              // --- PHASE 2: KILL PERK EFFECTS ---
-              if (p.perks.includes('vampire')) {
-                  const heal = 5;
-                  p.hp = Math.min(p.maxHp, p.hp + heal);
-                  state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y - 30, width:0, height:0, color: '#f43f5e', type: 'text', dead: false, text: `+${heal} HP`, life: 45 });
-              }
+                e.hp -= dmg;
+                state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#fff', type: 'text', dead: false, text: `-${dmg}`, life: 30 });
+                
+                const angle = Math.atan2(e.y - p.y, e.x - p.x); e.x += Math.cos(angle) * 10; e.y += Math.sin(angle) * 10;
+                
+                if (e.hp <= 0) {
+                  e.dead = true; p.xp += e.xpValue; p.gold += Math.floor(Math.random() * 5 * (state.dungeonLevel || 1)) + 1;
+                  state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#ffd700', type: 'text', dead: false, text: `+${e.xpValue} XP`, life: 45 });
+                  
+                  if (p.perks.includes('vampire')) {
+                      const heal = 5;
+                      p.hp = Math.min(p.maxHp, p.hp + heal);
+                      state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y - 30, width:0, height:0, color: '#f43f5e', type: 'text', dead: false, text: `+${heal} HP`, life: 45 });
+                  }
 
-              if (p.xp >= p.nextLevelXp) {
-                p.level++; p.xp -= p.nextLevelXp; p.nextLevelXp = Math.floor(p.nextLevelXp * 1.5); p.statPoints += 3; updatePlayerStats(p); p.hp = p.maxHp;
-                state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 40, width:0, height:0, color: '#00ff00', type: 'text', dead: false, text: "LEVEL UP!", life: 90 });
-                // TRIGGER NEW LEVEL UP MENU
-                triggerLevelUp();
+                  if (p.xp >= p.nextLevelXp) {
+                    p.level++; p.xp -= p.nextLevelXp; p.nextLevelXp = Math.floor(p.nextLevelXp * 1.5); p.statPoints += 3; updatePlayerStats(p); p.hp = p.maxHp;
+                    state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 40, width:0, height:0, color: '#00ff00', type: 'text', dead: false, text: "LEVEL UP!", life: 90 });
+                    triggerLevelUp();
+                  }
+                  const dropChance = GAME_CONFIG.BASE_DROP_RATE * (e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 1);
+                  if (Math.random() < dropChance) {
+                    const item = generateRandomItem(state.dungeonLevel || 1, e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 0);
+                    if (item) state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: e.x, y: e.y, width: 32, height: 32, color: item.color, item, life: 3000, bounceOffset: Math.random() * 10, dead: false });
+                  }
+                }
               }
-              const dropChance = GAME_CONFIG.BASE_DROP_RATE * (e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 1);
-              if (Math.random() < dropChance) {
-                const item = generateRandomItem(state.dungeonLevel || 1, e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 0);
-                if (item) state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: e.x, y: e.y, width: 32, height: 32, color: item.color, item, life: 3000, bounceOffset: Math.random() * 10, dead: false });
-              }
-            }
-          }
-        });
+            });
+        } else {
+            // Not enough stamina
+            state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y - 20, width:0, height:0, color: '#ef4444', type: 'text', dead: false, text: "No Stamina!", life: 20 });
+        }
       }
 
       // Enemy AI
@@ -1103,6 +1268,8 @@ export default function App() {
   const handleEquip = (item: Item) => {
     if (!gameState.current) return;
     const p = gameState.current.player;
+    if (item.type === 'Consumable') { setMessage("消耗品は装備できません。Fキーで使用します。"); setTimeout(()=>setMessage(null), 2000); return; }
+
     let slot: keyof PlayerEntity['equipment'] = 'mainHand';
     if (item.type === 'Helm') slot = 'helm'; if (item.type === 'Armor') slot = 'armor'; if (item.type === 'Boots') slot = 'boots'; if (item.type === 'Shield') slot = 'offHand';
     if (item.type === 'Weapon') {
@@ -1199,7 +1366,7 @@ export default function App() {
               <h2 className="text-2xl font-bold mb-4 text-yellow-500 flex items-center gap-2"><User /> ステータス</h2>
               <div className="flex justify-between items-end mb-6 border-b border-slate-700 pb-4"><div><div className="text-3xl font-bold">{uiState.job}</div><div className="text-slate-400">レベル {uiState.level}</div></div><div className="text-right"><div className="text-sm text-slate-400">残りポイント</div><div className="text-3xl font-bold text-yellow-400">{uiState.statPoints}</div></div></div>
               <div className="space-y-4 mb-6">
-                {[ { key: 'vitality', label: '体力', desc: '最大HPが増加' }, { key: 'strength', label: '筋力', desc: '物理攻撃力が増加' }, { key: 'dexterity', label: '器用さ', desc: '攻撃速度が増加' }, { key: 'intelligence', label: '知力', desc: '最大MPと魔法攻撃力が増加' }, { key: 'endurance', label: '耐久', desc: '防御力が増加' }, ].map((stat) => (
+                {[ { key: 'vitality', label: '体力', desc: '最大HPが増加' }, { key: 'strength', label: '筋力', desc: '物理攻撃力が増加' }, { key: 'dexterity', label: '器用さ', desc: '攻撃速度が増加' }, { key: 'intelligence', label: '知力', desc: '最大MPと魔法攻撃力が増加' }, { key: 'endurance', label: '耐久', desc: '防御力とスタミナが増加' }, ].map((stat) => (
                   <div key={stat.key} className="flex items-center justify-between bg-slate-800 p-3 rounded">
                     <div><div className="font-bold text-lg">{stat.label}</div><div className="text-xs text-slate-500">{stat.desc}</div></div>
                     <div className="flex items-center gap-4"><span className="text-2xl font-mono">{uiState.attributes[stat.key as keyof Attributes]}</span><button onClick={() => increaseStat(stat.key as keyof Attributes)} disabled={uiState.statPoints <= 0} className={`w-8 h-8 rounded flex items-center justify-center font-bold text-xl ${uiState.statPoints > 0 ? 'bg-yellow-600 hover:bg-yellow-500 text-white' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}>+</button></div>
@@ -1211,7 +1378,7 @@ export default function App() {
           {activeMenu === 'inventory' && uiState && <InventoryMenu uiState={uiState} onEquip={handleEquip} onUnequip={handleUnequip} onClose={() => setActiveMenu('none')} />}
         </div>
       )}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest: Roguelike Edition v2.1 (Phase 2)</div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest: Roguelike Edition v3.0 (Phase 3)</div>
     </div>
   );
 }
