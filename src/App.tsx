@@ -1029,8 +1029,6 @@ const renderGame = (
   ctx.restore();
 };
 
-const adjustColor = (color: string, _amount: number) => color; 
-
 /**
  * ==========================================
  * メインコンポーネント
