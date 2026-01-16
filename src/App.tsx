@@ -90,6 +90,7 @@ type Biome = 'Plains' | 'Forest' | 'Desert' | 'Snow' | 'Wasteland' | 'Town';
 type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary';
 type EquipmentType = 'Weapon' | 'Helm' | 'Armor' | 'Shield' | 'Boots';
 type WeaponStyle = 'OneHanded' | 'TwoHanded' | 'DualWield';
+type MenuType = 'none' | 'status' | 'inventory' | 'stats'; // Added MenuType
 
 interface Tile { x: number; y: number; type: TileType; solid: boolean; }
 interface Enchantment { type: 'Attack' | 'Defense' | 'Speed' | 'MaxHp'; value: number; strength: 'Weak' | 'Medium' | 'Strong'; name: string; }
@@ -304,7 +305,14 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
     for (let x = startCol; x <= endCol; x++) {
       const tile = state.map[y]?.[x];
       if (!tile) continue;
-      ctx.fillStyle = {grass:'#1b2e1b', dirt:'#3e2723', sand:'#fbc02d', snow:'#e3f2fd', rock:'#616161', wall:'#424242', water:'#1a237e', floor:'#5d4037'}[tile.type] || '#000';
+      // Added missing types: portal_out, town_entrance to fix TS error.
+      // @ts-ignore
+      ctx.fillStyle = {
+        grass:'#1b2e1b', dirt:'#3e2723', sand:'#fbc02d', snow:'#e3f2fd', 
+        rock:'#616161', wall:'#424242', water:'#1a237e', floor:'#5d4037',
+        portal_out: '#000', town_entrance: '#000'
+      }[tile.type] || '#000';
+      
       ctx.fillRect(tile.x, tile.y, T, T);
       ctx.strokeStyle = 'rgba(0,0,0,0.05)'; ctx.strokeRect(tile.x, tile.y, T, T);
       if (tile.type === 'wall') { ctx.fillStyle = '#555'; ctx.fillRect(tile.x, tile.y, T, T-4); ctx.fillStyle = '#333'; ctx.fillRect(tile.x, tile.y+T-4, T, 4); }
@@ -472,7 +480,7 @@ const JobSelectScreen = ({ onBack, onSelect, loadedAssets }: { onBack: () => voi
 };
 
 // Game HUD Component
-const GameHUD = ({ uiState, worldInfo, activeMenu, toggleMenu }: { uiState: PlayerEntity, worldInfo: any, activeMenu: string, toggleMenu: (m: string) => void }) => (
+const GameHUD = ({ uiState, worldInfo, toggleMenu }: { uiState: PlayerEntity, worldInfo: {x:number, y:number, biome:Biome}, toggleMenu: (m: MenuType) => void }) => (
   <>
     <div className="absolute top-4 right-20 flex gap-4 text-white pointer-events-none">
        <div className="bg-slate-900/80 px-4 py-2 rounded border border-slate-700 flex items-center gap-2">
@@ -559,7 +567,7 @@ export default function App() {
   const input = useRef({ keys: {} as Record<string, boolean>, mouse: {x:0, y:0, down: false} });
   const [uiState, setUiState] = useState<PlayerEntity | null>(null);
   const [worldInfo, setWorldInfo] = useState<{x:number, y:number, biome:Biome}>({x:0, y:0, biome:'Town'});
-  const [activeMenu, setActiveMenu] = useState<'none' | 'status' | 'inventory' | 'stats'>('none');
+  const [activeMenu, setActiveMenu] = useState<MenuType>('none');
   const [message, setMessage] = useState<string | null>(null);
   const [viewportSize, setViewportSize] = useState({ width: 800, height: 600 });
   const [user, setUser] = useState<FirebaseUser | null>(null);
