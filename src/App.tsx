@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Shield, Zap, Heart, Activity } from 'lucide-react';
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken, Auth } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore';
@@ -590,11 +590,23 @@ const generateRandomItem = (level: number, rankBonus: number = 0): Item | null =
  * ==========================================
  */
 
-const JOB_DATA: Record<Job, { attributes: Attributes, desc: string, icon: string }> = {
-  Swordsman: { attributes: { vitality: 12, strength: 12, dexterity: 12, intelligence: 8, endurance: 11 }, icon: '⚔️', desc: 'バランスの取れた剣士。' },
-  Warrior:   { attributes: { vitality: 14, strength: 16, dexterity: 9, intelligence: 6, endurance: 15 }, icon: '🪓', desc: '体力が高い強力な戦士。' },
-  Archer:    { attributes: { vitality: 10, strength: 10, dexterity: 16, intelligence: 10, endurance: 10 }, icon: '🏹', desc: '素早い遠距離アタッカー。' },
-  Mage:      { attributes: { vitality: 9, strength: 6, dexterity: 12, intelligence: 18, endurance: 8 }, icon: '🪄', desc: '魔法のスペシャリスト。' },
+const JOB_DATA: Record<Job, { attributes: Attributes, desc: string, icon: string, color: string }> = {
+  Swordsman: { 
+    attributes: { vitality: 12, strength: 12, dexterity: 12, intelligence: 8, endurance: 11 }, 
+    icon: '⚔️', desc: '攻守のバランスに優れた剣士。初心者におすすめ。', color: '#3b82f6'
+  },
+  Warrior: { 
+    attributes: { vitality: 14, strength: 16, dexterity: 9, intelligence: 6, endurance: 15 }, 
+    icon: '🪓', desc: '強靭な肉体と破壊力を持つ戦士。最前線で戦う。', color: '#ef4444' 
+  },
+  Archer: { 
+    attributes: { vitality: 10, strength: 10, dexterity: 16, intelligence: 10, endurance: 10 }, 
+    icon: '🏹', desc: '素早い動きで遠距離から攻撃する狩人。', color: '#10b981' 
+  },
+  Mage: { 
+    attributes: { vitality: 9, strength: 6, dexterity: 12, intelligence: 18, endurance: 8 }, 
+    icon: '🪄', desc: '強力な魔法を操る賢者。打たれ弱いが火力は高い。', color: '#a855f7' 
+  },
 };
 
 const createPlayer = (job: Job, gender: Gender): PlayerEntity => {
@@ -1038,6 +1050,7 @@ export default function App() {
   const [screen, setScreen] = useState<'auth' | 'title' | 'game' | 'job_select'>('auth');
   const [saveData, setSaveData] = useState<any>(null);
   const [selectedGender, setSelectedGender] = useState<Gender>('Male');
+  const [selectedJob, setSelectedJob] = useState<Job>('Swordsman');
   const [loadingMessage, setLoadingMessage] = useState('クラウドに接続中...');
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1552,6 +1565,37 @@ export default function App() {
     }
   };
 
+  // アニメーションスタイルを追加
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+      }
+      @keyframes glow {
+        0%, 100% { box-shadow: 0 0 5px rgba(234, 179, 8, 0.5); }
+        50% { box-shadow: 0 0 20px rgba(234, 179, 8, 0.8); }
+      }
+      @keyframes mist {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+      .animate-float { animation: float 3s ease-in-out infinite; }
+      .animate-glow { animation: glow 2s ease-in-out infinite; }
+      .bg-mist {
+        background: linear-gradient(-45deg, #0f172a, #1e293b, #0f172a, #312e81);
+        background-size: 400% 400%;
+        animation: mist 15s ease infinite;
+      }
+      .pixel-art { image-rendering: pixelated; }
+      .text-shadow-strong { text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
+    `;
+    document.head.appendChild(style);
+    return () => { document.head.removeChild(style); };
+  }, []);
+
   if (screen === 'auth') {
     return (
       <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
@@ -1561,90 +1605,180 @@ export default function App() {
     );
   }
 
+  // --- タイトル画面 ---
   if (screen === 'title') {
     return (
-      <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white relative overflow-hidden font-sans">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-800 to-black opacity-50"></div>
-        <div className="z-10 text-center space-y-8 animate-fade-in">
-          <div>
-            <h1 className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-700 drop-shadow-lg mb-2">
+      <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white relative overflow-hidden font-sans bg-mist">
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-30"></div>
+        
+        {/* 装飾的な背景粒子 (疑似) */}
+        <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl animate-float" style={{animationDelay: '1s'}}></div>
+        
+        <div className="z-10 text-center space-y-12 animate-fade-in relative">
+          <div className="relative">
+            <h1 className="text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-yellow-500 to-yellow-800 drop-shadow-lg mb-2 text-shadow-strong tracking-tighter" style={{ filter: 'drop-shadow(0 0 20px rgba(234,179,8,0.4))'}}>
               QUEST OF HARVEST
             </h1>
-            <p className="text-slate-400 tracking-[0.5em] text-sm uppercase">Reborn Edition</p>
+            <p className="text-slate-400 tracking-[0.8em] text-sm uppercase font-serif mt-4 border-t border-b border-slate-700 py-2 inline-block">Reborn Edition</p>
           </div>
-          <div className="flex flex-col gap-4 w-64 mx-auto">
-            <button onClick={() => setScreen('job_select')} className="flex items-center justify-center gap-2 px-6 py-3 bg-yellow-700/20 border border-yellow-600/50 hover:bg-yellow-600/40 hover:scale-105 transition-all rounded text-yellow-100 font-semibold">
-              <Play size={20} /> ニューゲーム
+
+          <div className="flex flex-col gap-6 w-80 mx-auto">
+            <button 
+              onClick={() => setScreen('job_select')} 
+              className="group relative flex items-center justify-center gap-3 px-8 py-4 bg-slate-800/80 border-2 border-yellow-700 hover:border-yellow-400 hover:bg-slate-800 transition-all text-yellow-100 font-bold tracking-widest uppercase overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-400/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+              <Play size={24} className="group-hover:text-yellow-400 transition-colors" />
+              <span>New Game</span>
             </button>
-            <button onClick={() => startGame('Swordsman', true)} disabled={!saveData} className={`flex items-center justify-center gap-2 px-6 py-3 border transition-all rounded font-semibold ${saveData ? 'bg-slate-700/50 border-slate-500 hover:bg-slate-600/50 hover:scale-105 text-slate-200' : 'bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed'}`}>
-              <Save size={20} /> つづきから
+            
+            <button 
+              onClick={() => startGame('Swordsman', true)} 
+              disabled={!saveData} 
+              className={`flex items-center justify-center gap-3 px-8 py-4 border-2 font-bold tracking-widest uppercase transition-all ${
+                saveData 
+                  ? 'bg-slate-800/50 border-slate-600 hover:border-blue-400 hover:bg-slate-700 text-slate-200' 
+                  : 'bg-slate-900/50 border-slate-800 text-slate-700 cursor-not-allowed'
+              }`}
+            >
+              <Save size={24} />
+              <span>Continue</span>
             </button>
           </div>
         </div>
-        <div className="absolute bottom-4 text-xs text-slate-600 font-mono">WASD: 移動 • SPACE/クリック: 攻撃 • I:持ち物 • C:ステータス</div>
+        
+        <div className="absolute bottom-8 text-xs text-slate-500 font-mono tracking-wider opacity-60">
+          WASD: MOVE • SPACE: ATTACK • MOUSE: INTERACT
+        </div>
       </div>
     );
   }
 
+  // --- キャラクター選択画面 ---
   if (screen === 'job_select') {
-    return (
-      <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white relative">
-        <button onClick={() => setScreen('title')} className="absolute top-8 left-8 text-slate-500 hover:text-white flex items-center gap-2">
-          <ArrowLeft size={20} /> 戻る
-        </button>
-        
-        <h2 className="text-3xl mb-2 font-bold text-slate-200">キャラクター作成</h2>
-        <p className="text-slate-400 mb-8">性別と職業を選択してください。</p>
+    const jobInfo = JOB_DATA[selectedJob];
+    const previewKey = `${selectedJob}_${selectedGender}`;
+    const previewImg = loadedAssets[previewKey];
 
-        {/* 性別選択 */}
-        <div className="flex gap-4 mb-8 bg-slate-800 p-2 rounded-full border border-slate-700">
-          {(['Male', 'Female'] as Gender[]).map(g => (
-            <button
-              key={g}
-              onClick={() => setSelectedGender(g)}
-              className={`px-6 py-2 rounded-full font-bold transition-all ${
-                selectedGender === g 
-                  ? 'bg-yellow-600 text-white shadow-lg' 
-                  : 'text-slate-400 hover:text-white hover:bg-slate-700'
-              }`}
-            >
-              {g === 'Male' ? '男性' : '女性'}
-            </button>
-          ))}
+    return (
+      <div className="w-full h-screen bg-slate-950 text-white flex overflow-hidden">
+        {/* 左サイド：プレビューエリア */}
+        <div className="w-1/3 bg-slate-900 border-r border-slate-800 relative flex flex-col p-8 shadow-2xl z-10">
+          <button onClick={() => setScreen('title')} className="absolute top-6 left-6 text-slate-500 hover:text-white flex items-center gap-2 transition-colors">
+            <ArrowLeft size={20} /> <span className="text-sm font-bold uppercase">Back</span>
+          </button>
+
+          <div className="mt-12 flex-1 flex flex-col items-center justify-center relative">
+            {/* 背景の紋章的なもの */}
+            <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
+              <div className="text-[200px]">{jobInfo.icon}</div>
+            </div>
+
+            <div className="relative mb-8 transform scale-150 animate-float">
+               <div className="absolute -inset-4 bg-gradient-to-t from-black/50 to-transparent blur-lg rounded-full"></div>
+               {previewImg ? (
+                 <img src={previewImg.src} className="w-32 h-32 pixel-art drop-shadow-2xl" />
+               ) : (
+                 <div className="text-9xl">{jobInfo.icon}</div>
+               )}
+            </div>
+
+            <h2 className="text-4xl font-black uppercase tracking-wider mb-2" style={{ color: jobInfo.color }}>{selectedJob}</h2>
+            <div className="flex items-center gap-2 mb-6">
+               <span className={`px-3 py-1 rounded text-xs font-bold bg-slate-800 border ${selectedGender === 'Male' ? 'border-blue-500 text-blue-400' : 'border-pink-500 text-pink-400'}`}>
+                 {selectedGender === 'Male' ? 'MALE' : 'FEMALE'}
+               </span>
+            </div>
+            
+            <p className="text-center text-slate-400 text-sm leading-relaxed max-w-xs mb-8">
+              {jobInfo.desc}
+            </p>
+
+            {/* ステータスバー */}
+            <div className="w-full space-y-3 max-w-xs">
+              {[
+                { label: 'STR', icon: Sword, val: jobInfo.attributes.strength, max: 20, col: 'bg-red-500' },
+                { label: 'VIT', icon: Heart, val: jobInfo.attributes.vitality, max: 20, col: 'bg-green-500' },
+                { label: 'INT', icon: Zap, val: jobInfo.attributes.intelligence, max: 20, col: 'bg-purple-500' },
+                { label: 'DEX', icon: Activity, val: jobInfo.attributes.dexterity, max: 20, col: 'bg-yellow-500' },
+              ].map(s => (
+                <div key={s.label} className="flex items-center gap-3 text-xs font-bold">
+                  <div className="w-8 text-slate-500 flex justify-end">{s.label}</div>
+                  <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div className={`h-full ${s.col}`} style={{ width: `${(s.val / s.max) * 100}%` }}></div>
+                  </div>
+                  <div className="w-4 text-right text-slate-300">{s.val}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button 
+            onClick={() => startGame(selectedJob)} 
+            className="w-full py-4 mt-8 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black font-black uppercase tracking-widest text-lg shadow-[0_0_20px_rgba(234,179,8,0.3)] hover:shadow-[0_0_30px_rgba(234,179,8,0.6)] transition-all transform hover:-translate-y-1 rounded"
+          >
+            Start Adventure
+          </button>
         </div>
 
-        {/* 職業選択 */}
-        <div className="flex gap-4 flex-wrap justify-center max-w-5xl">
-          {(Object.keys(JOB_DATA) as Job[]).map(job => {
-            const previewKey = `${job}_${selectedGender}`;
-            const previewImg = loadedAssets[previewKey];
+        {/* 右サイド：選択エリア */}
+        <div className="w-2/3 bg-slate-950 p-12 overflow-y-auto">
+          <div className="max-w-4xl mx-auto">
+            <h3 className="text-xl font-bold text-slate-500 mb-6 uppercase tracking-widest">Select Gender</h3>
+            <div className="flex gap-4 mb-12">
+               {['Male', 'Female'].map((g) => (
+                 <button
+                   key={g}
+                   onClick={() => setSelectedGender(g as Gender)}
+                   className={`flex-1 py-4 border-2 rounded-lg transition-all flex items-center justify-center gap-3 ${
+                     selectedGender === g 
+                       ? 'border-yellow-500 bg-yellow-500/10 text-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.2)]' 
+                       : 'border-slate-800 bg-slate-900 text-slate-500 hover:border-slate-600 hover:text-slate-300'
+                   }`}
+                 >
+                   <span className="text-lg font-bold uppercase">{g}</span>
+                 </button>
+               ))}
+            </div>
 
-            return (
-              <button key={job} onClick={() => startGame(job)} className="w-56 bg-slate-800 border border-slate-700 p-6 rounded-lg hover:border-yellow-500 hover:bg-slate-700 transition-all group text-left relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-6xl">
-                  {JOB_DATA[job].icon}
-                </div>
-                
-                {/* プレビュー画像 */}
-                <div className="h-24 mb-4 flex items-center justify-center">
-                  {previewImg ? (
-                    <img src={previewImg.src} className="h-full w-auto pixel-art drop-shadow-xl group-hover:scale-110 transition-transform" style={{imageRendering: 'pixelated'}} />
-                  ) : (
-                    <div className="text-4xl">{JOB_DATA[job].icon}</div>
-                  )}
-                </div>
-
-                <h3 className="text-xl font-bold text-yellow-500 mb-1">{job}</h3>
-                <p className="text-xs text-slate-400 mb-4 h-8">{JOB_DATA[job].desc}</p>
-                <div className="space-y-1 text-xs text-slate-500 border-t border-slate-700 pt-2">
-                  <div className="flex justify-between"><span>VIT</span><span className="text-green-400">{JOB_DATA[job].attributes.vitality}</span></div>
-                  <div className="flex justify-between"><span>STR</span><span className="text-red-400">{JOB_DATA[job].attributes.strength}</span></div>
-                  <div className="flex justify-between"><span>DEX</span><span className="text-blue-400">{JOB_DATA[job].attributes.dexterity}</span></div>
-                  <div className="flex justify-between"><span>INT</span><span className="text-purple-400">{JOB_DATA[job].attributes.intelligence}</span></div>
-                </div>
-              </button>
-            );
-          })}
+            <h3 className="text-xl font-bold text-slate-500 mb-6 uppercase tracking-widest">Select Class</h3>
+            <div className="grid grid-cols-2 gap-4">
+              {(Object.keys(JOB_DATA) as Job[]).map(job => (
+                <button 
+                  key={job} 
+                  onClick={() => setSelectedJob(job)}
+                  className={`relative p-6 rounded-lg border-2 text-left transition-all group overflow-hidden ${
+                    selectedJob === job 
+                      ? 'border-white bg-slate-800 shadow-xl scale-[1.02]' 
+                      : 'border-slate-800 bg-slate-900/50 hover:border-slate-600 hover:bg-slate-900'
+                  }`}
+                >
+                  <div className={`absolute top-0 right-0 p-4 opacity-20 text-6xl transition-transform group-hover:scale-110 group-hover:rotate-12 duration-500 ${selectedJob === job ? 'opacity-40' : ''}`}>
+                    {JOB_DATA[job].icon}
+                  </div>
+                  
+                  <div className="relative z-10">
+                    <h4 className={`text-xl font-black uppercase mb-1 ${selectedJob === job ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`}>
+                      {job}
+                    </h4>
+                    <div className="flex items-center gap-2 mb-4">
+                      {/* 簡易的な役割表示 */}
+                      <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-black/30 ${selectedJob === job ? 'text-yellow-400' : 'text-slate-600'}`}>
+                         Class Role
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-500">
+                      <div className="flex justify-between"><span>ATK</span> <span className={selectedJob===job ? 'text-white' : ''}>{'★'.repeat(Math.min(5, Math.ceil(JOB_DATA[job].attributes.strength / 4)))}</span></div>
+                      <div className="flex justify-between"><span>DEF</span> <span className={selectedJob===job ? 'text-white' : ''}>{'★'.repeat(Math.min(5, Math.ceil(JOB_DATA[job].attributes.endurance / 4)))}</span></div>
+                      <div className="flex justify-between"><span>SPD</span> <span className={selectedJob===job ? 'text-white' : ''}>{'★'.repeat(Math.min(5, Math.ceil(JOB_DATA[job].attributes.dexterity / 4)))}</span></div>
+                      <div className="flex justify-between"><span>MAG</span> <span className={selectedJob===job ? 'text-white' : ''}>{'★'.repeat(Math.min(5, Math.ceil(JOB_DATA[job].attributes.intelligence / 4)))}</span></div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -1867,7 +2001,7 @@ export default function App() {
           )}
         </div>
       )}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.6.0</div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.7.0</div>
     </div>
   );
 }
