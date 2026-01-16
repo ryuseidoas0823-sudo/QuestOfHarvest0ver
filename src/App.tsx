@@ -9,15 +9,14 @@ import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore
  * FIREBASE 設定エリア
  * ==========================================
  * ★ここにFirebaseコンソールから取得した設定値を入力してください。
- * これにより、認証とセーブデータの保存が可能になります。
  */
 const MANUAL_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyD2ENlLHumh4O4uzFe_dKAZSaV54ohS8pI",             // 例: "AIzaSy..."
-  authDomain: "questofharvest0ver.firebaseapp.com",         // 例: "your-app.firebaseapp.com"
-  projectId: "questofharvest0ver",          // 例: "your-app"
-  storageBucket: "questofharvest0ver.firebasestorage.app",      // 例: "your-app.appspot.com"
-  messagingSenderId: "931709039861",  // 例: "123456789"
-  appId: "1:931709039861:web:9ec0565ed233338cc341bc"               // 例: "1:123456789:web:abcde..."
+  apiKey: "AIzaSyD2ENlLHumh4O4uzFe_dKAZSaV54ohS8pI",             
+  authDomain: "questofharvest0ver.firebaseapp.com",         
+  projectId: "questofharvest0ver",          
+  storageBucket: "questofharvest0ver.firebasestorage.app",      
+  messagingSenderId: "931709039861",  
+  appId: "1:931709039861:web:9ec0565ed233338cc341bc"               
 };
 
 /**
@@ -25,7 +24,6 @@ const MANUAL_FIREBASE_CONFIG = {
  * 設定の読み込みと初期化ロジック
  * ==========================================
  */
-// ビルド環境変数やグローバル変数からの設定があれば取得（手動設定が優先されます）
 // @ts-ignore
 const rawConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
 // @ts-ignore
@@ -34,7 +32,6 @@ const appId = rawAppId.replace(/[\/.]/g, '_');
 
 let firebaseConfig: any = MANUAL_FIREBASE_CONFIG;
 
-// 手動設定が空で、かつ環境変数から設定が渡されている場合はそちらを使用
 const isManualConfigEmpty = !firebaseConfig.apiKey;
 if (isManualConfigEmpty) {
   try {
@@ -47,13 +44,11 @@ if (isManualConfigEmpty) {
   }
 }
 
-// 型定義を明示して初期化
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 let db: Firestore | undefined;
 let isConfigValid = false;
 
-// 設定が有効（API Keyが存在する）場合のみ初期化
 if (firebaseConfig && firebaseConfig.apiKey) {
   try {
     app = initializeApp(firebaseConfig);
@@ -71,7 +66,7 @@ if (firebaseConfig && firebaseConfig.apiKey) {
  * ==========================================
  */
 const ASSETS_SVG = {
-  // --- モンスター ---
+  // --- モンスター (全種族追加) ---
   Slime: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
@@ -80,6 +75,7 @@ const ASSETS_SVG = {
     <path d="M9 8h2v2H9zm0 0h1v1h-1z" fill="#000" /><path d="M10 8h1v1h-1z" fill="#fff" />
     <path d="M6 5h2v1H6zm-1 1h1v2H5z" fill="#ccff90" opacity="0.5" />
   </svg>`,
+  
   Bandit: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
@@ -87,20 +83,95 @@ const ASSETS_SVG = {
     <path d="M6 5h4v1H6z" fill="#000" opacity="0.8" />
     <path d="M6 6h4v1H6z" fill="#ffccaa" />
     <path d="M5 7h6v5H5z" fill="#8d6e63" />
-    <path d="M5 7h6v2H5z" fill="#4e342e" />
     <path d="M5 12h2v4H5zm4 0h2v4H9z" fill="#3e2723" />
     <path d="M11 9h3v1h-3z" fill="#cfd8dc" />
     <path d="M11 9h1v3h-1z" fill="#5d4037" />
   </svg>`,
-  Villager: `
+
+  Zombie: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
-    <path d="M4 2h8v2H4z" fill="#fbc02d" />
-    <path d="M3 4h10v1H3z" fill="#fbc02d" />
-    <path d="M6 5h4v3H6z" fill="#ffccaa" />
-    <path d="M7 6h1v1H7zm2 0h1v1H9z" fill="#000" />
-    <path d="M5 8h6v5H5z" fill="#81c784" />
-    <path d="M6 13h1v3H6zm3 0h1v3H9z" fill="#5d4037" />
+    <path d="M5 2h6v3H5z" fill="#6d4c41" /> <!-- 頭 -->
+    <path d="M5 5h6v3H5z" fill="#81c784" /> <!-- 緑肌 -->
+    <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
+    <path d="M4 8h8v5H4z" fill="#5d4037" /> <!-- 服 -->
+    <path d="M4 8h2v2H4zm6 0h2v2h-2z" fill="#4e342e" /> <!-- 袖 -->
+    <path d="M5 13h2v3H5zm4 0h2v3H9z" fill="#3e2723" />
+    <path d="M2 8h3v2H2zm9 0h3v2h-3z" fill="#81c784" /> <!-- 腕 -->
+  </svg>`,
+
+  Insect: `
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path d="M2 14h12v1H2z" fill="rgba(0,0,0,0.3)" />
+    <path d="M3 8h4v4H3z" fill="#3e2723" /> <!-- 腹部 -->
+    <path d="M7 9h2v2H7z" fill="#5d4037" /> <!-- 胸部 -->
+    <path d="M9 7h4v4H9z" fill="#3e2723" /> <!-- 頭部 -->
+    <path d="M12 8h1v1h-1z" fill="#ffeb3b" /> <!-- 目 -->
+    <path d="M4 12h1v2H4zm3 0h1v2H7zm4 0h1v2h-1z" fill="#000" /> <!-- 足 -->
+    <path d="M13 7h2v-2h-2z" fill="#000" opacity="0.5" /> <!-- 触角 -->
+  </svg>`,
+
+  Demon: `
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
+    <path d="M5 3h1v2H5zm5 0h1v2h-1z" fill="#ffd700" /> <!-- 角 -->
+    <path d="M5 5h6v3H5z" fill="#e57373" /> <!-- 赤肌 -->
+    <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
+    <path d="M4 8h8v5H4z" fill="#b71c1c" /> <!-- 体 -->
+    <path d="M2 7h3v2H2zm9 0h3v4h-1v-2h-2z" fill="#b71c1c" /> <!-- 翼/腕 -->
+    <path d="M13 7h1v5h-1z" fill="#000" /> <!-- 槍 -->
+    <path d="M5 13h2v3H5zm4 0h2v3H9z" fill="#3e2723" />
+  </svg>`,
+
+  Bat: `
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path d="M6 14h4v1H6z" fill="rgba(0,0,0,0.3)" />
+    <path d="M7 6h2v2H7z" fill="#4a148c" /> <!-- 体 -->
+    <path d="M2 5h5v4H6V8H5V7H4V6H2z" fill="#7b1fa2" /> <!-- 左翼 -->
+    <path d="M9 5h5v1h-2v1h-1v1h-1v1H9z" fill="#7b1fa2" /> <!-- 右翼 -->
+    <path d="M7 7h1v1H7zm1 0h1v1H8z" fill="#fff" /> <!-- 目 -->
+  </svg>`,
+
+  Dragon: `
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path d="M3 14h10v1H3z" fill="rgba(0,0,0,0.3)" />
+    <path d="M6 3h4v4H6z" fill="#00695c" /> <!-- 頭 -->
+    <path d="M7 4h1v1H7zm2 0h1v1H9z" fill="#ffeb3b" /> <!-- 目 -->
+    <path d="M5 7h6v6H5z" fill="#004d40" /> <!-- 体 -->
+    <path d="M2 6h3v4H4V9H3V8H2z" fill="#4db6ac" /> <!-- 左翼 -->
+    <path d="M11 6h3v1h-1v1h-1v2h-1z" fill="#4db6ac" /> <!-- 右翼 -->
+    <path d="M5 13h2v3H5zm4 0h2v3H9z" fill="#004d40" /> <!-- 足 -->
+    <path d="M4 10h-2v2h2z" fill="#004d40" /> <!-- 尻尾 -->
+  </svg>`,
+
+  Beast: `
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path d="M3 14h10v1H3z" fill="rgba(0,0,0,0.3)" />
+    <path d="M3 6h10v6H3z" fill="#5d4037" /> <!-- 体 -->
+    <path d="M2 5h4v4H2z" fill="#4e342e" /> <!-- 頭 -->
+    <path d="M3 6h1v1H3z" fill="#fff" /> <!-- 目 -->
+    <path d="M2 8h1v1H2z" fill="#fff" /> <!-- 牙 -->
+    <path d="M4 12h2v4H4zm6 0h2v4h-2z" fill="#3e2723" /> <!-- 足 -->
+  </svg>`,
+
+  Wolf: `
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path d="M3 14h10v1H3z" fill="rgba(0,0,0,0.3)" />
+    <path d="M4 7h8v5H4z" fill="#757575" /> <!-- 体 -->
+    <path d="M2 6h4v3H2z" fill="#616161" /> <!-- 頭 -->
+    <path d="M3 5h1v1H3z" fill="#616161" /> <!-- 耳 -->
+    <path d="M3 7h1v1H3z" fill="#fff" /> <!-- 目 -->
+    <path d="M12 8h2v2h-2z" fill="#757575" /> <!-- 尻尾 -->
+    <path d="M4 12h2v4H4zm6 0h2v4h-2z" fill="#424242" /> <!-- 足 -->
+  </svg>`,
+
+  Ghost: `
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path d="M5 14h6v1H5z" fill="rgba(0,0,0,0.1)" />
+    <path d="M5 4h6v8H5z" fill="#eceff1" opacity="0.8" />
+    <path d="M4 6h1v6H4zm7 0h1v6h-1z" fill="#eceff1" opacity="0.6" />
+    <path d="M6 6h1v1H6zm3 0h1v1H9z" fill="#000" /> <!-- 目 -->
+    <path d="M5 12h1v2H5zm2-1h2v2H7zm3 1h1v2h-1z" fill="#eceff1" opacity="0.8" /> <!-- 裾 -->
   </svg>`,
 
   // --- プレイヤー (8バリエーション) ---
@@ -109,26 +180,26 @@ const ASSETS_SVG = {
   Swordsman_Male: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
-    <path d="M5 2h6v3H5z" fill="#ffd700" /> <!-- 金髪 -->
-    <path d="M5 5h6v3H5z" fill="#ffccaa" /> <!-- 顔 -->
-    <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" /> <!-- 目 -->
-    <path d="M4 8h8v5H4z" fill="#1565c0" /> <!-- 青い鎧 -->
-    <path d="M6 9h4v4H6z" fill="#64b5f6" opacity="0.3" /> <!-- プレート -->
-    <path d="M5 13h2v3H5zm4 0h2v3H9z" fill="#424242" /> <!-- 足 -->
-    <path d="M12 5h1v3h-1z" fill="#bdbdbd" /> <!-- 剣身 -->
-    <path d="M11 8h3v1h-3z" fill="#5d4037" /> <!-- 鍔 -->
-    <path d="M12 9h1v2h-1z" fill="#5d4037" /> <!-- 柄 -->
+    <path d="M5 2h6v3H5z" fill="#ffd700" />
+    <path d="M5 5h6v3H5z" fill="#ffccaa" />
+    <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
+    <path d="M4 8h8v5H4z" fill="#1565c0" />
+    <path d="M6 9h4v4H6z" fill="#64b5f6" opacity="0.3" />
+    <path d="M5 13h2v3H5zm4 0h2v3H9z" fill="#424242" />
+    <path d="M12 5h1v3h-1z" fill="#bdbdbd" />
+    <path d="M11 8h3v1h-3z" fill="#5d4037" />
+    <path d="M12 9h1v2h-1z" fill="#5d4037" />
   </svg>`,
 
   // ソードマン (女)
   Swordsman_Female: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
-    <path d="M4 2h8v6H4z" fill="#ffab00" /> <!-- オレンジの長髪 -->
+    <path d="M4 2h8v6H4z" fill="#ffab00" />
     <path d="M5 5h6v3H5z" fill="#ffccaa" />
     <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
-    <path d="M5 8h6v4H5z" fill="#1565c0" /> <!-- 鎧 -->
-    <path d="M4 12h8v2H4z" fill="#0d47a1" /> <!-- スカート -->
+    <path d="M5 8h6v4H5z" fill="#1565c0" />
+    <path d="M4 12h8v2H4z" fill="#0d47a1" />
     <path d="M5 14h2v2H5zm4 0h2v2H9z" fill="#424242" />
     <path d="M12 5h1v3h-1z" fill="#bdbdbd" />
     <path d="M11 8h3v1h-3z" fill="#5d4037" />
@@ -139,29 +210,29 @@ const ASSETS_SVG = {
   Warrior_Male: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M3 14h10v1H3z" fill="rgba(0,0,0,0.3)" />
-    <path d="M5 2h6v3H5z" fill="#5d4037" /> <!-- 茶髪 -->
-    <path d="M4 3h1v2H4zm7 0h1v2h-1z" fill="#bcaaa4" /> <!-- 角 -->
+    <path d="M5 2h6v3H5z" fill="#5d4037" />
+    <path d="M4 3h1v2H4zm7 0h1v2h-1z" fill="#bcaaa4" />
     <path d="M5 5h6v3H5z" fill="#d7ccc8" />
     <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
-    <path d="M3 8h10v5H3z" fill="#3e2723" /> <!-- 重鎧 -->
+    <path d="M3 8h10v5H3z" fill="#3e2723" />
     <path d="M5 9h6v3H5z" fill="#5d4037" />
     <path d="M4 13h3v3H4zm5 0h3v3H9z" fill="#212121" />
-    <path d="M13 4h2v4h-2z" fill="#757575" /> <!-- 斧頭 -->
-    <path d="M14 8h1v5h-1z" fill="#5d4037" /> <!-- 柄 -->
+    <path d="M13 4h2v4h-2z" fill="#757575" />
+    <path d="M14 8h1v5h-1z" fill="#5d4037" />
   </svg>`,
 
   // ウォリアー (女)
   Warrior_Female: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M3 14h10v1H3z" fill="rgba(0,0,0,0.3)" />
-    <path d="M5 2h6v2H5z" fill="#cfd8dc" /> <!-- 翼付き兜 -->
-    <path d="M3 3h2v2H3zm6 0h2v2H9z" fill="#fff" /> <!-- 翼 -->
-    <path d="M5 4h6v7H5z" fill="#fdd835" /> <!-- 金髪ロング -->
+    <path d="M5 2h6v2H5z" fill="#cfd8dc" />
+    <path d="M3 3h2v2H3zm6 0h2v2H9z" fill="#fff" />
+    <path d="M5 4h6v7H5z" fill="#fdd835" />
     <path d="M5 5h6v3H5z" fill="#ffccaa" />
     <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
-    <path d="M5 8h6v4H5z" fill="#b71c1c" /> <!-- 赤い鎧 -->
+    <path d="M5 8h6v4H5z" fill="#b71c1c" />
     <path d="M5 12h2v4H5zm4 0h2v4H9z" fill="#4a148c" />
-    <path d="M13 5h2v3h-2z" fill="#90a4ae" /> <!-- 斧 -->
+    <path d="M13 5h2v3h-2z" fill="#90a4ae" />
     <path d="M14 8h1v5h-1z" fill="#5d4037" />
   </svg>`,
 
@@ -169,13 +240,13 @@ const ASSETS_SVG = {
   Archer_Male: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
-    <path d="M5 2h6v4H5z" fill="#33691e" /> <!-- 緑のフード -->
+    <path d="M5 2h6v4H5z" fill="#33691e" />
     <path d="M5 5h6v3H5z" fill="#ffccaa" />
     <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
-    <path d="M5 8h6v5H5z" fill="#558b2f" /> <!-- 緑のチュニック -->
+    <path d="M5 8h6v5H5z" fill="#558b2f" />
     <path d="M6 9h4v3H6z" fill="#7cb342" />
     <path d="M5 13h2v3H5zm4 0h2v3H9z" fill="#3e2723" />
-    <path d="M12 6h1v6h-1z" fill="#8d6e63" /> <!-- 弓 -->
+    <path d="M12 6h1v6h-1z" fill="#8d6e63" />
     <path d="M12 6h-1v1h1zm-1 5h1v1h-1z" fill="#8d6e63" />
   </svg>`,
 
@@ -183,13 +254,13 @@ const ASSETS_SVG = {
   Archer_Female: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
-    <path d="M5 2h6v3H5z" fill="#a1887f" /> <!-- 茶髪 -->
-    <path d="M11 3h2v3h-2z" fill="#a1887f" /> <!-- ポニーテール -->
+    <path d="M5 2h6v3H5z" fill="#a1887f" />
+    <path d="M11 3h2v3h-2z" fill="#a1887f" />
     <path d="M5 5h6v3H5z" fill="#ffccaa" />
     <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
-    <path d="M5 8h6v4H5z" fill="#33691e" /> <!-- 緑の服 -->
-    <path d="M5 12h2v4H5zm4 0h2v4H9z" fill="#5d4037" /> <!-- ブーツ -->
-    <path d="M12 6h1v6h-1z" fill="#8d6e63" /> <!-- 弓 -->
+    <path d="M5 8h6v4H5z" fill="#33691e" />
+    <path d="M5 12h2v4H5zm4 0h2v4H9z" fill="#5d4037" />
+    <path d="M12 6h1v6h-1z" fill="#8d6e63" />
     <path d="M12 6h-1v1h1zm-1 5h1v1h-1z" fill="#8d6e63" />
   </svg>`,
 
@@ -197,28 +268,28 @@ const ASSETS_SVG = {
   Mage_Male: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
-    <path d="M4 4h8v1H4z" fill="#311b92" /> <!-- 帽子のつば -->
-    <path d="M5 1h6v3H5z" fill="#311b92" /> <!-- 帽子の上部 -->
+    <path d="M4 4h8v1H4z" fill="#311b92" />
+    <path d="M5 1h6v3H5z" fill="#311b92" />
     <path d="M5 5h6v3H5z" fill="#ffccaa" />
     <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
-    <path d="M4 8h8v6H4z" fill="#4527a0" /> <!-- ローブ -->
+    <path d="M4 8h8v6H4z" fill="#4527a0" />
     <path d="M6 8h4v6H6z" fill="#673ab7" />
-    <path d="M13 5h1v8h-1z" fill="#8d6e63" /> <!-- 杖 -->
-    <path d="M12 4h3v1h-3z" fill="#ffeb3b" /> <!-- 宝玉 -->
+    <path d="M13 5h1v8h-1z" fill="#8d6e63" />
+    <path d="M12 4h3v1h-3z" fill="#ffeb3b" />
   </svg>`,
 
   // メイジ (女)
   Mage_Female: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
-    <path d="M3 4h10v1H3z" fill="#ad1457" /> <!-- 帽子のつば -->
-    <path d="M5 1h6v3H5z" fill="#ad1457" /> <!-- 帽子の上部 -->
-    <path d="M4 5h8v4H4z" fill="#f48fb1" /> <!-- ピンク髪 -->
+    <path d="M3 4h10v1H3z" fill="#ad1457" />
+    <path d="M5 1h6v3H5z" fill="#ad1457" />
+    <path d="M4 5h8v4H4z" fill="#f48fb1" />
     <path d="M5 5h6v3H5z" fill="#ffccaa" />
     <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
-    <path d="M5 8h6v6H5z" fill="#880e4f" /> <!-- ローブ -->
-    <path d="M13 5h1v8h-1z" fill="#8d6e63" /> <!-- 杖 -->
-    <path d="M12 4h3v1h-3z" fill="#00e676" /> <!-- 宝玉 -->
+    <path d="M5 8h6v6H5z" fill="#880e4f" />
+    <path d="M13 5h1v8h-1z" fill="#8d6e63" />
+    <path d="M12 4h3v1h-3z" fill="#00e676" />
   </svg>`
 };
 
@@ -504,7 +575,6 @@ const generateRandomItem = (level: number, rankBonus: number = 0): Item | null =
     else if (eType === 'MaxHp') val = Math.floor(level * 5 * (strIdx + 1));
     else if (eType === 'Speed') val = Number((0.1 * (strIdx + 1)).toFixed(1));
 
-    // 日本語名エンチャント
     const jNames = { Weak: '微かな', Medium: '普通の', Strong: '強力な' };
     const jTypes = { Attack: '攻撃', Defense: '防御', Speed: '敏捷', MaxHp: '体力' };
     
@@ -524,8 +594,6 @@ const generateRandomItem = (level: number, rankBonus: number = 0): Item | null =
   if (type === 'Weapon') name += ITEM_BASE_NAMES[type][subType!];
   else name += ITEM_BASE_NAMES[type];
 
-  // 簡易的なレアリティ翻訳（表示用ではないが、英語名で統一しておく）
-  
   return {
     id: crypto.randomUUID(),
     name, type, subType, rarity, level, stats, enchantments,
@@ -626,13 +694,11 @@ const generateChunk = (wx: number, wy: number): ChunkData => {
     Array(width).fill(null).map((_, x) => {
       let type: TileType = 'grass';
       
-      // バイオームごとの地形
       if (biome === 'Snow') type = 'snow';
       if (biome === 'Desert') type = 'sand';
       if (biome === 'Wasteland') type = 'dirt';
       if (biome === 'Town') type = 'floor';
 
-      // ランダムなバリエーション
       if (biome !== 'Town' && Math.random() < 0.05) type = Math.random() > 0.5 ? 'dirt' : 'rock';
 
       return {
@@ -766,11 +832,9 @@ const renderGame = (
   const { width, height } = ctx.canvas;
   const T = GAME_CONFIG.TILE_SIZE;
 
-  // 画面クリア
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, width, height);
 
-  // カメラ移動
   ctx.save();
   const camX = Math.floor(state.player.x + state.player.width/2 - width/2);
   const camY = Math.floor(state.player.y + state.player.height/2 - height/2);
@@ -778,7 +842,6 @@ const renderGame = (
 
   state.camera = { x: camX, y: camY };
 
-  // 1. マップ描画 (可視範囲のみ)
   const startCol = Math.floor(camX / T);
   const endCol = startCol + (width / T) + 1;
   const startRow = Math.floor(camY / T);
@@ -819,7 +882,6 @@ const renderGame = (
     }
   }
 
-  // 2. ドロップアイテム
   state.droppedItems.forEach(drop => {
     const bob = Math.sin(state.gameTime / 10) * 5 + drop.bounceOffset;
     ctx.shadowColor = drop.item.color;
@@ -836,78 +898,72 @@ const renderGame = (
     ctx.shadowBlur = 0;
   });
 
-  // 3. エンティティ描画 (Y座標順にソート)
   const allEntities = [...state.enemies, state.player].sort((a, b) => (a.y + a.height) - (b.y + b.height));
 
   const renderCharacter = (e: CombatEntity, icon?: string) => {
     const vw = e.visualWidth || e.width;
     const vh = e.visualHeight || e.height;
 
-    // 中心位置
     const centerX = e.x + e.width / 2;
     const bottomY = e.y + e.height;
 
-    // 画像キーの決定
     let imgKey: string | null = null;
     
     if (e.type === 'player') {
       const p = e as PlayerEntity;
-      imgKey = `${p.job}_${p.gender}`; // e.g. "Swordsman_Male"
+      imgKey = `${p.job}_${p.gender}`; 
     } else if (e.type === 'enemy') {
       const raceName = (e as EnemyEntity).race;
       if (raceName.includes('Slime') || raceName.includes('Jelly')) imgKey = 'Slime';
-      else if (raceName.includes('Bandit') || raceName.includes('Assassin')) imgKey = 'Bandit';
+      else if (raceName.includes('Bandit') || raceName.includes('Assassin') || raceName.includes('Mercenary')) imgKey = 'Bandit';
+      else if (raceName.includes('Zombie') || raceName.includes('Ghoul')) imgKey = 'Zombie';
+      else if (raceName.includes('Ant') || raceName.includes('Spider') || raceName.includes('Queen')) imgKey = 'Insect';
+      else if (raceName.includes('Imp') || raceName.includes('Demon')) imgKey = 'Demon';
+      else if (raceName.includes('Bat') || raceName.includes('Vampire')) imgKey = 'Bat';
+      else if (raceName.includes('Dragon') || raceName.includes('Wyvern')) imgKey = 'Dragon';
+      else if (raceName.includes('Boar') || raceName.includes('Grizzly') || raceName.includes('Chimera')) imgKey = 'Beast';
+      else if (raceName.includes('Wolf') || raceName.includes('Hound') || raceName.includes('Cerberus')) imgKey = 'Wolf';
+      else if (raceName.includes('Ghost') || raceName.includes('Wraith') || raceName.includes('Lich')) imgKey = 'Ghost';
     }
 
-    // --- 影の描画 ---
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.beginPath();
     const shadowSize = (e.shape === 'flying' || e.shape === 'ghost') ? 0.8 : 1.2;
     ctx.ellipse(centerX, bottomY - 2, e.width/2 * shadowSize, 4, 0, 0, Math.PI*2);
     ctx.fill();
 
-    // --- キャラクター描画 ---
     if (imgKey && images[imgKey]) {
-      // ** 画像レンダリング **
       const img = images[imgKey];
       
-      // アニメーション計算
       const isMoving = Math.abs(e.vx || 0) > 0.1 || Math.abs(e.vy || 0) > 0.1;
       let scaleX = 1;
       let scaleY = 1;
       let offsetY = 0;
 
       if (isMoving) {
-        // 歩行バウンス
-        const bounce = Math.sin(state.gameTime / 2); // -1 to 1
+        const bounce = Math.sin(state.gameTime / 2); 
         scaleX = 1 + (bounce * 0.1);
         scaleY = 1 - (bounce * 0.1);
-        // 少し跳ねる
         if (bounce > 0) offsetY = -bounce * 5;
       }
 
-      // 攻撃時のモーション
       if (e.isAttacking) {
          scaleX = 1.2; 
          scaleY = 0.8;
       }
 
-      // 向きによる反転 (0=右, 1=下, 2=左, 3=上)
       const isLeft = e.direction === 2;
 
-      // 描画実行
       const drawW = vw;
       const drawH = vh;
       
       ctx.save();
       ctx.translate(centerX, bottomY + offsetY);
       ctx.scale(isLeft ? -scaleX : scaleX, scaleY);
-      // 原点を足元に合わせて描画
       ctx.drawImage(img, -drawW / 2, -drawH, drawW, drawH);
       ctx.restore();
 
     } else {
-      // ** 矩形レンダリング (画像がない場合のフォールバック) **
       const drawX = e.x + (e.width - vw) / 2;
       const drawY = e.y + e.height - vh;
 
@@ -918,51 +974,7 @@ const renderGame = (
       ctx.fillStyle = e.color;
       if (e.shape === 'ghost') ctx.globalAlpha = 0.6;
       
-      const shape = e.shape || 'humanoid';
-
-      if (shape === 'humanoid' || shape === 'dragon' || shape === 'demon') {
-        ctx.fillRect(drawX + vw*0.1, drawY + vh*0.4 + bob, vw*0.8, vh*0.6);
-        ctx.fillStyle = adjustColor(e.color, 20);
-        ctx.fillRect(drawX, drawY + bob, vw, vh*0.4);
-        
-        if (e.direction === 1 || e.direction === 0) {
-          ctx.fillStyle = '#fff';
-          ctx.fillRect(drawX + vw*0.2, drawY + vh*0.15 + bob, 4, 4);
-          ctx.fillRect(drawX + vw*0.6, drawY + vh*0.15 + bob, 4, 4);
-        }
-      } 
-      else if (shape === 'beast' || shape === 'insect') {
-        ctx.fillRect(drawX, drawY + vh*0.3 + bob, vw, vh*0.7);
-        ctx.fillStyle = adjustColor(e.color, -20);
-        const headX = e.direction === 2 ? drawX : drawX + vw - 16;
-        const headY = drawY + bob + (shape === 'insect' ? 10 : 0);
-        ctx.fillRect(headX, headY, 20, 20);
-      }
-      else if (shape === 'flying') {
-        ctx.fillStyle = e.color;
-        const wingFlap = Math.sin(state.gameTime / 2) * 5;
-        ctx.beginPath();
-        ctx.arc(drawX + vw/2, drawY + vh/2 + bob, 10, 0, Math.PI*2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(drawX + vw/2, drawY + vh/2 + bob);
-        ctx.lineTo(drawX - wingFlap, drawY + bob);
-        ctx.lineTo(drawX + vw/2, drawY + vh/2 + bob + 10);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(drawX + vw/2, drawY + vh/2 + bob);
-        ctx.lineTo(drawX + vw + wingFlap, drawY + bob);
-        ctx.lineTo(drawX + vw/2, drawY + vh/2 + bob + 10);
-        ctx.fill();
-      }
-      else if (shape === 'slime') {
-        ctx.beginPath();
-        ctx.roundRect(drawX + bob, drawY + vh*0.2 - bob, vw - bob*2, vh*0.8 + bob, 10);
-        ctx.fill();
-      }
-      else {
-        ctx.fillRect(drawX, drawY + bob, vw, vh);
-      }
+      ctx.fillRect(drawX, drawY + bob, vw, vh);
       
       ctx.globalAlpha = 1.0;
 
@@ -973,18 +985,17 @@ const renderGame = (
         ctx.shadowColor = 'black';
         ctx.shadowBlur = 2;
         ctx.fillStyle = '#fff';
-        const iconY = shape === 'ghost' ? drawY + vh/3 : drawY + vh/2;
+        const iconY = e.shape === 'ghost' ? drawY + vh/3 : drawY + vh/2;
         ctx.fillText(icon, drawX + vw/2, iconY + bob);
         ctx.shadowBlur = 0;
       }
-    } // フォールバック終了
+    } 
 
-    // HPバー
     if (e.type === 'enemy' && e.hp < e.maxHp) {
       const hpPct = e.hp / e.maxHp;
       const barW = vw;
       const barX = centerX - barW / 2;
-      const barY = bottomY - vh - 12; // 頭上
+      const barY = bottomY - vh - 12;
 
       ctx.fillStyle = '#000';
       ctx.fillRect(barX, barY, barW, 4);
@@ -1000,7 +1011,6 @@ const renderGame = (
     renderCharacter(e as CombatEntity, icon);
   });
 
-  // 4. 投射物 & エフェクト
   state.projectiles.forEach(p => {
     ctx.fillStyle = p.color;
     ctx.beginPath();
@@ -1017,9 +1027,7 @@ const renderGame = (
     const cy = p.y + p.height/2;
     const range = 60;
     
-    const timeSinceAttack = Date.now() - p.lastAttackTime;
-    const progress = Math.min(Math.max(timeSinceAttack / 200, 0), 1);
-    const radius = Math.max(0, range * progress);
+    const radius = Math.max(0, range * Math.min(Math.max((Date.now() - p.lastAttackTime) / 200, 0), 1));
     
     ctx.arc(cx, cy, radius, 0, Math.PI*2);
     ctx.stroke();
@@ -1066,7 +1074,6 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // 設定エラー時のUI表示
   if (!isConfigValid) {
     return (
       <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white p-8">
@@ -1081,7 +1088,6 @@ export default function App() {
     );
   }
 
-  // アセット読み込み
   const loadedAssets = useMemo(() => {
     const images: Record<string, HTMLImageElement> = {};
     Object.entries(ASSETS_SVG).forEach(([key, svg]) => {
@@ -1092,7 +1098,6 @@ export default function App() {
     return images;
   }, []);
 
-  // 認証 & 初期化
   useEffect(() => {
     if (!auth) {
       console.warn("Auth not initialized. Starting in offline mode.");
@@ -1123,18 +1128,16 @@ export default function App() {
       if (u) {
         checkSaveData(u.uid);
       } else {
-        // 未ログイン状態でもタイトルへ（auth完了を待たずに進むケース）
+        //
       }
     });
     
-    // ウィンドウリサイズ処理
     const handleResize = () => {
       setViewportSize({ width: window.innerWidth, height: window.innerHeight });
     };
-    handleResize(); // Init
+    handleResize(); 
     window.addEventListener('resize', handleResize);
 
-    // 入力ハンドラ
     const handleKeyDown = (e: KeyboardEvent) => {
       input.current.keys[e.key.toLowerCase()] = true;
       if (e.key.toLowerCase() === 'i') setActiveMenu(prev => prev === 'inventory' ? 'none' : 'inventory');
@@ -1884,7 +1887,7 @@ export default function App() {
           )}
         </div>
       )}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.5.7</div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.5.8</div>
     </div>
   );
 }
