@@ -7,7 +7,6 @@ import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore
 /**
  * ############################################################################
  * SECTION 1: CONFIGURATION & FIREBASE SETUP
- * 将来的に 'src/config/firebase.ts' などへ分割推奨
  * ############################################################################
  */
 const MANUAL_FIREBASE_CONFIG = {
@@ -50,7 +49,6 @@ if (firebaseConfig && firebaseConfig.apiKey) {
 /**
  * ############################################################################
  * SECTION 2: ASSETS (SVG & STYLES)
- * 将来的に 'src/constants/assets.ts' へ分割推奨
  * ############################################################################
  */
 const ASSETS_SVG = {
@@ -78,7 +76,6 @@ const svgToUrl = (s: string) => "data:image/svg+xml;charset=utf-8," + encodeURIC
 /**
  * ############################################################################
  * SECTION 3: TYPE DEFINITIONS
- * 将来的に 'src/types/index.ts' へ分割推奨
  * ############################################################################
  */
 type TileType = 'grass' | 'dirt' | 'wall' | 'water' | 'floor' | 'portal_out' | 'town_entrance' | 'sand' | 'snow' | 'rock';
@@ -111,7 +108,6 @@ interface GameState { worldX: number; worldY: number; currentBiome: Biome; saved
 /**
  * ############################################################################
  * SECTION 4: GAME CONSTANTS & DATA
- * 将来的に 'src/constants/gameData.ts' へ分割推奨
  * ############################################################################
  */
 const GAME_CONFIG = {
@@ -158,7 +154,6 @@ const BIOME_NAMES: Record<Biome, string> = { Plains: '平原', Forest: '森', De
 /**
  * ############################################################################
  * SECTION 5: GAME LOGIC HELPERS (PURE FUNCTIONS)
- * 将来的に 'src/utils/gameLogic.ts' へ分割推奨
  * ############################################################################
  */
 const generateRandomItem = (level: number, rankBonus: number = 0): Item | null => {
@@ -284,7 +279,6 @@ const updatePlayerStats = (player: PlayerEntity) => {
 /**
  * ############################################################################
  * SECTION 6: RENDERER
- * 将来的に 'src/systems/renderer.ts' へ分割推奨
  * ############################################################################
  */
 const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Record<string, HTMLImageElement>) => {
@@ -390,7 +384,6 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
 /**
  * ############################################################################
  * SECTION 7: SUB-COMPONENTS (SCREENS & UI)
- * 将来的に 'src/components/' 以下の各ファイルへ分割推奨
  * ############################################################################
  */
 
