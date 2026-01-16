@@ -691,9 +691,12 @@ export default function App() {
       try {
         // @ts-ignore
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token); else await signInAnonymously(auth);
-      } catch (e) {
-        console.error("Auth Error:", e);
-        setLoadingMessage("認証に失敗しました。オフラインで起動します。");
+      } catch (e: any) {
+        console.warn("Firebase Auth Failed:", e.message);
+        if (e.code === 'auth/configuration-not-found') {
+            console.info("NOTE: Firebase Authenticationで「匿名」プロバイダが有効になっていない可能性があります。");
+        }
+        setLoadingMessage("オフラインモードで起動します...");
         setTimeout(() => setScreen('title'), 1500);
       }
     };
