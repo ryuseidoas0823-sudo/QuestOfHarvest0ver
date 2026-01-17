@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Zap, Heart, Activity, Monitor, ArrowDownCircle, Droplets, Wind, Flame } from 'lucide-react';
+import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Zap, Heart, Activity, Monitor, ArrowDownCircle, Droplets, Wind } from 'lucide-react';
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken, Auth } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore';
@@ -205,7 +205,6 @@ const ENEMY_TYPES = [
   { name: 'Wolf',      hp: 35, atk: 9, spd: 4.2, color: '#757575', icon: '🐺', xp: 25, shape: 'beast',    w: 32, h: 24, vw: 48, vh: 32 },
   { name: 'Ghost',     hp: 20, atk: 7, spd: 1.0, color: '#cfd8dc', icon: '👻', xp: 28, shape: 'ghost',    w: 24, h: 24, vw: 32, vh: 40 },
 ];
-const BIOME_NAMES: Record<Biome, string> = { Plains: '平原', Forest: '森', Desert: '砂漠', Snow: '雪原', Wasteland: '荒野', Town: '街', Dungeon: 'ダンジョン' };
 
 /**
  * ############################################################################
