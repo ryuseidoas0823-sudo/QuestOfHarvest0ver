@@ -3,8 +3,9 @@ import { Loader, AlertTriangle } from 'lucide-react';
 import { signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { ASSETS_SVG, svgToUrl } from './assets';
-import { GAME_CONFIG, JOB_DATA, ENEMY_TYPES, THEME } from './constants';
-import { Job, Gender, PlayerEntity, GameState, MenuType, ResolutionMode, Attributes, Item, Biome, Entity, EnemyEntity, CombatEntity } from './types';
+import { GAME_CONFIG } from './constants';
+import { JOB_DATA, ENEMY_TYPES } from './data';
+import { Job, Gender, PlayerEntity, GameState, MenuType, ResolutionMode, Attributes, Item, Biome, Entity, EnemyEntity, CombatEntity, FloatingText } from './types';
 import { auth, db, isConfigValid, appId } from './firebase';
 import { checkCollision, resolveMapCollision, updatePlayerStats, createPlayer, generateEnemy, generateChunk, generateRandomItem } from './utils';
 
@@ -218,7 +219,7 @@ export default function App() {
       ctx.arc(state.player.x + state.player.width/2, state.player.y + state.player.height/2, radius, 0, Math.PI*2); ctx.stroke();
     }
   
-    state.floatingTexts.forEach(t => {
+    state.floatingTexts.forEach((t: FloatingText) => {
       ctx.font = 'bold 16px monospace'; ctx.fillStyle = 'black'; ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.textAlign = 'center';
       ctx.strokeText(t.text, t.x, t.y); ctx.fillStyle = t.color; ctx.fillText(t.text, t.x, t.y);
     });
@@ -303,7 +304,7 @@ export default function App() {
         state.enemies.push(generateEnemy(sx, sy, state.wave + Math.abs(state.worldX) + Math.abs(state.worldY)));
       }
       state.enemies = state.enemies.filter(e => !e.dead); state.droppedItems = state.droppedItems.filter(d => !d.dead);
-      state.floatingTexts.forEach(t => { t.y -= 0.5; t.life--; }); state.floatingTexts = state.floatingTexts.filter(t => t.life > 0);
+      state.floatingTexts.forEach((t: FloatingText) => { t.y -= 0.5; t.life--; }); state.floatingTexts = state.floatingTexts.filter((t: FloatingText) => t.life > 0);
     }
     renderGame(ctx, state);
     if (state.gameTime % 10 === 0) setUiState({...state.player});
