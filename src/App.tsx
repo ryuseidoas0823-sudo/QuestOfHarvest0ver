@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Zap, Heart, Activity, Monitor, ArrowDownCircle, Droplets, Wind } from 'lucide-react';
+import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Zap, Heart, Activity, Monitor, ArrowDownCircle, Droplets, Wind, Hammer, Coins } from 'lucide-react';
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken, Auth } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore';
@@ -70,7 +70,11 @@ const ASSETS_SVG = {
   Archer_Female: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" /><path d="M5 2h6v3H5z" fill="#a1887f" /><path d="M11 3h2v3h-2z" fill="#a1887f" /><path d="M5 5h6v3H5z" fill="#ffccaa" /><path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" /><path d="M5 8h6v4H5z" fill="#33691e" /><path d="M5 12h2v4H5zm4 0h2v4H9z" fill="#5d4037" /><path d="M12 6h1v6h-1z" fill="#8d6e63" /><path d="M12 6h-1v1h1zm-1 5h1v1h-1z" fill="#8d6e63" /></svg>`,
   Mage_Male: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" /><path d="M4 4h8v1H4z" fill="#311b92" /><path d="M5 1h6v3H5z" fill="#311b92" /><path d="M5 5h6v3H5z" fill="#ffccaa" /><path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" /><path d="M4 8h8v6H4z" fill="#4527a0" /><path d="M6 8h4v6H6z" fill="#673ab7" /><path d="M13 5h1v8h-1z" fill="#8d6e63" /><path d="M12 4h3v1h-3z" fill="#ffeb3b" /></svg>`,
   Mage_Female: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" /><path d="M3 4h10v1H3z" fill="#ad1457" /><path d="M5 1h6v3H5z" fill="#ad1457" /><path d="M4 5h8v4H4z" fill="#f48fb1" /><path d="M5 5h6v3H5z" fill="#ffccaa" /><path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" /><path d="M5 8h6v6H5z" fill="#880e4f" /><path d="M13 5h1v8h-1z" fill="#8d6e63" /><path d="M12 4h3v1h-3z" fill="#00e676" /></svg>`,
-  Torch: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M6 8h4v8H6z" fill="#5d4037" /><path d="M7 6h2v2H7z" fill="#ffeb3b" /><path d="M6 4h4v3H6z" fill="#ff9800" opacity="0.8" /><path d="M7 2h2v4H7z" fill="#ff5722" opacity="0.8" /></svg>`
+  Torch: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M6 8h4v8H6z" fill="#5d4037" /><path d="M7 6h2v2H7z" fill="#ffeb3b" /><path d="M6 4h4v3H6z" fill="#ff9800" opacity="0.8" /><path d="M7 2h2v4H7z" fill="#ff5722" opacity="0.8" /></svg>`,
+  Potion: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M6 14h4v1H6z" fill="rgba(0,0,0,0.3)" /><path d="M7 2h2v3H7z" fill="#b0bec5" /><path d="M6 4h4v1H6z" fill="#cfd8dc" /><path d="M5 5h6v8H5z" fill="#ef5350" /><path d="M6 6h1v2H6zm3 1h1v1H9z" fill="#ffcdd2" opacity="0.6" /><path d="M5 11h6v2H5z" fill="#c62828" /></svg>`,
+  Tree: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M6 13h4v3H6z" fill="#5d4037" /><path d="M4 10h8v3H4z" fill="#2e7d32" /><path d="M5 7h6v3H5z" fill="#388e3c" /><path d="M6 4h4v3H6z" fill="#43a047" /><path d="M7 2h2v2H7z" fill="#4caf50" /></svg>`,
+  Rock: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M3 10h10v6H3z" fill="#757575" /><path d="M4 8h8v2H4z" fill="#9e9e9e" /><path d="M5 6h6v2H5z" fill="#bdbdbd" /><path d="M3 13h2v2H3zm8 0h2v2h-2z" fill="#616161" /></svg>`,
+  Ore: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M3 10h10v6H3z" fill="#546e7a" /><path d="M4 8h8v2H4z" fill="#78909c" /><path d="M5 6h6v2H5z" fill="#90a4ae" /><path d="M5 9h2v2H5zm5 2h2v2h-2z" fill="#ffeb3b" /><path d="M7 12h2v2H7z" fill="#ffeb3b" /></svg>`
 };
 const svgToUrl = (s: string) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(s.trim());
 
@@ -80,15 +84,15 @@ const svgToUrl = (s: string) => "data:image/svg+xml;charset=utf-8," + encodeURIC
  * ############################################################################
  */
 type TileType = 'grass' | 'dirt' | 'wall' | 'water' | 'floor' | 'portal_out' | 'town_entrance' | 'sand' | 'snow' | 'rock' | 'stairs_down' | 'dungeon_entrance' | 'return_portal' | 'town_floor';
-type EntityType = 'player' | 'enemy' | 'npc' | 'projectile' | 'particle' | 'text' | 'drop';
+type EntityType = 'player' | 'enemy' | 'npc' | 'projectile' | 'particle' | 'text' | 'drop' | 'resource';
 type Job = 'Swordsman' | 'Warrior' | 'Archer' | 'Mage';
 type Gender = 'Male' | 'Female';
 type ShapeType = 'humanoid' | 'beast' | 'slime' | 'large' | 'insect' | 'ghost' | 'demon' | 'dragon' | 'flying';
 type Biome = 'Plains' | 'Forest' | 'Desert' | 'Snow' | 'Wasteland' | 'Town' | 'Dungeon';
 type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary';
-type EquipmentType = 'Weapon' | 'Helm' | 'Armor' | 'Shield' | 'Boots' | 'Consumable'; // Added Consumable
+type EquipmentType = 'Weapon' | 'Helm' | 'Armor' | 'Shield' | 'Boots' | 'Consumable' | 'Material';
 type WeaponStyle = 'OneHanded' | 'TwoHanded' | 'DualWield';
-type MenuType = 'none' | 'status' | 'inventory' | 'stats' | 'level_up'; 
+type MenuType = 'none' | 'status' | 'inventory' | 'stats' | 'level_up' | 'crafting' | 'shop'; 
 type ResolutionMode = 'auto' | '800x600' | '1024x768' | '1280x720';
 
 interface Tile { x: number; y: number; type: TileType; solid: boolean; }
@@ -98,17 +102,17 @@ interface Entity { id: string; x: number; y: number; width: number; height: numb
 interface DroppedItem extends Entity { type: 'drop'; item: Item; life: number; bounceOffset: number; }
 interface CombatEntity extends Entity { hp: number; maxHp: number; level: number; attack: number; defense: number; speed: number; lastAttackTime: number; attackCooldown: number; isAttacking?: boolean; direction: number; shape?: ShapeType; }
 interface Attributes { vitality: number; strength: number; dexterity: number; intelligence: number; endurance: number; }
+// Phase 4: Resource Entity
+interface ResourceEntity extends Entity { type: 'resource'; resourceType: 'tree' | 'rock' | 'ore'; hp: number; maxHp: number; }
 
-// --- PHASE 3: LIGHT & STAMINA ---
 interface LightSource { x: number; y: number; radius: number; flicker: boolean; color: string; }
 
-// --- PHASE 2: NEW PERK TYPES ---
 interface PerkData {
   id: string;
   name: string;
   desc: string;
   rarity: 'Common' | 'Rare' | 'Legendary';
-  icon: any; // Lucide Icon
+  icon: any; 
   color: string;
 }
 
@@ -119,8 +123,6 @@ interface PlayerEntity extends CombatEntity {
   equipment: { mainHand?: Item; offHand?: Item; helm?: Item; armor?: Item; boots?: Item; }; 
   calculatedStats: { maxHp: number; maxMp: number; attack: number; defense: number; speed: number; maxStamina: number; staminaRegen: number; };
   perks: string[];
-  
-  // Phase 3: Stamina
   stamina: number; 
   lastStaminaUse: number;
 }
@@ -129,7 +131,8 @@ interface EnemyEntity extends CombatEntity { targetId?: string; detectionRange: 
 interface Particle extends Entity { life: number; maxLife: number; size: number; }
 interface FloatingText extends Entity { text: string; life: number; color: string; }
 interface Projectile extends Entity { damage: number; ownerId: string; life: number; }
-interface FloorData { map: Tile[][]; enemies: EnemyEntity[]; droppedItems: DroppedItem[]; biome: Biome; level: number; lights: LightSource[]; }
+// Phase 4: Added resources array to FloorData
+interface FloorData { map: Tile[][]; enemies: EnemyEntity[]; resources: ResourceEntity[]; droppedItems: DroppedItem[]; biome: Biome; level: number; lights: LightSource[]; shopZones?: {x:number, y:number, w:number, h:number, type:'blacksmith'|'general'}[]; }
 
 interface GameState { 
   dungeonLevel: number; 
@@ -137,6 +140,7 @@ interface GameState {
   map: Tile[][]; 
   player: PlayerEntity; 
   enemies: EnemyEntity[]; 
+  resources: ResourceEntity[]; // Phase 4
   droppedItems: DroppedItem[]; 
   projectiles: Projectile[]; 
   particles: Particle[]; 
@@ -145,7 +149,9 @@ interface GameState {
   gameTime: number; 
   isPaused: boolean; 
   levelUpOptions: PerkData[] | null;
-  lights: LightSource[]; // Placed torches + dynamic lights
+  lights: LightSource[];
+  shopZones?: {x:number, y:number, w:number, h:number, type:'blacksmith'|'general'}[];
+  activeShop: 'blacksmith' | 'general' | null;
 }
 
 /**
@@ -156,7 +162,7 @@ interface GameState {
 const GAME_CONFIG = {
   TILE_SIZE: 32, MAP_WIDTH: 40, MAP_HEIGHT: 30, PLAYER_SPEED: 5, ENEMY_SPAWN_RATE: 0.02, BASE_DROP_RATE: 0.2,
   STAMINA_ATTACK_COST: 15,
-  STAMINA_DASH_COST: 1, // Per frame while dashing
+  STAMINA_DASH_COST: 1, 
   STAMINA_REGEN: 0.5,
 };
 
@@ -169,10 +175,9 @@ const THEME = {
 
 const RARITY_MULTIPLIERS = { Common: 1.0, Uncommon: 1.2, Rare: 1.5, Epic: 2.0, Legendary: 3.0 };
 const ENCHANT_SLOTS = { Common: 0, Uncommon: 1, Rare: 2, Epic: 3, Legendary: 5 };
-const ITEM_BASE_NAMES = { Weapon: { OneHanded: '剣', TwoHanded: '大剣', DualWield: '双剣' }, Helm: '兜', Armor: '板金鎧', Shield: '盾', Boots: '具足', Consumable: '道具' };
-const ICONS = { Weapon: { OneHanded: '⚔️', TwoHanded: '🗡️', DualWield: '⚔️' }, Helm: '🪖', Armor: '🛡️', Shield: '🛡️', Boots: '👢', Consumable: '🎒' };
+const ITEM_BASE_NAMES = { Weapon: { OneHanded: '剣', TwoHanded: '大剣', DualWield: '双剣' }, Helm: '兜', Armor: '板金鎧', Shield: '盾', Boots: '具足', Consumable: '道具', Material: '素材' };
+const ICONS = { Weapon: { OneHanded: '⚔️', TwoHanded: '🗡️', DualWield: '⚔️' }, Helm: '🪖', Armor: '🛡️', Shield: '🛡️', Boots: '👢', Consumable: '🎒', Material: '📦' };
 
-// --- PHASE 2: PERK DEFINITIONS ---
 const PERK_DEFINITIONS: Record<string, PerkData> = {
   'thunder_strike': { id: 'thunder_strike', name: 'Thunder Strike', desc: '攻撃時20%の確率で雷撃が発生し、追加ダメージを与える。', rarity: 'Rare', icon: Zap, color: '#fbbf24' },
   'vampire': { id: 'vampire', name: 'Vampire', desc: '敵を倒すとHPが5回復する。', rarity: 'Rare', icon: Droplets, color: '#f43f5e' },
@@ -214,12 +219,20 @@ const ENEMY_TYPES = [
 const generateRandomItem = (level: number, rankBonus: number = 0): Item | null => {
   let roll = Math.random() * 100 - rankBonus * 5;
   
-  // Phase 3: Chance for Torch
   if (Math.random() < 0.15) {
-      return { 
-          id: crypto.randomUUID(), name: "松明", type: "Consumable", rarity: "Common", level: 1, 
-          stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🔥", color: "#ff9800", count: 1
-      };
+      // Small chance for consumables
+      const typeRoll = Math.random();
+      if (typeRoll < 0.5) {
+        return { 
+            id: crypto.randomUUID(), name: "松明", type: "Consumable", rarity: "Common", level: 1, 
+            stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🔥", color: "#ff9800", count: 1
+        };
+      } else {
+        return { 
+            id: crypto.randomUUID(), name: "ポーション", type: "Consumable", rarity: "Common", level: 1, 
+            stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🧪", color: "#f44336", count: 1
+        };
+      }
   }
 
   let rarity: Rarity = roll < 1 ? 'Legendary' : roll < 5 ? 'Epic' : roll < 15 ? 'Rare' : roll < 40 ? 'Uncommon' : 'Common';
@@ -290,15 +303,15 @@ const generateEnemy = (x: number, y: number, level: number): EnemyEntity => {
 const generateFloor = (level: number): FloorData => {
   const width = GAME_CONFIG.MAP_WIDTH;
   const height = GAME_CONFIG.MAP_HEIGHT;
-  
-  // Initialize map array
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
       return { x: x * GAME_CONFIG.TILE_SIZE, y: y * GAME_CONFIG.TILE_SIZE, type: 'grass', solid: false };
     })
   );
 
   const enemies: EnemyEntity[] = [];
+  const resources: ResourceEntity[] = [];
   const lights: LightSource[] = [];
+  const shopZones: {x:number, y:number, w:number, h:number, type:'blacksmith'|'general'}[] = [];
   const biome: Biome = level === 0 ? 'Town' : (['Dungeon', 'Plains', 'Forest', 'Wasteland', 'Snow', 'Desert'] as Biome[])[(level % 5) + 1] || 'Dungeon';
 
   // --- Town Generation (Level 0) ---
@@ -315,14 +328,17 @@ const generateFloor = (level: number): FloorData => {
     map[cy][cx].type = 'dungeon_entrance';
     lights.push({ x: cx * 32 + 16, y: cy * 32 + 16, radius: 150, flicker: true, color: '#f59e0b' });
 
-    for(let y=5; y<10; y++) for(let x=5; x<12; x++) { map[y][x].type = 'wall'; map[y][x].solid = true; } // Shop
-    for(let y=5; y<10; y++) for(let x=width-12; x<width-5; x++) { map[y][x].type = 'wall'; map[y][x].solid = true; } // Blacksmith
-    return { map, enemies: [], droppedItems: [], biome: 'Town', level: 0, lights };
+    // Shops
+    for(let y=5; y<10; y++) for(let x=5; x<12; x++) { map[y][x].type = 'wall'; map[y][x].solid = true; } 
+    shopZones.push({x: 5*32, y: 10*32, w: 7*32, h: 2*32, type:'general'}); // Zone in front of shop
+
+    for(let y=5; y<10; y++) for(let x=width-12; x<width-5; x++) { map[y][x].type = 'wall'; map[y][x].solid = true; } 
+    shopZones.push({x: (width-12)*32, y: 10*32, w: 7*32, h: 2*32, type:'blacksmith'}); // Zone in front of blacksmith
+
+    return { map, enemies: [], resources: [], droppedItems: [], biome: 'Town', level: 0, lights, shopZones };
   }
 
-  // --- Dungeon Generation (Level > 0) ---
-  
-  // 1. Fill with walls first
+  // --- Dungeon Generation ---
   for(let y=0; y<height; y++) {
     for(let x=0; x<width; x++) {
       map[y][x].type = 'wall'; 
@@ -330,7 +346,6 @@ const generateFloor = (level: number): FloorData => {
     }
   }
 
-  // 2. Room Generation
   const rooms: {x: number, y: number, w: number, h: number}[] = [];
   const minRoomSize = 6;
   const maxRoomSize = 12;
@@ -345,7 +360,6 @@ const generateFloor = (level: number): FloorData => {
     const newRoom = { x, y, w, h };
     rooms.push(newRoom);
 
-    // Carve room
     for (let ry = y; ry < y + h; ry++) {
       for (let rx = x; rx < x + w; rx++) {
         if (ry > 0 && ry < height -1 && rx > 0 && rx < width -1) {
@@ -359,9 +373,24 @@ const generateFloor = (level: number): FloorData => {
         }
       }
     }
+    
+    // Add Resources in Room Corners
+    if (Math.random() < 0.7) {
+        const resType = biome === 'Forest' || biome === 'Plains' ? 'tree' : (Math.random() < 0.3 ? 'ore' : 'rock');
+        const count = Math.floor(Math.random() * 3) + 1;
+        for(let k=0; k<count; k++) {
+            const rx = x + Math.floor(Math.random() * w);
+            const ry = y + Math.floor(Math.random() * h);
+            if (!map[ry][rx].solid) {
+                resources.push({
+                    id: crypto.randomUUID(), x: rx*32, y: ry*32, width: 32, height: 32, type: 'resource', resourceType: resType,
+                    hp: 30, maxHp: 30, color: resType === 'tree' ? '#4caf50' : (resType === 'ore' ? '#ffeb3b' : '#9e9e9e'), dead: false
+                });
+            }
+        }
+    }
   }
 
-  // 3. Connect Rooms (Simple Corridor)
   for (let i = 1; i < rooms.length; i++) {
       const prev = rooms[i-1];
       const curr = rooms[i];
@@ -370,7 +399,6 @@ const generateFloor = (level: number): FloorData => {
       const currCx = Math.floor(curr.x + curr.w / 2);
       const currCy = Math.floor(curr.y + curr.h / 2);
 
-      // Horizontal then Vertical with wide corridors
       const carveH = (y: number, x1: number, x2: number) => {
           for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x++) {
               if (y > 0 && y < height-1 && x > 0 && x < width-1) {
@@ -378,9 +406,8 @@ const generateFloor = (level: number): FloorData => {
                 if (biome === 'Snow') floorType = 'snow';
                 else if (biome === 'Desert') floorType = 'sand';
                 else if (biome === 'Wasteland') floorType = 'dirt';
-                
                 map[y][x].type = floorType; map[y][x].solid = false;
-                map[y+1][x].type = floorType; map[y+1][x].solid = false; // width 2
+                map[y+1][x].type = floorType; map[y+1][x].solid = false; 
               }
           }
       };
@@ -391,23 +418,16 @@ const generateFloor = (level: number): FloorData => {
                 if (biome === 'Snow') floorType = 'snow';
                 else if (biome === 'Desert') floorType = 'sand';
                 else if (biome === 'Wasteland') floorType = 'dirt';
-
                 map[y][x].type = floorType; map[y][x].solid = false;
-                map[y][x+1].type = floorType; map[y][x+1].solid = false; // width 2
+                map[y][x+1].type = floorType; map[y][x+1].solid = false; 
               }
           }
       };
 
-      if (Math.random() < 0.5) {
-          carveH(prevCy, prevCx, currCx);
-          carveV(currCx, prevCy, currCy);
-      } else {
-          carveV(prevCx, prevCy, currCy);
-          carveH(currCy, prevCx, currCx);
-      }
+      if (Math.random() < 0.5) { carveH(prevCy, prevCx, currCx); carveV(currCx, prevCy, currCy); } 
+      else { carveV(prevCx, prevCy, currCy); carveH(currCy, prevCx, currCx); }
   }
 
-  // Helper to find random floor tile
   const getRandomFloorTile = () => {
       let limit = 1000;
       while(limit-- > 0) {
@@ -415,15 +435,13 @@ const generateFloor = (level: number): FloorData => {
           const ry = Math.floor(Math.random() * (height - 2)) + 1;
           if (!map[ry][rx].solid) return {x: rx, y: ry};
       }
-      return {x: Math.floor(width/2), y: Math.floor(height/2)}; // fallback
+      return {x: Math.floor(width/2), y: Math.floor(height/2)};
   };
 
-  // Stairs Down
   const stairsPos = getRandomFloorTile();
   map[stairsPos.y][stairsPos.x].type = 'stairs_down';
   lights.push({ x: stairsPos.x * 32 + 16, y: stairsPos.y * 32 + 16, radius: 100, flicker: false, color: '#ffffff' });
 
-  // Return Portal (Level % 5 === 0)
   if (level % 5 === 0) {
       let portalPos = getRandomFloorTile();
       while (portalPos.x === stairsPos.x && portalPos.y === stairsPos.y) portalPos = getRandomFloorTile();
@@ -431,14 +449,13 @@ const generateFloor = (level: number): FloorData => {
       lights.push({ x: portalPos.x * 32 + 16, y: portalPos.y * 32 + 16, radius: 120, flicker: true, color: '#00e676' });
   }
 
-  // Enemies
   const enemyCount = 5 + Math.floor(level * 0.5);
   for(let i=0; i<enemyCount; i++) {
     const pos = getRandomFloorTile();
     enemies.push(generateEnemy(pos.x * GAME_CONFIG.TILE_SIZE, pos.y * GAME_CONFIG.TILE_SIZE, level));
   }
 
-  return { map, enemies, droppedItems: [], biome, level, lights };
+  return { map, enemies, resources, droppedItems: [], biome, level, lights };
 };
 
 const checkCollision = (rect1: Entity, rect2: Entity) => rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y;
@@ -458,13 +475,11 @@ const updatePlayerStats = (player: PlayerEntity) => {
   let equipAtk = 0, equipDef = 0, equipSpd = 0, equipHp = 0;
   Object.values(player.equipment).forEach(item => { if (item) { equipAtk += item.stats.attack; equipDef += item.stats.defense; equipSpd += item.stats.speed; equipHp += item.stats.maxHp; } });
   
-  // --- PHASE 2: APPLY PASSIVE PERKS ---
   if (player.perks.includes('stone_skin')) baseDef += 5;
   if (player.perks.includes('berserker')) baseAtk += 5;
   if (player.perks.includes('vitality_boost')) maxHp += 20;
   if (player.perks.includes('swift_step')) baseSpd *= 1.1;
 
-  // Phase 3: Stamina Stats
   let maxStamina = 100 + (attr.endurance * 2);
   let staminaRegen = GAME_CONFIG.STAMINA_REGEN + (attr.endurance * 0.05);
 
@@ -481,9 +496,7 @@ const updatePlayerStats = (player: PlayerEntity) => {
 const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Record<string, HTMLImageElement>) => {
   const { width, height } = ctx.canvas;
   const T = GAME_CONFIG.TILE_SIZE;
-  // Clear Canvas
   ctx.fillStyle = '#111'; ctx.fillRect(0, 0, width, height);
-  
   ctx.save();
   const camX = Math.floor(state.player.x + state.player.width/2 - width/2);
   const camY = Math.floor(state.player.y + state.player.height/2 - height/2);
@@ -495,12 +508,11 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
   const startRow = Math.max(0, Math.floor(camY / T));
   const endRow = Math.min(GAME_CONFIG.MAP_HEIGHT - 1, startRow + (height / T) + 1);
 
-  // --- Layer 1: World ---
+  // Layer 1: World
   for (let y = startRow; y <= endRow; y++) {
     for (let x = startCol; x <= endCol; x++) {
       const tile = state.map[y]?.[x];
       if (!tile) continue;
-      
       let color = '#000';
       if (tile.type === 'grass') color = '#1b2e1b';
       else if (tile.type === 'dirt') color = '#3e2723';
@@ -515,8 +527,7 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
       else if (tile.type === 'stairs_down') color = '#000';
       else if (tile.type === 'return_portal') color = '#000';
 
-      ctx.fillStyle = color;
-      ctx.fillRect(tile.x, tile.y, T, T);
+      ctx.fillStyle = color; ctx.fillRect(tile.x, tile.y, T, T);
       ctx.strokeStyle = 'rgba(0,0,0,0.05)'; ctx.strokeRect(tile.x, tile.y, T, T);
 
       if (tile.type === 'wall') { ctx.fillStyle = '#555'; ctx.fillRect(tile.x, tile.y, T, T-4); ctx.fillStyle = '#333'; ctx.fillRect(tile.x, tile.y+T-4, T, 4); }
@@ -526,7 +537,7 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
     }
   }
 
-  // --- Layer 2: Entities & Objects ---
+  // Layer 2: Entities
   state.droppedItems.forEach(drop => {
     const bob = Math.sin(state.gameTime / 10) * 5 + drop.bounceOffset;
     ctx.shadowColor = drop.item.color; ctx.shadowBlur = 10;
@@ -535,16 +546,36 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
     ctx.font = '16px Arial'; ctx.textAlign = 'center'; ctx.fillText(drop.item.icon, drop.x + 16, drop.y + 4 + bob); ctx.shadowBlur = 0;
   });
 
-  // Render Placed Torches (Using particles logic or just drawing them)
-  // For simplicity, drawn directly. In lights array we have their positions.
+  // Phase 4: Render Resources
+  state.resources.forEach(r => {
+      let imgKey = r.resourceType === 'tree' ? 'Tree' : (r.resourceType === 'ore' ? 'Ore' : 'Rock');
+      if (images[imgKey]) {
+          const wobble = Math.sin(state.gameTime / 5) * (r.hp < r.maxHp ? 2 : 0);
+          ctx.save(); ctx.translate(r.x + 16 + wobble, r.y + 16);
+          ctx.drawImage(images[imgKey], -16, -16, 32, 32);
+          ctx.restore();
+      } else {
+          ctx.fillStyle = r.color; ctx.fillRect(r.x, r.y, r.width, r.height);
+      }
+  });
+
   state.lights.forEach(l => {
-      // Only draw torch graphic if it's not a special tile light
-      if (l.color === '#ff9800') { // Torch color
+      if (l.color === '#ff9800') { 
           const flick = l.flicker ? Math.random() * 2 : 0;
-          ctx.fillStyle = '#5d4037'; ctx.fillRect(l.x - 2, l.y, 4, 10); // stick
+          ctx.fillStyle = '#5d4037'; ctx.fillRect(l.x - 2, l.y, 4, 10);
           ctx.fillStyle = '#ffeb3b'; ctx.beginPath(); ctx.arc(l.x, l.y, 4 + flick, 0, Math.PI*2); ctx.fill();
       }
   });
+
+  // Shop Zones Debug (Optional, commented out)
+  /*
+  if (state.dungeonLevel === 0 && state.shopZones) {
+      state.shopZones.forEach(z => {
+          ctx.strokeStyle = '#fff'; ctx.strokeRect(z.x, z.y, z.w, z.h);
+          ctx.fillStyle = '#fff'; ctx.fillText(z.type, z.x, z.y);
+      });
+  }
+  */
 
   const renderCharacter = (e: CombatEntity, icon?: string) => {
     const vw = e.visualWidth || e.width, vh = e.visualHeight || e.height;
@@ -603,39 +634,21 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
     ctx.strokeText(t.text, t.x, t.y); ctx.fillStyle = t.color; ctx.fillText(t.text, t.x, t.y);
   });
 
-  // --- Layer 3: Lighting System (Phase 3) ---
+  // Layer 3: Lighting
   if (state.currentBiome === 'Dungeon') {
       ctx.globalCompositeOperation = 'multiply';
-      // Create dark overlay
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(camX, camY, width, height); // Fill whole world space
-      
+      ctx.fillStyle = '#000000'; ctx.fillRect(camX, camY, width, height); 
       ctx.globalCompositeOperation = 'destination-out';
-      
-      // Cut out holes for lights
       const drawLight = (x: number, y: number, r: number, flicker: boolean) => {
           const flickVal = flicker ? Math.random() * 5 : 0;
           const gradient = ctx.createRadialGradient(x, y, r * 0.2, x, y, r + flickVal);
           gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
           gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-          ctx.fillStyle = gradient;
-          ctx.beginPath();
-          ctx.arc(x, y, r + flickVal, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.fillStyle = gradient; ctx.beginPath(); ctx.arc(x, y, r + flickVal, 0, Math.PI * 2); ctx.fill();
       };
-
-      // Player Light
       drawLight(state.player.x + state.player.width/2, state.player.y + state.player.height/2, 180, false);
-
-      // Placed/Static Lights
-      state.lights.forEach(l => {
-          drawLight(l.x, l.y, l.radius, l.flicker);
-      });
-
-      // Projectiles can emit light too
-      // ...
-
-      ctx.globalCompositeOperation = 'source-over'; // Reset
+      state.lights.forEach(l => { drawLight(l.x, l.y, l.radius, l.flicker); });
+      ctx.globalCompositeOperation = 'source-over'; 
   }
 
   ctx.restore();
@@ -647,24 +660,66 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
  * ############################################################################
  */
 
-// Title Screen Component
-interface TitleScreenProps {
-  onStart: () => void;
-  onContinue: () => void;
-  canContinue: boolean;
-  resolution: ResolutionMode;
-  setResolution: (mode: ResolutionMode) => void;
-}
+// --- Phase 4: Shop / Crafting UI ---
+const ShopMenu = ({ type, player, onClose, onBuy, onCraft }: any) => {
+    return (
+        <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-8">
+            <div className="bg-slate-800 border-2 border-slate-600 rounded-xl p-8 w-full max-w-2xl shadow-2xl relative">
+                <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white"><X size={24}/></button>
+                <h2 className="text-3xl font-bold text-yellow-500 mb-6 flex items-center gap-3">
+                    {type === 'general' ? <ShoppingBag size={32}/> : <Hammer size={32}/>}
+                    {type === 'general' ? 'General Store' : 'Blacksmith Forge'}
+                </h2>
+                
+                {type === 'general' ? (
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-slate-700 p-4 rounded flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className="text-2xl">🔥</div>
+                                <div><div className="font-bold text-white">松明 (Torch)</div><div className="text-xs text-slate-400">暗闇を照らす</div></div>
+                            </div>
+                            <button onClick={() => onBuy('torch')} className="bg-yellow-600 hover:bg-yellow-500 px-4 py-2 rounded text-white font-bold flex items-center gap-1">50 <span className="text-xs">G</span></button>
+                        </div>
+                        <div className="bg-slate-700 p-4 rounded flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className="text-2xl">🧪</div>
+                                <div><div className="font-bold text-white">ポーション</div><div className="text-xs text-slate-400">HP 50回復</div></div>
+                            </div>
+                            <button onClick={() => onBuy('potion')} className="bg-yellow-600 hover:bg-yellow-500 px-4 py-2 rounded text-white font-bold flex items-center gap-1">100 <span className="text-xs">G</span></button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        <p className="text-slate-400 mb-4">素材とゴールドを使って、新しい装備を作成します。</p>
+                        <div className="bg-slate-700 p-4 rounded flex justify-between items-center">
+                            <div>
+                                <div className="font-bold text-white text-lg">ランダム装備作成</div>
+                                <div className="text-xs text-slate-400">必要: 木材x2, 石x2, 200G</div>
+                            </div>
+                            <button onClick={onCraft} className="bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded text-white font-bold uppercase tracking-wider">CRAFT</button>
+                        </div>
+                    </div>
+                )}
+                
+                <div className="mt-8 pt-4 border-t border-slate-600 flex justify-between text-slate-300">
+                    <div className="flex items-center gap-2"><Coins size={16} className="text-yellow-500"/> {player.gold} G</div>
+                    <div className="flex gap-4">
+                        <span className="flex items-center gap-1">🪵 {player.inventory.find((i:Item)=>i.name==='木材')?.count || 0}</span>
+                        <span className="flex items-center gap-1">🪨 {player.inventory.find((i:Item)=>i.name==='石')?.count || 0}</span>
+                        <span className="flex items-center gap-1">⛏️ {player.inventory.find((i:Item)=>i.name==='鉱石')?.count || 0}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
 
-const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setResolution }: TitleScreenProps) => {
+// Title Screen Component (Unchanged)
+const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setResolution }: any) => {
   const [showSettings, setShowSettings] = useState(false);
-
   return (
     <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white relative overflow-hidden font-sans bg-mist">
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-30"></div>
-      <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl animate-float"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl animate-float" style={{animationDelay: '1s'}}></div>
-      
       <div className="relative z-10 w-full h-full max-w-[177.78vh] max-h-[56.25vw] aspect-video m-auto flex flex-col items-center justify-center p-8">
         <div className={`text-center space-y-10 animate-fade-in transition-all duration-300 w-full ${showSettings ? 'blur-sm scale-95 opacity-50' : ''}`}>
           <div className="relative">
@@ -673,81 +728,52 @@ const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setResoluti
               QUEST OF HARVEST
             </h1>
             <p className="text-red-400 tracking-[1.2em] text-sm md:text-lg uppercase font-serif mt-6 border-t border-b border-red-900 py-3 inline-block bg-black/40 backdrop-blur-sm px-8 rounded-full">
-              Phase 3: Darkness
+              Phase 4: Harvest
             </p>
           </div>
-
           <div className="flex flex-col gap-4 w-80 md:w-96 mx-auto">
             <button onClick={onStart} className="group relative flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-red-900/90 to-black/90 border-2 border-red-700/50 hover:border-red-500 transition-all duration-300 text-red-100 font-black tracking-widest uppercase text-lg shadow-lg hover:shadow-red-500/20 transform hover:-translate-y-1">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-red-600/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-              <Play size={24} className="group-hover:text-red-400 transition-colors" />
-              <span>New Game</span>
+              <Play size={24} className="group-hover:text-red-400 transition-colors" /><span>New Game</span>
             </button>
-            <button onClick={onContinue} disabled={!canContinue} className={`flex items-center justify-center gap-3 px-8 py-3 border-2 font-bold tracking-widest uppercase transition-all text-base backdrop-blur-sm ${canContinue ? 'bg-slate-800/50 border-slate-600 hover:border-blue-400 hover:bg-slate-700/80 text-slate-200 hover:shadow-blue-500/20' : 'bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed'}`}>
-              <Save size={20} />
-              <span>Continue</span>
+            <button onClick={onContinue} disabled={!canContinue} className={`flex items-center justify-center gap-3 px-8 py-3 border-2 font-bold tracking-widest uppercase transition-all text-base backdrop-blur-sm ${canContinue ? 'bg-slate-800/50 border-slate-600 hover:border-blue-400 hover:bg-slate-700/80 text-slate-200' : 'bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed'}`}>
+              <Save size={20} /><span>Continue</span>
             </button>
-            <button onClick={() => setShowSettings(true)} className="flex items-center justify-center gap-3 px-8 py-3 border-2 border-slate-700 bg-slate-800/30 hover:bg-slate-800/60 hover:border-slate-500 font-bold tracking-widest uppercase transition-all text-slate-300 hover:text-white backdrop-blur-sm text-base">
-              <Settings size={20} />
-              <span>Settings</span>
+            <button onClick={() => setShowSettings(true)} className="flex items-center justify-center gap-3 px-8 py-3 border-2 border-slate-700 bg-slate-800/30 hover:bg-slate-800/60 hover:border-slate-500 font-bold tracking-widest uppercase text-slate-300 hover:text-white backdrop-blur-sm text-base">
+              <Settings size={20} /><span>Settings</span>
             </button>
           </div>
         </div>
-
         {showSettings && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-fade-in">
             <div className="bg-slate-900 p-8 rounded-xl border-2 border-slate-600 w-[400px] shadow-2xl transform scale-100 transition-all">
               <div className="flex justify-between items-center mb-8 border-b border-slate-700 pb-4">
-                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                  <Settings className="text-slate-400" /> SETTINGS
-                </h2>
-                <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-white transition-colors p-1 hover:bg-slate-800 rounded-full">
-                  <X size={24} />
-                </button>
+                <h2 className="text-2xl font-bold text-white flex items-center gap-2"><Settings className="text-slate-400" /> SETTINGS</h2>
+                <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-white transition-colors p-1 hover:bg-slate-800 rounded-full"><X size={24} /></button>
               </div>
               <div className="space-y-6">
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
-                    <Monitor size={16} /> Screen Resolution (Game)
-                  </label>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2"><Monitor size={16} /> Screen Resolution</label>
                   <div className="grid grid-cols-1 gap-2">
-                    {[
-                      { label: 'AUTO (Fit Window)', val: 'auto', desc: 'Automatically adjusts to window size' }, 
-                      { label: 'SVGA (800x600)', val: '800x600', desc: 'Classic 4:3 Aspect Ratio' },
-                      { label: 'HD (1280x720)', val: '1280x720', desc: 'Widescreen 16:9' }
-                    ].map(opt => (
-                      <button 
-                        key={opt.val}
-                        onClick={() => setResolution(opt.val as ResolutionMode)}
-                        className={`flex flex-col items-start p-3 rounded border transition-all ${
-                          resolution === opt.val 
-                            ? 'bg-yellow-600/20 border-yellow-500 text-yellow-100 shadow-[0_0_10px_rgba(234,179,8,0.2)]' 
-                            : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:border-slate-500'
-                        }`}
-                      >
-                        <span className="font-bold text-sm">{opt.label}</span>
-                        <span className="text-[10px] opacity-70">{opt.desc}</span>
-                      </button>
+                    {[{ label: 'AUTO', val: 'auto' }, { label: 'SVGA (800x600)', val: '800x600' }, { label: 'HD (1280x720)', val: '1280x720' }].map(opt => (
+                      <button key={opt.val} onClick={() => setResolution(opt.val as ResolutionMode)} className={`flex flex-col items-start p-3 rounded border transition-all ${resolution === opt.val ? 'bg-yellow-600/20 border-yellow-500 text-yellow-100' : 'bg-slate-800 border-slate-700 text-slate-400'}`}><span className="font-bold text-sm">{opt.label}</span></button>
                     ))}
                   </div>
                 </div>
               </div>
-              <button onClick={() => setShowSettings(false)} className="w-full mt-8 py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded transition-colors uppercase tracking-wider text-sm">
-                Close
-              </button>
+              <button onClick={() => setShowSettings(false)} className="w-full mt-8 py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded transition-colors uppercase tracking-wider text-sm">Close</button>
             </div>
           </div>
         )}
       </div>
       <div className="absolute bottom-8 text-xs text-slate-500 font-mono tracking-wider opacity-60">
-        WASD: MOVE • SHIFT: DASH • SPACE: ATTACK • F: TORCH
+        WASD: MOVE • SHIFT: DASH • SPACE: ATTACK • F: ACTION
       </div>
     </div>
   );
 };
 
 // Job Select Screen (Unchanged)
-const JobSelectScreen = ({ onBack, onSelect, loadedAssets }: { onBack: () => void, onSelect: (job: Job, gender: Gender) => void, loadedAssets: Record<string, HTMLImageElement> }) => {
+const JobSelectScreen = ({ onBack, onSelect, loadedAssets }: any) => {
   const [selectedGender, setSelectedGender] = useState<Gender>('Male');
   const [selectedJob, setSelectedJob] = useState<Job>('Swordsman');
   const jobInfo = JOB_DATA[selectedJob];
@@ -803,7 +829,7 @@ const JobSelectScreen = ({ onBack, onSelect, loadedAssets }: { onBack: () => voi
 };
 
 // Game HUD Component
-const GameHUD = ({ uiState, dungeonLevel, toggleMenu }: { uiState: PlayerEntity, dungeonLevel: number, toggleMenu: (m: MenuType) => void }) => (
+const GameHUD = ({ uiState, dungeonLevel, toggleMenu, activeShop }: any) => (
   <>
     <div className="absolute top-4 right-20 flex gap-4 text-white pointer-events-none">
        <div className="bg-slate-900/80 px-4 py-2 rounded border border-slate-700 flex items-center gap-2">
@@ -822,7 +848,6 @@ const GameHUD = ({ uiState, dungeonLevel, toggleMenu }: { uiState: PlayerEntity,
            <div className="flex justify-between"><span>速度: {uiState.speed.toFixed(1)}</span></div>
         </div>
         
-        {/* Phase 3: Stamina Bar */}
         <div className="mb-1">
           <div className="flex justify-between text-xs mb-0.5"><span className="text-green-400">ST</span><span>{Math.floor(uiState.stamina)}/{uiState.calculatedStats.maxStamina}</span></div>
           <div className="h-1 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-green-500 transition-all duration-75" style={{ width: `${(uiState.stamina/uiState.calculatedStats.maxStamina)*100}%` }}></div></div>
@@ -837,7 +862,7 @@ const GameHUD = ({ uiState, dungeonLevel, toggleMenu }: { uiState: PlayerEntity,
           <div className="h-1 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${(uiState.xp/uiState.nextLevelXp)*100}%` }}></div></div>
         </div>
         <div className="mt-2 pt-2 border-t border-slate-700 flex flex-wrap gap-1">
-          {uiState.perks.map(pid => {
+          {uiState.perks.map((pid: string) => {
              const def = PERK_DEFINITIONS[pid];
              if(!def) return null;
              const Icon = def.icon;
@@ -847,6 +872,12 @@ const GameHUD = ({ uiState, dungeonLevel, toggleMenu }: { uiState: PlayerEntity,
       </div>
     </div>
 
+    {activeShop && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-yellow-500/80 text-black px-4 py-2 rounded-full animate-bounce font-bold border-2 border-white pointer-events-none">
+            PRESS F TO SHOP
+        </div>
+    )}
+
     <div className="absolute top-4 right-4 flex gap-2 pointer-events-auto">
       <button onClick={() => toggleMenu('inventory')} className="p-2 bg-slate-800 text-white rounded hover:bg-slate-700 border border-slate-600 relative"><ShoppingBag size={20} />{uiState?.inventory.length ? <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span> : null}</button>
       <button onClick={() => toggleMenu('stats')} className="p-2 bg-slate-800 text-white rounded hover:bg-slate-700 border border-slate-600 relative"><User size={20} />{uiState && uiState.statPoints > 0 ? <span className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></span> : null}</button>
@@ -855,7 +886,7 @@ const GameHUD = ({ uiState, dungeonLevel, toggleMenu }: { uiState: PlayerEntity,
   </>
 );
 
-// Inventory Menu (Updated for Count)
+// Inventory Menu (Unchanged)
 const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: any) => (
   <div className="bg-slate-900 border border-slate-600 rounded-lg w-full max-w-4xl h-[600px] flex text-white overflow-hidden shadow-2xl">
     <div className="w-1/3 bg-slate-800/50 p-6 border-r border-slate-700 flex flex-col gap-4">
@@ -885,7 +916,7 @@ const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: any) => (
               <div className="text-xs text-slate-400">{item.type} {item.subType ? `(${item.subType})` : ''}</div>
               <div className="text-xs mt-1 grid grid-cols-2 gap-x-2 text-slate-300">
                 {item.stats.attack > 0 && <span>攻撃 +{item.stats.attack}</span>} {item.stats.defense > 0 && <span>防御 +{item.stats.defense}</span>}
-                {item.type === 'Consumable' && <span className="text-yellow-300">消耗品 (Fキーで使用)</span>}
+                {(item.type === 'Consumable' || item.type === 'Material') && <span className="text-yellow-300">{item.type === 'Consumable' ? '消耗品' : '素材'}</span>}
               </div>
             </div>
           </div>
@@ -896,7 +927,7 @@ const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: any) => (
   </div>
 );
 
-// --- PHASE 2: LEVEL UP MENU COMPONENT ---
+// Level Up Menu (Unchanged)
 const LevelUpMenu = ({ options, onSelect }: { options: PerkData[], onSelect: (perkId: string) => void }) => {
   return (
     <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center z-50 animate-fade-in p-8">
@@ -947,6 +978,7 @@ export default function App() {
   const [dungeonLevel, setDungeonLevel] = useState(0);
   const [activeMenu, setActiveMenu] = useState<MenuType>('none');
   const [levelUpOptions, setLevelUpOptions] = useState<PerkData[] | null>(null);
+  const [activeShopType, setActiveShopType] = useState<'blacksmith' | 'general' | null>(null); // For HUD
   const [message, setMessage] = useState<string | null>(null);
   const [viewportSize, setViewportSize] = useState({ width: 800, height: 600 });
   const [resolution, setResolution] = useState<ResolutionMode>('auto'); 
@@ -1015,7 +1047,7 @@ export default function App() {
       if (!input.current.keys[e.key.toLowerCase()]) { // Prevent repeat on hold for toggles
           if (e.key.toLowerCase() === 'i') setActiveMenu(prev => prev === 'inventory' ? 'none' : 'inventory');
           if (e.key.toLowerCase() === 'c') setActiveMenu(prev => prev === 'stats' ? 'none' : 'stats');
-          if (e.key.toLowerCase() === 'f') useTorch(); // Phase 3
+          if (e.key.toLowerCase() === 'f') interactAction();
       }
       input.current.keys[e.key.toLowerCase()] = true;
       if (e.key === 'Escape') setActiveMenu('none');
@@ -1072,11 +1104,14 @@ export default function App() {
       map: floorData.map,
       player,
       enemies: floorData.enemies,
+      resources: floorData.resources,
       droppedItems: floorData.droppedItems,
       projectiles: [], particles: [], floatingTexts: [],
       camera: { x: 0, y: 0 }, gameTime: 0, isPaused: false,
       levelUpOptions: null,
-      lights: floorData.lights
+      lights: floorData.lights,
+      shopZones: floorData.shopZones,
+      activeShop: null
     };
     setDungeonLevel(dungeonLevel);
     setScreen('game');
@@ -1090,8 +1125,10 @@ export default function App() {
     state.currentBiome = floorData.biome;
     state.map = floorData.map;
     state.enemies = floorData.enemies;
+    state.resources = floorData.resources;
     state.droppedItems = floorData.droppedItems;
-    state.lights = floorData.lights; // Load new lights
+    state.lights = floorData.lights; 
+    state.shopZones = floorData.shopZones;
     state.projectiles = [];
     state.particles = [];
     
@@ -1108,7 +1145,6 @@ export default function App() {
          limit--;
       } while (state.map[py][px].solid && limit > 0);
       
-      // Fallback if no space found (rare in new generator but safe to have)
       if (limit <= 0) { px = 1; py = 1; }
 
       state.player.x = px * GAME_CONFIG.TILE_SIZE;
@@ -1134,28 +1170,44 @@ export default function App() {
     setTimeout(() => setMessage(null), 5000);
   };
 
-  // --- PHASE 3: TORCH USAGE ---
-  const useTorch = () => {
+  // --- PHASE 3 & 4: INTERACTIONS ---
+  const interactAction = () => {
       if (!gameState.current || gameState.current.isPaused) return;
-      const p = gameState.current.player;
+      const state = gameState.current;
       
-      // Find torch in inventory
+      // 1. Shop Check
+      if (state.activeShop) {
+          setActiveMenu('shop');
+          return;
+      }
+
+      // 2. Torch Check (Fallback)
+      useTorch();
+  };
+
+  const useTorch = () => {
+      if (!gameState.current) return;
+      const p = gameState.current.player;
       const torchIndex = p.inventory.findIndex(i => i.name === "松明");
       if (torchIndex === -1) {
-          setMessage("松明を持っていません！");
+          // Check for Potion
+          const potionIndex = p.inventory.findIndex(i => i.name === "ポーション");
+          if (potionIndex !== -1) {
+              const potion = p.inventory[potionIndex];
+              if (potion.count && potion.count > 1) potion.count--; else p.inventory.splice(potionIndex, 1);
+              p.hp = Math.min(p.maxHp, p.hp + 50);
+              setMessage("ポーションを使用しました (+50 HP)");
+              setTimeout(() => setMessage(null), 1500);
+              return;
+          }
+          setMessage("使用できるアイテムがありません");
           setTimeout(() => setMessage(null), 1500);
           return;
       }
 
-      // Consume
       const torch = p.inventory[torchIndex];
-      if (torch.count && torch.count > 1) {
-          torch.count--;
-      } else {
-          p.inventory.splice(torchIndex, 1);
-      }
+      if (torch.count && torch.count > 1) torch.count--; else p.inventory.splice(torchIndex, 1);
 
-      // Place
       gameState.current.lights.push({
           x: p.x + p.width/2,
           y: p.y + p.height/2,
@@ -1165,6 +1217,54 @@ export default function App() {
       });
       setMessage("松明を設置しました");
       setTimeout(() => setMessage(null), 1500);
+  };
+
+  const handleShopBuy = (itemKey: string) => {
+      if (!gameState.current) return;
+      const p = gameState.current.player;
+      
+      if (itemKey === 'torch') {
+          if (p.gold < 50) { setMessage("ゴールドが足りません！"); return; }
+          p.gold -= 50;
+          const existing = p.inventory.find(i => i.name === "松明");
+          if (existing) existing.count = (existing.count || 1) + 1;
+          else p.inventory.push({ id: crypto.randomUUID(), name: "松明", type: "Consumable", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🔥", color: "#ff9800", count: 1 });
+      } else if (itemKey === 'potion') {
+          if (p.gold < 100) { setMessage("ゴールドが足りません！"); return; }
+          p.gold -= 100;
+          const existing = p.inventory.find(i => i.name === "ポーション");
+          if (existing) existing.count = (existing.count || 1) + 1;
+          else p.inventory.push({ id: crypto.randomUUID(), name: "ポーション", type: "Consumable", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🧪", color: "#f44336", count: 1 });
+      }
+      setUiState({...p}); // Force Update
+  };
+
+  const handleCraft = () => {
+      if (!gameState.current) return;
+      const p = gameState.current.player;
+      
+      const wood = p.inventory.find(i => i.name === "木材");
+      const stone = p.inventory.find(i => i.name === "石");
+      
+      if (!wood || !wood.count || wood.count < 2 || !stone || !stone.count || stone.count < 2 || p.gold < 200) {
+          setMessage("素材またはゴールドが足りません (木材x2, 石x2, 200G)");
+          setTimeout(() => setMessage(null), 2000);
+          return;
+      }
+
+      // Consume
+      wood.count -= 2; if(wood.count<=0) p.inventory = p.inventory.filter(i=>i.id!==wood.id);
+      stone.count -= 2; if(stone.count<=0) p.inventory = p.inventory.filter(i=>i.id!==stone.id);
+      p.gold -= 200;
+
+      // Generate High Level Item
+      const item = generateRandomItem(Math.max(5, p.level + 2), 2);
+      if (item) {
+          p.inventory.push(item);
+          setMessage(`${item.name}を作成しました！`);
+          setTimeout(() => setMessage(null), 2000);
+      }
+      setUiState({...p});
   };
 
   // --- PHASE 2: PERK HANDLING ---
@@ -1204,7 +1304,6 @@ export default function App() {
           p.stamina = Math.min(p.calculatedStats.maxStamina, p.stamina + p.calculatedStats.staminaRegen);
       }
 
-      // Phase 3: Dash Logic (Shift key)
       const isDashing = (input.current.keys['shift']) && p.stamina > 0;
       let spd = p.speed * (isDashing ? 1.8 : 1);
       if (isDashing) {
@@ -1234,23 +1333,31 @@ export default function App() {
         else if (currentTile.type === 'return_portal') transitionLevel(0);
       }
 
+      // Shop Zone Check
+      let inShop: 'blacksmith' | 'general' | null = null;
+      if (state.shopZones) {
+          for (const zone of state.shopZones) {
+              if (p.x < zone.x + zone.w && p.x + p.width > zone.x && p.y < zone.y + zone.h && p.y + p.height > zone.y) {
+                  inShop = zone.type;
+                  break;
+              }
+          }
+      }
+      state.activeShop = inShop;
+      if (inShop !== activeShopType) setActiveShopType(inShop);
+
       // Collisions & Interaction (Drops)
       state.droppedItems.forEach(drop => {
         if (checkCollision(p, drop)) {
           drop.dead = true; 
-          
-          // Stack consumable check
-          if (drop.item.type === 'Consumable') {
+          // Stack check
+          if (drop.item.type === 'Consumable' || drop.item.type === 'Material') {
               const existing = p.inventory.find(i => i.name === drop.item.name);
-              if (existing) {
-                  existing.count = (existing.count || 1) + (drop.item.count || 1);
-              } else {
-                  p.inventory.push(drop.item);
-              }
+              if (existing) existing.count = (existing.count || 1) + (drop.item.count || 1);
+              else p.inventory.push(drop.item);
           } else {
               p.inventory.push(drop.item);
           }
-
           state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 20, width:0, height:0, color: drop.item.color, type: 'text', dead: false, text: drop.item.name, life: 60 });
           setMessage(`拾った：${drop.item.name}`); setTimeout(() => setMessage(null), 2000);
         }
@@ -1259,51 +1366,52 @@ export default function App() {
       // Attack Logic
       const now = Date.now();
       if ((input.current.keys[' '] || input.current.mouse.down) && now - p.lastAttackTime > p.attackCooldown) {
-        // Phase 3: Stamina Check
         if (p.stamina >= GAME_CONFIG.STAMINA_ATTACK_COST) {
             p.stamina -= GAME_CONFIG.STAMINA_ATTACK_COST;
             p.lastAttackTime = now; p.isAttacking = true; setTimeout(() => { if(gameState.current) gameState.current.player.isAttacking = false; }, 200);
             
             const attackRect = { x: p.x + p.width/2 - 30, y: p.y + p.height/2 - 30, width: 60, height: 60 } as Entity;
+            
+            // Hit Enemies
             state.enemies.forEach(e => {
               if (checkCollision(attackRect, e)) {
                 let dmg = Math.max(1, Math.floor((p.attack - e.defense/2) * (0.9 + Math.random() * 0.2))); 
-                
-                if (p.perks.includes('thunder_strike') && Math.random() < 0.2) {
-                    dmg += 15;
-                    state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y - 20, width:0, height:0, color: '#fbbf24', type: 'text', dead: false, text: "⚡ THUNDER!", life: 45 });
-                }
-
+                if (p.perks.includes('thunder_strike') && Math.random() < 0.2) { dmg += 15; state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y - 20, width:0, height:0, color: '#fbbf24', type: 'text', dead: false, text: "⚡ THUNDER!", life: 45 }); }
                 e.hp -= dmg;
                 state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#fff', type: 'text', dead: false, text: `-${dmg}`, life: 30 });
-                
                 const angle = Math.atan2(e.y - p.y, e.x - p.x); e.x += Math.cos(angle) * 10; e.y += Math.sin(angle) * 10;
                 
                 if (e.hp <= 0) {
                   e.dead = true; p.xp += e.xpValue; p.gold += Math.floor(Math.random() * 5 * (state.dungeonLevel || 1)) + 1;
                   state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#ffd700', type: 'text', dead: false, text: `+${e.xpValue} XP`, life: 45 });
-                  
-                  if (p.perks.includes('vampire')) {
-                      const heal = 5;
-                      p.hp = Math.min(p.maxHp, p.hp + heal);
-                      state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y - 30, width:0, height:0, color: '#f43f5e', type: 'text', dead: false, text: `+${heal} HP`, life: 45 });
-                  }
-
-                  if (p.xp >= p.nextLevelXp) {
-                    p.level++; p.xp -= p.nextLevelXp; p.nextLevelXp = Math.floor(p.nextLevelXp * 1.5); p.statPoints += 3; updatePlayerStats(p); p.hp = p.maxHp;
-                    state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 40, width:0, height:0, color: '#00ff00', type: 'text', dead: false, text: "LEVEL UP!", life: 90 });
-                    triggerLevelUp();
-                  }
+                  if (p.perks.includes('vampire')) { const heal = 5; p.hp = Math.min(p.maxHp, p.hp + heal); state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y - 30, width:0, height:0, color: '#f43f5e', type: 'text', dead: false, text: `+${heal} HP`, life: 45 }); }
+                  if (p.xp >= p.nextLevelXp) { p.level++; p.xp -= p.nextLevelXp; p.nextLevelXp = Math.floor(p.nextLevelXp * 1.5); p.statPoints += 3; updatePlayerStats(p); p.hp = p.maxHp; state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 40, width:0, height:0, color: '#00ff00', type: 'text', dead: false, text: "LEVEL UP!", life: 90 }); triggerLevelUp(); }
                   const dropChance = GAME_CONFIG.BASE_DROP_RATE * (e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 1);
-                  if (Math.random() < dropChance) {
-                    const item = generateRandomItem(state.dungeonLevel || 1, e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 0);
-                    if (item) state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: e.x, y: e.y, width: 32, height: 32, color: item.color, item, life: 3000, bounceOffset: Math.random() * 10, dead: false });
-                  }
+                  if (Math.random() < dropChance) { const item = generateRandomItem(state.dungeonLevel || 1, e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 0); if (item) state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: e.x, y: e.y, width: 32, height: 32, color: item.color, item, life: 3000, bounceOffset: Math.random() * 10, dead: false }); }
                 }
               }
             });
+
+            // Phase 4: Hit Resources
+            state.resources.forEach(r => {
+                if (checkCollision(attackRect, r)) {
+                    r.hp -= p.attack;
+                    const angle = Math.atan2(r.y - p.y, r.x - p.x); r.x += Math.cos(angle) * 2; r.y += Math.sin(angle) * 2; // Shake
+                    state.floatingTexts.push({ id: crypto.randomUUID(), x: r.x + r.width/2, y: r.y, width:0, height:0, color: '#ccc', type: 'text', dead: false, text: "Hit", life: 20 });
+                    
+                    if (r.hp <= 0) {
+                        r.dead = true;
+                        let item: Item | null = null;
+                        if (r.resourceType === 'tree') item = { id: crypto.randomUUID(), name: "木材", type: "Material", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🪵", color: "#795548", count: Math.floor(Math.random()*3)+1 };
+                        else if (r.resourceType === 'rock') item = { id: crypto.randomUUID(), name: "石", type: "Material", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🪨", color: "#9e9e9e", count: Math.floor(Math.random()*2)+1 };
+                        else if (r.resourceType === 'ore') item = { id: crypto.randomUUID(), name: "鉱石", type: "Material", rarity: "Uncommon", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "⛏️", color: "#607d8b", count: 1 };
+                        
+                        if (item) state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: r.x, y: r.y, width: 32, height: 32, color: item.color, item, life: 3000, bounceOffset: Math.random() * 10, dead: false });
+                    }
+                }
+            });
+
         } else {
-            // Not enough stamina
             state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y - 20, width:0, height:0, color: '#ef4444', type: 'text', dead: false, text: "No Stamina!", life: 20 });
         }
       }
@@ -1320,13 +1428,13 @@ export default function App() {
           if (dist < 40 && now - e.lastAttackTime > e.attackCooldown) {
             e.lastAttackTime = now; const dmg = Math.max(1, Math.floor(e.attack - p.defense/2)); p.hp -= dmg;
             state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y, width:0, height:0, color: '#ff0000', type: 'text', dead: false, text: `-${dmg}`, life: 30 });
-            if (p.hp <= 0) { 
-              handleDeath();
-            }
+            if (p.hp <= 0) { handleDeath(); }
           }
         }
       });
-      state.enemies = state.enemies.filter(e => !e.dead); state.droppedItems = state.droppedItems.filter(d => !d.dead);
+      state.enemies = state.enemies.filter(e => !e.dead); 
+      state.resources = state.resources.filter(r => !r.dead); // Clean resources
+      state.droppedItems = state.droppedItems.filter(d => !d.dead);
       state.floatingTexts.forEach(t => { t.y -= 0.5; t.life--; }); state.floatingTexts = state.floatingTexts.filter(t => t.life > 0);
     }
     renderGame(ctx, state, loadedAssets);
@@ -1346,6 +1454,8 @@ export default function App() {
   const handleEquip = (item: Item) => {
     if (!gameState.current) return;
     const p = gameState.current.player;
+    if (item.type === 'Consumable' || item.type === 'Material') { setMessage("装備できません。"); setTimeout(()=>setMessage(null), 2000); return; }
+
     let slot: keyof PlayerEntity['equipment'] = 'mainHand';
     if (item.type === 'Helm') slot = 'helm'; if (item.type === 'Armor') slot = 'armor'; if (item.type === 'Boots') slot = 'boots'; if (item.type === 'Shield') slot = 'offHand';
     if (item.type === 'Weapon') {
@@ -1390,11 +1500,15 @@ export default function App() {
   return (
     <div className="w-full h-screen bg-black flex items-center justify-center overflow-hidden relative" onContextMenu={e => e.preventDefault()}>
       <canvas ref={canvasRef} width={viewportSize.width} height={viewportSize.height} className="bg-black shadow-2xl cursor-crosshair" />
-      {uiState && <GameHUD uiState={uiState} dungeonLevel={dungeonLevel} toggleMenu={(m) => setActiveMenu(activeMenu === m ? 'none' : m)} />}
+      {uiState && <GameHUD uiState={uiState} dungeonLevel={dungeonLevel} toggleMenu={(m) => setActiveMenu(activeMenu === m ? 'none' : m)} activeShop={activeShopType} />}
       {message && <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-2 rounded-full border border-yellow-500/50 animate-bounce text-center whitespace-nowrap">{message}</div>}
       
       {activeMenu !== 'none' && (
         <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50 p-8">
+          {activeMenu === 'shop' && activeShopType && uiState && (
+              <ShopMenu type={activeShopType} player={uiState} onClose={() => setActiveMenu('none')} onBuy={handleShopBuy} onCraft={handleCraft} />
+          )}
+
           {activeMenu === 'level_up' && levelUpOptions && (
              <LevelUpMenu options={levelUpOptions} onSelect={selectPerk} />
           )}
@@ -1454,7 +1568,7 @@ export default function App() {
           {activeMenu === 'inventory' && uiState && <InventoryMenu uiState={uiState} onEquip={handleEquip} onUnequip={handleUnequip} onClose={() => setActiveMenu('none')} />}
         </div>
       )}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest: Roguelike Edition v3.0 (Phase 3)</div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest: Roguelike Edition v4.0 (Harvest)</div>
     </div>
   );
 }
