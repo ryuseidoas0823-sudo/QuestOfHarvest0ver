@@ -13,6 +13,9 @@ const MANUAL_FIREBASE_CONFIG = {
 
 // @ts-ignore
 const rawConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
+// @ts-ignore
+export const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'quest-of-harvest';
+export const appId = rawAppId.replace(/[\/.]/g, '_');
 
 let firebaseConfig: any = MANUAL_FIREBASE_CONFIG;
 if (!firebaseConfig.apiKey) {
