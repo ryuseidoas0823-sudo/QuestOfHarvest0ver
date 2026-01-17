@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Zap, Heart, Activity, Monitor, ArrowDownCircle, Droplets, Wind, Hammer, Coins } from 'lucide-react';
+import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Zap, Heart, Activity, Monitor, ArrowDownCircle, Droplets, Wind, Hammer, Coins, Shield, Clock, Star, Book } from 'lucide-react';
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken, Auth } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore';
@@ -92,7 +92,7 @@ type Biome = 'Plains' | 'Forest' | 'Desert' | 'Snow' | 'Wasteland' | 'Town' | 'D
 type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary';
 type EquipmentType = 'Weapon' | 'Helm' | 'Armor' | 'Shield' | 'Boots' | 'Consumable' | 'Material';
 type WeaponStyle = 'OneHanded' | 'TwoHanded' | 'DualWield';
-type WeaponClass = 'Sword' | 'Axe' | 'Bow' | 'Staff' | 'Wand'; // New
+type WeaponClass = 'Sword' | 'Axe' | 'Bow' | 'Staff' | 'Wand';
 type MenuType = 'none' | 'status' | 'inventory' | 'stats' | 'level_up' | 'crafting' | 'shop'; 
 type ResolutionMode = 'auto' | '800x600' | '1024x768' | '1280x720';
 
@@ -121,8 +121,8 @@ interface PlayerEntity extends CombatEntity {
   attributes: Attributes; 
   inventory: Item[]; 
   equipment: { mainHand?: Item; offHand?: Item; helm?: Item; armor?: Item; boots?: Item; }; 
-  calculatedStats: { maxHp: number; maxMp: number; attack: number; defense: number; speed: number; maxStamina: number; staminaRegen: number; };
-  perks: string[];
+  calculatedStats: { maxHp: number; maxMp: number; attack: number; defense: number; speed: number; maxStamina: number; staminaRegen: number; attackCooldown: number; };
+  perks: { id: string; level: number }[]; // Updated to store level
   stamina: number; 
   lastStaminaUse: number;
 }
@@ -130,7 +130,6 @@ interface PlayerEntity extends CombatEntity {
 interface EnemyEntity extends CombatEntity { targetId?: string; detectionRange: number; race: string; xpValue: number; rank: 'Normal' | 'Elite' | 'Boss'; }
 interface Particle extends Entity { life: number; maxLife: number; size: number; }
 interface FloatingText extends Entity { text: string; life: number; color: string; }
-// Updated Projectile Interface
 interface Projectile extends Entity { damage: number; ownerId: string; life: number; color: string; }
 interface FloorData { map: Tile[][]; enemies: EnemyEntity[]; resources: ResourceEntity[]; droppedItems: DroppedItem[]; biome: Biome; level: number; lights: LightSource[]; shopZones?: {x:number, y:number, w:number, h:number, type:'blacksmith'|'general'}[]; }
 
@@ -164,7 +163,7 @@ const GAME_CONFIG = {
   STAMINA_ATTACK_COST: 15,
   STAMINA_DASH_COST: 1, 
   STAMINA_REGEN: 0.5,
-  PROJECTILE_SPEED: 8, // New
+  PROJECTILE_SPEED: 8, 
 };
 
 const THEME = {
@@ -176,20 +175,27 @@ const THEME = {
 
 const RARITY_MULTIPLIERS = { Common: 1.0, Uncommon: 1.2, Rare: 1.5, Epic: 2.0, Legendary: 3.0 };
 const ENCHANT_SLOTS = { Common: 0, Uncommon: 1, Rare: 2, Epic: 3, Legendary: 5 };
-// Consumable, Material are kept
-// ICONS will handle visual representation
+const ITEM_BASE_NAMES = { Weapon: { OneHanded: '剣', TwoHanded: '大剣', DualWield: '双剣' }, Helm: '兜', Armor: '板金鎧', Shield: '盾', Boots: '具足', Consumable: '道具', Material: '素材' };
 const ICONS = { 
     Weapon: { OneHanded: '⚔️', TwoHanded: '🗡️', DualWield: '⚔️', Bow: '🏹', Staff: '🪄', Wand: '🥢' }, 
     Helm: '🪖', Armor: '🛡️', Shield: '🛡️', Boots: '👢', Consumable: '🎒', Material: '📦' 
 };
 
 const PERK_DEFINITIONS: Record<string, PerkData> = {
-  'thunder_strike': { id: 'thunder_strike', name: 'Thunder Strike', desc: '攻撃時20%の確率で雷撃が発生し、追加ダメージを与える。', rarity: 'Rare', icon: Zap, color: '#fbbf24' },
-  'vampire': { id: 'vampire', name: 'Vampire', desc: '敵を倒すとHPが5回復する。', rarity: 'Rare', icon: Droplets, color: '#f43f5e' },
-  'swift_step': { id: 'swift_step', name: 'Swift Step', desc: '移動速度が10%上昇する。', rarity: 'Common', icon: Wind, color: '#38bdf8' },
-  'stone_skin': { id: 'stone_skin', name: 'Stone Skin', desc: '防御力が+5上昇する。', rarity: 'Common', icon: User, color: '#a8a29e' },
-  'berserker': { id: 'berserker', name: 'Berserker', desc: '攻撃力が+5上昇する。', rarity: 'Common', icon: Sword, color: '#ef4444' },
-  'vitality_boost': { id: 'vitality_boost', name: 'Vitality Boost', desc: '最大HPが+20上昇する。', rarity: 'Common', icon: Heart, color: '#22c55e' },
+  'thunder_strike': { id: 'thunder_strike', name: 'Thunder Strike', desc: '攻撃時20%の確率で雷撃が発生し、追加ダメージを与える。レベルに応じてダメージ増加。', rarity: 'Rare', icon: Zap, color: '#fbbf24' },
+  'vampire': { id: 'vampire', name: 'Vampire', desc: '敵を倒すとHPが回復する。レベルに応じて回復量増加。', rarity: 'Rare', icon: Droplets, color: '#f43f5e' },
+  'swift_step': { id: 'swift_step', name: 'Swift Step', desc: '移動速度が上昇する。レベルに応じて効果増大。', rarity: 'Common', icon: Wind, color: '#38bdf8' },
+  'stone_skin': { id: 'stone_skin', name: 'Stone Skin', desc: '防御力が増加する。レベルに応じて効果増大。', rarity: 'Common', icon: User, color: '#a8a29e' },
+  'berserker': { id: 'berserker', name: 'Berserker', desc: '攻撃力が増加する。レベルに応じて効果増大。', rarity: 'Common', icon: Sword, color: '#ef4444' },
+  'vitality_boost': { id: 'vitality_boost', name: 'Vitality Boost', desc: '最大HPが増加する。レベルに応じて効果増大。', rarity: 'Common', icon: Heart, color: '#22c55e' },
+  'glass_cannon': { id: 'glass_cannon', name: 'Glass Cannon', desc: '攻撃力が大幅に増加するが、防御力が減少する。レベルに応じて攻撃力さらに増加。', rarity: 'Rare', icon: Sword, color: '#dc2626' },
+  'heavy_armor': { id: 'heavy_armor', name: 'Heavy Armor', desc: '防御力が大幅に増加するが、移動速度が低下する。', rarity: 'Rare', icon: Shield, color: '#64748b' },
+  'gold_rush': { id: 'gold_rush', name: 'Gold Rush', desc: '敵から得られるゴールドが増加する。', rarity: 'Uncommon', icon: Coins, color: '#fbbf24' },
+  'wisdom': { id: 'wisdom', name: 'Wisdom', desc: '獲得経験値が増加する。', rarity: 'Uncommon', icon: Star, color: '#818cf8' },
+  'haste': { id: 'haste', name: 'Haste', desc: '攻撃速度が上昇する。', rarity: 'Legendary', icon: Clock, color: '#fcd34d' },
+  'endurance': { id: 'endurance', name: 'Endurance', desc: '最大スタミナが増加する。', rarity: 'Common', icon: Activity, color: '#4ade80' },
+  'scavenger': { id: 'scavenger', name: 'Scavenger', desc: '素材採取時に得られるアイテム数が増加する。', rarity: 'Rare', icon: Hammer, color: '#a3e635' },
+  'mana_well': { id: 'mana_well', name: 'Mana Well', desc: '最大MPと知力が増加する。', rarity: 'Uncommon', icon: Book, color: '#3b82f6' },
 };
 
 const JOB_DATA: Record<Job, { attributes: Attributes, desc: string, icon: string, color: string }> = {
@@ -234,7 +240,6 @@ const generateRandomItem = (level: number, rankBonus: number = 0): Item | null =
   const types: EquipmentType[] = ['Weapon', 'Helm', 'Armor', 'Shield', 'Boots'];
   const type = types[Math.floor(Math.random() * types.length)];
   
-  // Refined Weapon Generation for Jobs
   let subType: WeaponStyle | undefined;
   let weaponClass: WeaponClass | undefined;
   let icon = "";
@@ -242,7 +247,7 @@ const generateRandomItem = (level: number, rankBonus: number = 0): Item | null =
   if (type === 'Weapon') {
       const wRoll = Math.random();
       if (wRoll < 0.3) { weaponClass = 'Sword'; subType = 'OneHanded'; icon = ICONS.Weapon.OneHanded; }
-      else if (wRoll < 0.45) { weaponClass = 'Axe'; subType = 'TwoHanded'; icon = ICONS.Weapon.TwoHanded; } // Axes act as 2H swords for now
+      else if (wRoll < 0.45) { weaponClass = 'Axe'; subType = 'TwoHanded'; icon = ICONS.Weapon.TwoHanded; } 
       else if (wRoll < 0.65) { weaponClass = 'Bow'; subType = 'TwoHanded'; icon = ICONS.Weapon.Bow; }
       else if (wRoll < 0.85) { weaponClass = 'Staff'; subType = 'TwoHanded'; icon = ICONS.Weapon.Staff; }
       else { weaponClass = 'Wand'; subType = 'OneHanded'; icon = ICONS.Weapon.Wand; }
@@ -257,10 +262,9 @@ const generateRandomItem = (level: number, rankBonus: number = 0): Item | null =
 
   if (type === 'Weapon') {
     stats.attack = Math.floor(baseVal * 3 * mult);
-    if (weaponClass === 'Axe' || weaponClass === 'Staff' || weaponClass === 'Bow') stats.attack = Math.floor(stats.attack * 1.3); // 2H bonus
-    if (weaponClass === 'Wand') stats.attack = Math.floor(stats.attack * 0.8); // 1H Wand slightly weaker base
+    if (weaponClass === 'Axe' || weaponClass === 'Staff' || weaponClass === 'Bow') stats.attack = Math.floor(stats.attack * 1.3);
+    if (weaponClass === 'Wand') stats.attack = Math.floor(stats.attack * 0.8);
     
-    // Speed adjustments
     if (weaponClass === 'Axe') stats.speed = -1;
     if (weaponClass === 'Bow') stats.speed = 1;
   } else if (type === 'Armor') { stats.defense = Math.floor(baseVal * 2 * mult); stats.maxHp = Math.floor(baseVal * 5 * mult);
@@ -293,13 +297,12 @@ const createPlayer = (job: Job, gender: Gender): PlayerEntity => {
   return {
     id: 'player', type: 'player', x: 0, y: 0, width: 20, height: 20, visualWidth: 32, visualHeight: 56, color: THEME.colors.player, job, gender, shape: 'humanoid',
     hp: 100, maxHp: 100, mp: 50, maxMp: 50, attack: 10, defense: 0, speed: 4, level: 1, xp: 0, nextLevelXp: 100, gold: 0, statPoints: 0, attributes: { ...baseAttrs },
-    dead: false, lastAttackTime: 0, attackCooldown: 500, direction: 1, inventory: [], equipment: {}, calculatedStats: { maxHp: 100, maxMp: 50, attack: 10, defense: 0, speed: 4, maxStamina: 100, staminaRegen: 0.5 },
+    dead: false, lastAttackTime: 0, attackCooldown: 500, direction: 1, inventory: [], equipment: {}, calculatedStats: { maxHp: 100, maxMp: 50, attack: 10, defense: 0, speed: 4, maxStamina: 100, staminaRegen: 0.5, attackCooldown: 500 },
     perks: [],
     stamina: 100, lastStaminaUse: 0
   };
 };
 
-// ... existing code (generateEnemy, generateFloor, checkCollision, resolveMapCollision) ...
 const generateEnemy = (x: number, y: number, level: number): EnemyEntity => {
   const type = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)];
   const rankRoll = Math.random();
@@ -345,10 +348,10 @@ const generateFloor = (level: number): FloorData => {
 
     // Shops
     for(let y=5; y<10; y++) for(let x=5; x<12; x++) { map[y][x].type = 'wall'; map[y][x].solid = true; } 
-    shopZones.push({x: 5*32, y: 10*32, w: 7*32, h: 2*32, type:'general'}); // Zone in front of shop
+    shopZones.push({x: 5*32, y: 10*32, w: 7*32, h: 2*32, type:'general'}); 
 
     for(let y=5; y<10; y++) for(let x=width-12; x<width-5; x++) { map[y][x].type = 'wall'; map[y][x].solid = true; } 
-    shopZones.push({x: (width-12)*32, y: 10*32, w: 7*32, h: 2*32, type:'blacksmith'}); // Zone in front of blacksmith
+    shopZones.push({x: (width-12)*32, y: 10*32, w: 7*32, h: 2*32, type:'blacksmith'}); 
 
     return { map, enemies: [], resources: [], droppedItems: [], biome: 'Town', level: 0, lights, shopZones };
   }
@@ -389,7 +392,6 @@ const generateFloor = (level: number): FloorData => {
       }
     }
     
-    // Add Resources in Room Corners
     if (Math.random() < 0.7) {
         const resType = biome === 'Forest' || biome === 'Plains' ? 'tree' : (Math.random() < 0.3 ? 'ore' : 'rock');
         const count = Math.floor(Math.random() * 3) + 1;
@@ -490,15 +492,30 @@ const updatePlayerStats = (player: PlayerEntity) => {
   let equipAtk = 0, equipDef = 0, equipSpd = 0, equipHp = 0;
   Object.values(player.equipment).forEach(item => { if (item) { equipAtk += item.stats.attack; equipDef += item.stats.defense; equipSpd += item.stats.speed; equipHp += item.stats.maxHp; } });
   
-  if (player.perks.includes('stone_skin')) baseDef += 5;
-  if (player.perks.includes('berserker')) baseAtk += 5;
-  if (player.perks.includes('vitality_boost')) maxHp += 20;
-  if (player.perks.includes('swift_step')) baseSpd *= 1.1;
+  // Perks logic with levels
+  player.perks.forEach(p => {
+      const level = p.level;
+      if (p.id === 'stone_skin') baseDef += 5 * level;
+      if (p.id === 'berserker') baseAtk += 5 * level;
+      if (p.id === 'vitality_boost') maxHp += 20 * level;
+      if (p.id === 'swift_step') baseSpd *= (1 + 0.1 * level);
+      if (p.id === 'glass_cannon') { baseAtk += (10 + 5 * level); baseDef = Math.max(0, baseDef - 5); }
+      if (p.id === 'heavy_armor') { baseDef += (5 + 5 * level); baseSpd *= 0.9; }
+      if (p.id === 'endurance') { /* MaxStamina is handled below */ }
+      if (p.id === 'mana_well') { maxMp += 50 * level; /* Int boost omitted for simplicity in stat calc */ }
+  });
 
   let maxStamina = 100 + (attr.endurance * 2);
-  let staminaRegen = GAME_CONFIG.STAMINA_REGEN + (attr.endurance * 0.05);
+  const endPerk = player.perks.find(p => p.id === 'endurance');
+  if (endPerk) maxStamina += 50 * endPerk.level;
 
-  player.calculatedStats = { maxHp: maxHp + equipHp, maxMp: maxMp, attack: baseAtk + equipAtk, defense: baseDef + equipDef, speed: baseSpd + equipSpd, maxStamina, staminaRegen };
+  let staminaRegen = GAME_CONFIG.STAMINA_REGEN + (attr.endurance * 0.05);
+  
+  let attackCooldown = 500;
+  const hastePerk = player.perks.find(p => p.id === 'haste');
+  if (hastePerk) attackCooldown = Math.max(200, 500 * (1 - 0.1 * hastePerk.level));
+
+  player.calculatedStats = { maxHp: maxHp + equipHp, maxMp: maxMp, attack: baseAtk + equipAtk, defense: baseDef + equipDef, speed: baseSpd + equipSpd, maxStamina, staminaRegen, attackCooldown };
   Object.assign(player, player.calculatedStats);
   if (player.hp > player.maxHp) player.hp = player.maxHp; if (player.mp > player.maxMp) player.mp = player.maxMp;
 };
@@ -561,19 +578,12 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
     ctx.font = '16px Arial'; ctx.textAlign = 'center'; ctx.fillText(drop.item.icon, drop.x + 16, drop.y + 4 + bob); ctx.shadowBlur = 0;
   });
 
-  // Render Projectiles
   state.projectiles.forEach(proj => {
       ctx.fillStyle = proj.color;
       ctx.beginPath();
       ctx.arc(proj.x + proj.width/2, proj.y + proj.height/2, 4, 0, Math.PI*2);
       ctx.fill();
-      // Trail effect
-      ctx.strokeStyle = proj.color;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(proj.x + proj.width/2, proj.y + proj.height/2);
-      ctx.lineTo(proj.x + proj.width/2 - proj.vx * 2, proj.y + proj.height/2 - proj.vy * 2);
-      ctx.stroke();
+      ctx.strokeStyle = proj.color; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(proj.x + proj.width/2, proj.y + proj.height/2); ctx.lineTo(proj.x + proj.width/2 - proj.vx! * 2, proj.y + proj.height/2 - proj.vy! * 2); ctx.stroke();
   });
 
   state.resources.forEach(r => {
@@ -643,7 +653,6 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
   });
 
   if (state.player.isAttacking) {
-    // Only show melee swing arc if not using ranged
     const weapon = state.player.equipment.mainHand;
     if (!weapon || (weapon.weaponClass !== 'Bow' && weapon.weaponClass !== 'Staff' && weapon.weaponClass !== 'Wand')) {
         ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath();
@@ -657,7 +666,6 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
     ctx.strokeText(t.text, t.x, t.y); ctx.fillStyle = t.color; ctx.fillText(t.text, t.x, t.y);
   });
 
-  // Layer 3: Lighting
   if (state.currentBiome === 'Dungeon') {
       ctx.globalCompositeOperation = 'multiply';
       ctx.fillStyle = '#000000'; ctx.fillRect(camX, camY, width, height); 
@@ -671,7 +679,7 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
       };
       drawLight(state.player.x + state.player.width/2, state.player.y + state.player.height/2, 180, false);
       state.lights.forEach(l => { drawLight(l.x, l.y, l.radius, l.flicker); });
-      state.projectiles.forEach(p => { drawLight(p.x + 4, p.y + 4, 30, true); }); // Projectiles emit light
+      state.projectiles.forEach(p => { drawLight(p.x + 4, p.y + 4, 30, true); });
       ctx.globalCompositeOperation = 'source-over'; 
   }
 
@@ -684,7 +692,7 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
  * ############################################################################
  */
 
-// ... (ShopMenu, TitleScreen, JobSelectScreen, GameHUD, InventoryMenu, LevelUpMenu remain mostly the same, ensuring types are correct) ...
+// ... (ShopMenu, TitleScreen, JobSelectScreen, InventoryMenu remain unchanged) ...
 const ShopMenu = ({ type, player, onClose, onBuy, onCraft }: any) => {
     return (
         <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-8">
@@ -838,11 +846,13 @@ const GameHUD = ({ uiState, dungeonLevel, toggleMenu, activeShop }: any) => (
           <div className="h-1 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${(uiState.xp/uiState.nextLevelXp)*100}%` }}></div></div>
         </div>
         <div className="mt-2 pt-2 border-t border-slate-700 flex flex-wrap gap-1">
-          {uiState.perks.map((pid: string) => {
-             const def = PERK_DEFINITIONS[pid];
+          {uiState.perks.map((p: any) => {
+             const def = PERK_DEFINITIONS[p.id];
              if(!def) return null;
              const Icon = def.icon;
-             return <div key={pid} className="w-5 h-5 rounded bg-slate-800 flex items-center justify-center border border-slate-600 text-slate-300" title={def.name}><Icon size={12} style={{color:def.color}}/></div>;
+             return <div key={p.id} className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center border border-slate-600 text-slate-300 relative" title={`${def.name} Lv.${p.level}`}><Icon size={12} style={{color:def.color}}/>
+             {p.level > 1 && <span className="absolute -top-1 -right-1 text-[8px] bg-black text-white px-0.5 rounded border border-slate-500">{p.level}</span>}
+             </div>;
           })}
         </div>
       </div>
@@ -915,16 +925,19 @@ const LevelUpMenu = ({ options, onSelect }: { options: PerkData[], onSelect: (pe
   return (
     <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center z-50 animate-fade-in p-8">
       <h2 className="text-4xl font-extrabold text-yellow-500 mb-2 uppercase tracking-widest text-shadow-strong">Level Up!</h2>
-      <p className="text-slate-400 mb-12">Select a new ability to acquire</p>
+      <p className="text-slate-400 mb-12">Select a new ability or upgrade existing one</p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
         {options.map((perk, i) => {
            const Icon = perk.icon;
+           // @ts-ignore
+           const isUpgrade = perk.currentLevel !== undefined && perk.currentLevel > 0;
            return (
              <button key={perk.id} onClick={() => onSelect(perk.id)} className="group relative bg-slate-800 border-2 border-slate-600 hover:border-white p-6 rounded-xl transition-all hover:-translate-y-2 hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] flex flex-col items-center text-center overflow-hidden" style={{ animationDelay: `${i*100}ms` }}>
                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                <div className="w-24 h-24 rounded-full bg-slate-900 flex items-center justify-center mb-6 border border-slate-700 group-hover:border-white/50 transition-colors shadow-xl"><Icon size={48} style={{ color: perk.color }} className="group-hover:scale-110 transition-transform" /></div>
                <h3 className="text-xl font-bold text-white mb-2 uppercase tracking-wider">{perk.name}</h3>
                <span className={`text-xs px-2 py-1 rounded mb-4 font-bold uppercase ${perk.rarity === 'Legendary' ? 'bg-orange-500/20 text-orange-400' : perk.rarity === 'Rare' ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-700 text-slate-400'}`}>{perk.rarity}</span>
+               {isUpgrade && <span className="text-xs text-green-400 font-bold mb-2">Upgrade to Lv.{(perk as any).currentLevel + 1}</span>}
                <p className="text-sm text-slate-400 leading-relaxed">{perk.desc}</p>
              </button>
            );
@@ -1230,23 +1243,43 @@ export default function App() {
   const triggerLevelUp = () => {
     if (!gameState.current) return;
     gameState.current.isPaused = true;
-    const availablePerks = Object.values(PERK_DEFINITIONS).filter(p => !gameState.current!.player.perks.includes(p.id));
-    const shuffled = availablePerks.sort(() => 0.5 - Math.random());
+    
+    // Choose 3 random perks from ALL available defs
+    const allPerks = Object.values(PERK_DEFINITIONS);
+    const shuffled = allPerks.sort(() => 0.5 - Math.random());
     const selected = shuffled.slice(0, 3);
-    if (selected.length === 0) { gameState.current.isPaused = false; return; }
-    setLevelUpOptions(selected);
+    
+    // Add current level info for UI
+    const optionsWithLevel = selected.map(p => {
+        const existing = gameState.current!.player.perks.find(ep => ep.id === p.id);
+        return {
+            ...p,
+            currentLevel: existing ? existing.level : 0
+        };
+    });
+
+    setLevelUpOptions(optionsWithLevel);
     setActiveMenu('level_up');
   };
 
   const selectPerk = (perkId: string) => {
     if (!gameState.current) return;
     const p = gameState.current.player;
-    p.perks.push(perkId);
+    
+    const existing = p.perks.find(pk => pk.id === perkId);
+    if (existing) {
+        existing.level++;
+    } else {
+        p.perks.push({ id: perkId, level: 1 });
+    }
+
     updatePlayerStats(p);
     gameState.current.isPaused = false;
     setActiveMenu('none');
     setLevelUpOptions(null);
-    setMessage(`${PERK_DEFINITIONS[perkId].name} を習得しました！`);
+    const perkName = PERK_DEFINITIONS[perkId].name;
+    const newLevel = existing ? existing.level : 1;
+    setMessage(`${perkName} (Lv.${newLevel}) を習得しました！`);
     setTimeout(() => setMessage(null), 3000);
   };
 
@@ -1342,8 +1375,22 @@ export default function App() {
                   e.hp -= proj.damage;
                   state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#fff', type: 'text', dead: false, text: `-${proj.damage}`, life: 30 });
                   if (e.hp <= 0) {
-                      e.dead = true; p.xp += e.xpValue; p.gold += Math.floor(Math.random() * 5 * (state.dungeonLevel || 1)) + 1;
-                      state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#ffd700', type: 'text', dead: false, text: `+${e.xpValue} XP`, life: 45 });
+                      e.dead = true; 
+                      // XP Calculation with Wisdom Perk
+                      let xpMult = 1.0;
+                      const wis = p.perks.find(pk => pk.id === 'wisdom');
+                      if (wis) xpMult = 1.0 + (0.2 * wis.level);
+
+                      p.xp += Math.floor(e.xpValue * xpMult);
+                      
+                      // Gold Calculation with Gold Rush Perk
+                      let goldMult = 1.0;
+                      const rush = p.perks.find(pk => pk.id === 'gold_rush');
+                      if (rush) goldMult = 1.0 + (0.5 * rush.level);
+
+                      p.gold += Math.floor((Math.random() * 5 * (state.dungeonLevel || 1) + 1) * goldMult);
+                      
+                      state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#ffd700', type: 'text', dead: false, text: `+${Math.floor(e.xpValue * xpMult)} XP`, life: 45 });
                       if (p.xp >= p.nextLevelXp) { p.level++; p.xp -= p.nextLevelXp; p.nextLevelXp = Math.floor(p.nextLevelXp * 1.5); p.statPoints += 3; updatePlayerStats(p); p.hp = p.maxHp; state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 40, width:0, height:0, color: '#00ff00', type: 'text', dead: false, text: "LEVEL UP!", life: 90 }); triggerLevelUp(); }
                       const dropChance = GAME_CONFIG.BASE_DROP_RATE * (e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 1);
                       if (Math.random() < dropChance) { const item = generateRandomItem(state.dungeonLevel || 1, e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 0); if (item) state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: e.x, y: e.y, width: 32, height: 32, color: item.color, item, life: 3000, bounceOffset: Math.random() * 10, dead: false }); }
@@ -1354,7 +1401,7 @@ export default function App() {
       state.projectiles = state.projectiles.filter(p => !p.dead);
 
       const now = Date.now();
-      if ((input.current.keys[' '] || input.current.mouse.down) && now - p.lastAttackTime > p.attackCooldown) {
+      if ((input.current.keys[' '] || input.current.mouse.down) && now - p.lastAttackTime > p.calculatedStats.attackCooldown) {
         if (p.stamina >= GAME_CONFIG.STAMINA_ATTACK_COST) {
             p.stamina -= GAME_CONFIG.STAMINA_ATTACK_COST;
             p.lastAttackTime = now; p.isAttacking = true; setTimeout(() => { if(gameState.current) gameState.current.player.isAttacking = false; }, 200);
@@ -1395,14 +1442,38 @@ export default function App() {
                 state.enemies.forEach(e => {
                   if (checkCollision(attackRect, e)) {
                     let dmg = Math.max(1, Math.floor((p.attack - e.defense/2) * (0.9 + Math.random() * 0.2))); 
-                    if (p.perks.includes('thunder_strike') && Math.random() < 0.2) { dmg += 15; state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y - 20, width:0, height:0, color: '#fbbf24', type: 'text', dead: false, text: "⚡ THUNDER!", life: 45 }); }
+                    
+                    const thunder = p.perks.find(pk => pk.id === 'thunder_strike');
+                    if (thunder && Math.random() < 0.2) { 
+                        dmg += (15 * thunder.level); 
+                        state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y - 20, width:0, height:0, color: '#fbbf24', type: 'text', dead: false, text: "⚡ THUNDER!", life: 45 }); 
+                    }
+                    
                     e.hp -= dmg;
                     state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#fff', type: 'text', dead: false, text: `-${dmg}`, life: 30 });
                     const angle = Math.atan2(e.y - p.y, e.x - p.x); e.x += Math.cos(angle) * 10; e.y += Math.sin(angle) * 10;
                     if (e.hp <= 0) {
-                      e.dead = true; p.xp += e.xpValue; p.gold += Math.floor(Math.random() * 5 * (state.dungeonLevel || 1)) + 1;
-                      state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#ffd700', type: 'text', dead: false, text: `+${e.xpValue} XP`, life: 45 });
-                      if (p.perks.includes('vampire')) { const heal = 5; p.hp = Math.min(p.maxHp, p.hp + heal); state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y - 30, width:0, height:0, color: '#f43f5e', type: 'text', dead: false, text: `+${heal} HP`, life: 45 }); }
+                      e.dead = true; 
+                      
+                      let xpMult = 1.0;
+                      const wis = p.perks.find(pk => pk.id === 'wisdom');
+                      if (wis) xpMult = 1.0 + (0.2 * wis.level);
+                      p.xp += Math.floor(e.xpValue * xpMult);
+
+                      let goldMult = 1.0;
+                      const rush = p.perks.find(pk => pk.id === 'gold_rush');
+                      if (rush) goldMult = 1.0 + (0.5 * rush.level);
+                      p.gold += Math.floor((Math.random() * 5 * (state.dungeonLevel || 1) + 1) * goldMult);
+                      
+                      state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#ffd700', type: 'text', dead: false, text: `+${Math.floor(e.xpValue * xpMult)} XP`, life: 45 });
+                      
+                      const vampire = p.perks.find(pk => pk.id === 'vampire');
+                      if (vampire) { 
+                          const heal = 3 + (2 * vampire.level); 
+                          p.hp = Math.min(p.maxHp, p.hp + heal); 
+                          state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y - 30, width:0, height:0, color: '#f43f5e', type: 'text', dead: false, text: `+${heal} HP`, life: 45 }); 
+                      }
+
                       if (p.xp >= p.nextLevelXp) { p.level++; p.xp -= p.nextLevelXp; p.nextLevelXp = Math.floor(p.nextLevelXp * 1.5); p.statPoints += 3; updatePlayerStats(p); p.hp = p.maxHp; state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 40, width:0, height:0, color: '#00ff00', type: 'text', dead: false, text: "LEVEL UP!", life: 90 }); triggerLevelUp(); }
                       const dropChance = GAME_CONFIG.BASE_DROP_RATE * (e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 1);
                       if (Math.random() < dropChance) { const item = generateRandomItem(state.dungeonLevel || 1, e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 0); if (item) state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: e.x, y: e.y, width: 32, height: 32, color: item.color, item, life: 3000, bounceOffset: Math.random() * 10, dead: false }); }
@@ -1417,9 +1488,25 @@ export default function App() {
                         if (r.hp <= 0) {
                             r.dead = true;
                             let item: Item | null = null;
-                            if (r.resourceType === 'tree') item = { id: crypto.randomUUID(), name: "木材", type: "Material", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🪵", color: "#795548", count: Math.floor(Math.random()*3)+1 };
-                            else if (r.resourceType === 'rock') item = { id: crypto.randomUUID(), name: "石", type: "Material", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🪨", color: "#9e9e9e", count: Math.floor(Math.random()*2)+1 };
-                            else if (r.resourceType === 'ore') item = { id: crypto.randomUUID(), name: "鉱石", type: "Material", rarity: "Uncommon", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "⛏️", color: "#607d8b", count: 1 };
+                            let count = 1;
+                            if (r.resourceType === 'tree') {
+                                count = Math.floor(Math.random()*3)+1;
+                                item = { id: crypto.randomUUID(), name: "木材", type: "Material", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🪵", color: "#795548", count: count };
+                            } else if (r.resourceType === 'rock') {
+                                count = Math.floor(Math.random()*2)+1;
+                                item = { id: crypto.randomUUID(), name: "石", type: "Material", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🪨", color: "#9e9e9e", count: count };
+                            } else if (r.resourceType === 'ore') {
+                                count = 1;
+                                item = { id: crypto.randomUUID(), name: "鉱石", type: "Material", rarity: "Uncommon", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "⛏️", color: "#607d8b", count: count };
+                            }
+                            
+                            // Scavenger Perk Bonus
+                            const scav = p.perks.find(pk => pk.id === 'scavenger');
+                            if (scav && item) {
+                                item.count = (item.count || 1) + scav.level;
+                                state.floatingTexts.push({ id: crypto.randomUUID(), x: r.x, y: r.y - 20, width:0, height:0, color: '#a3e635', type: 'text', dead: false, text: `Scavenger +${scav.level}!`, life: 40 });
+                            }
+
                             if (item) state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: r.x, y: r.y, width: 32, height: 32, color: item.color, item, life: 3000, bounceOffset: Math.random() * 10, dead: false });
                         }
                     }
@@ -1580,7 +1667,7 @@ export default function App() {
           {activeMenu === 'inventory' && uiState && <InventoryMenu uiState={uiState} onEquip={handleEquip} onUnequip={handleUnequip} onClose={() => setActiveMenu('none')} />}
         </div>
       )}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest: Roguelike Edition v4.1 (Ranged)</div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest: Roguelike Edition v4.2 (Perks)</div>
     </div>
   );
 }
