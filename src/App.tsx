@@ -74,7 +74,8 @@ const ASSETS_SVG = {
   Potion: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M6 14h4v1H6z" fill="rgba(0,0,0,0.3)" /><path d="M7 2h2v3H7z" fill="#b0bec5" /><path d="M6 4h4v1H6z" fill="#cfd8dc" /><path d="M5 5h6v8H5z" fill="#ef5350" /><path d="M6 6h1v2H6zm3 1h1v1H9z" fill="#ffcdd2" opacity="0.6" /><path d="M5 11h6v2H5z" fill="#c62828" /></svg>`,
   Tree: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M6 13h4v3H6z" fill="#5d4037" /><path d="M4 10h8v3H4z" fill="#2e7d32" /><path d="M5 7h6v3H5z" fill="#388e3c" /><path d="M6 4h4v3H6z" fill="#43a047" /><path d="M7 2h2v2H7z" fill="#4caf50" /></svg>`,
   Rock: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M3 10h10v6H3z" fill="#757575" /><path d="M4 8h8v2H4z" fill="#9e9e9e" /><path d="M5 6h6v2H5z" fill="#bdbdbd" /><path d="M3 13h2v2H3zm8 0h2v2h-2z" fill="#616161" /></svg>`,
-  Ore: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M3 10h10v6H3z" fill="#546e7a" /><path d="M4 8h8v2H4z" fill="#78909c" /><path d="M5 6h6v2H5z" fill="#90a4ae" /><path d="M5 9h2v2H5zm5 2h2v2h-2z" fill="#ffeb3b" /><path d="M7 12h2v2H7z" fill="#ffeb3b" /></svg>`
+  Ore: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M3 10h10v6H3z" fill="#546e7a" /><path d="M4 8h8v2H4z" fill="#78909c" /><path d="M5 6h6v2H5z" fill="#90a4ae" /><path d="M5 9h2v2H5zm5 2h2v2h-2z" fill="#ffeb3b" /><path d="M7 12h2v2H7z" fill="#ffeb3b" /></svg>`,
+  Item_Armor: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M3 3h10v3h-1v1h1v1h1v6h-3v-2h-4v2h-3v-6h1v-1h1v-1h-1z" fill="#546e7a" /><path d="M6 6h4v4h-4z" fill="#cfd8dc" /><path d="M5 3h2v2h-2zM9 3h2v2h-2z" fill="#37474f" /></svg>`
 };
 const svgToUrl = (s: string) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(s.trim());
 
@@ -185,7 +186,10 @@ const GAME_CONFIG = {
   // World Map Config
   WORLD_TILE_SIZE: 32,
   WORLD_WIDTH: 30,
-  WORLD_HEIGHT: 20
+  WORLD_HEIGHT: 20,
+  // Town Config
+  TOWN_WIDTH: 30,
+  TOWN_HEIGHT: 20
 };
 
 // Phase 6: World Locations
@@ -209,7 +213,7 @@ const ENCHANT_SLOTS = { Common: 0, Uncommon: 1, Rare: 2, Epic: 3, Legendary: 5 }
 const ITEM_BASE_NAMES = { Weapon: { OneHanded: '剣', TwoHanded: '大剣', DualWield: '双剣' }, Helm: '兜', Armor: '板金鎧', Shield: '盾', Boots: '具足', Consumable: '道具', Material: '素材' };
 const ICONS = { 
     Weapon: { OneHanded: '⚔️', TwoHanded: '🗡️', DualWield: '⚔️', Bow: '🏹', Staff: '🪄', Wand: '🥢' }, 
-    Helm: '🪖', Armor: '🛡️', Shield: '🛡️', Boots: '👢', Consumable: '🎒', Material: '📦' 
+    Helm: '🪖', Armor: 'svg:Item_Armor', Shield: '🛡️', Boots: '👢', Consumable: '🎒', Material: '📦' 
 };
 
 const PERK_DEFINITIONS: Record<string, PerkData> = {
@@ -300,7 +304,9 @@ const generateRandomItem = (level: number, rankBonus: number = 0): Item | null =
     
     if (weaponClass === 'Axe') stats.speed = -1;
     if (weaponClass === 'Bow') stats.speed = 1;
-  } else if (type === 'Armor') { stats.defense = Math.floor(baseVal * 2 * mult); stats.maxHp = Math.floor(baseVal * 5 * mult);
+  } else if (type === 'Armor') { 
+      stats.defense = Math.floor(baseVal * 2 * mult); stats.maxHp = Math.floor(baseVal * 5 * mult);
+      icon = 'svg:Item_Armor'; 
   } else if (type === 'Helm') { stats.defense = Math.floor(baseVal * 1 * mult); stats.maxHp = Math.floor(baseVal * 2 * mult);
   } else if (type === 'Shield') { stats.defense = Math.floor(baseVal * 2.5 * mult);
   } else if (type === 'Boots') { stats.defense = Math.floor(baseVal * 0.5 * mult); stats.speed = Number((0.2 * mult).toFixed(1)); }
@@ -362,7 +368,25 @@ const generateEnemy = (x: number, y: number, level: number): EnemyEntity => {
 const generateFloor = (level: number, locationId?: string): FloorData => {
   const width = GAME_CONFIG.MAP_WIDTH;
   const height = GAME_CONFIG.MAP_HEIGHT;
-  const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
+  
+  // Set Size based on Biome (Town is smaller)
+  // Re-calculate width/height if it's town
+  let mapWidth = GAME_CONFIG.MAP_WIDTH;
+  let mapHeight = GAME_CONFIG.MAP_HEIGHT;
+
+  // Determine Biome based on location
+  let biome: Biome = 'Dungeon';
+  const location = WORLD_LOCATIONS.find(l => l.id === locationId);
+  if (location) biome = location.biome;
+  else if (level === 0) biome = 'Town';
+  else biome = (['Dungeon', 'Plains', 'Forest', 'Wasteland', 'Snow', 'Desert'] as Biome[])[(level % 5) + 1] || 'Dungeon';
+
+  if (biome === 'Town') {
+      mapWidth = GAME_CONFIG.TOWN_WIDTH;
+      mapHeight = GAME_CONFIG.TOWN_HEIGHT;
+  }
+
+  const map: Tile[][] = Array(mapHeight).fill(null).map((_, y) => Array(mapWidth).fill(null).map((_, x) => {
       return { x: x * GAME_CONFIG.TILE_SIZE, y: y * GAME_CONFIG.TILE_SIZE, type: 'grass', solid: false };
     })
   );
@@ -371,54 +395,49 @@ const generateFloor = (level: number, locationId?: string): FloorData => {
   const resources: ResourceEntity[] = [];
   const lights: LightSource[] = [];
   const shopZones: {x:number, y:number, w:number, h:number, type:'blacksmith'|'general'}[] = [];
-  
-  // Determine Biome based on location
-  let biome: Biome = 'Dungeon';
-  const location = WORLD_LOCATIONS.find(l => l.id === locationId);
-  if (location) biome = location.biome;
-  else if (level === 0) biome = 'Town';
-  else biome = (['Dungeon', 'Plains', 'Forest', 'Wasteland', 'Snow', 'Desert'] as Biome[])[(level % 5) + 1] || 'Dungeon';
-
   let bossId: string | null = null;
-  let entryPos = { x: (width/2) * GAME_CONFIG.TILE_SIZE, y: (height/2) * GAME_CONFIG.TILE_SIZE };
+  let entryPos = { x: (mapWidth/2) * GAME_CONFIG.TILE_SIZE, y: (mapHeight/2) * GAME_CONFIG.TILE_SIZE };
 
   // --- Town Generation (Level 0 or specific town location) ---
   if (biome === 'Town') {
-    for(let y=0; y<height; y++) {
-      for(let x=0; x<width; x++) {
+    for(let y=0; y<mapHeight; y++) {
+      for(let x=0; x<mapWidth; x++) {
         map[y][x].type = 'town_floor';
-        if (x===0 || x===width-1 || y===0 || y===height-1) {
+        if (x===0 || x===mapWidth-1 || y===0 || y===mapHeight-1) {
            map[y][x].type = 'wall'; map[y][x].solid = true;
         }
       }
     }
-    const cx = Math.floor(width/2), cy = Math.floor(height/2);
+    const cx = Math.floor(mapWidth/2), cy = Math.floor(mapHeight/2);
     // Exit to World Map
-    map[height-2][cx].type = 'portal_out';
+    map[mapHeight-2][cx].type = 'portal_out';
     
     // Dungeon entrance if it's the starter town
     if (locationId === 'town_start' || level === 0) {
         map[cy][cx].type = 'dungeon_entrance';
         lights.push({ x: cx * 32 + 16, y: cy * 32 + 16, radius: 150, flicker: true, color: '#f59e0b' });
-        // Shops
-        for(let y=5; y<10; y++) for(let x=5; x<12; x++) { map[y][x].type = 'wall'; map[y][x].solid = true; } 
-        shopZones.push({x: 5*32, y: 10*32, w: 7*32, h: 2*32, type:'general'}); 
+        
+        // Shops (Center)
+        const shopY = cy - 4;
+        const shopX1 = cx - 6;
+        for(let y=shopY; y<shopY+4; y++) for(let x=shopX1; x<shopX1+5; x++) { map[y][x].type = 'wall'; map[y][x].solid = true; } 
+        shopZones.push({x: shopX1*32, y: (shopY+4)*32, w: 5*32, h: 2*32, type:'general'}); 
 
-        for(let y=5; y<10; y++) for(let x=width-12; x<width-5; x++) { map[y][x].type = 'wall'; map[y][x].solid = true; } 
-        shopZones.push({x: (width-12)*32, y: 10*32, w: 7*32, h: 2*32, type:'blacksmith'}); 
+        const shopX2 = cx + 2;
+        for(let y=shopY; y<shopY+4; y++) for(let x=shopX2; x<shopX2+5; x++) { map[y][x].type = 'wall'; map[y][x].solid = true; } 
+        shopZones.push({x: shopX2*32, y: (shopY+4)*32, w: 5*32, h: 2*32, type:'blacksmith'}); 
     }
     
-    entryPos = { x: cx * 32, y: (cy + 2) * 32 }; 
+    entryPos = { x: cx * 32, y: (cy + 3) * 32 }; 
 
     return { map, enemies: [], resources: [], droppedItems: [], biome: 'Town', level: 0, lights, shopZones, entryPos };
   }
 
   // --- Boss Floor (Every 5 levels) ---
   if (level > 0 && level % 5 === 0) {
-      // Create Big Arena
-      for(let y=0; y<height; y++) {
-          for(let x=0; x<width; x++) {
-            if (x===0 || x===width-1 || y===0 || y===height-1) {
+      for(let y=0; y<mapHeight; y++) {
+          for(let x=0; x<mapWidth; x++) {
+            if (x===0 || x===mapWidth-1 || y===0 || y===mapHeight-1) {
                 map[y][x].type = 'wall'; map[y][x].solid = true;
             } else {
                 map[y][x].type = 'floor'; map[y][x].solid = false;
@@ -426,8 +445,8 @@ const generateFloor = (level: number, locationId?: string): FloorData => {
           }
       }
       
-      const cx = Math.floor(width/2) * GAME_CONFIG.TILE_SIZE;
-      const cy = Math.floor(height/2) * GAME_CONFIG.TILE_SIZE;
+      const cx = Math.floor(mapWidth/2) * GAME_CONFIG.TILE_SIZE;
+      const cy = Math.floor(mapHeight/2) * GAME_CONFIG.TILE_SIZE;
       
       const bossType = ENEMY_TYPES.find(e => e.name === 'Dragon') || ENEMY_TYPES[ENEMY_TYPES.length - 1];
       const boss = {
@@ -440,15 +459,15 @@ const generateFloor = (level: number, locationId?: string): FloorData => {
       bossId = boss.id;
 
       lights.push({ x: cx, y: cy, radius: 300, flicker: true, color: '#ff5252' });
-      map[Math.floor(height/2) - 4][Math.floor(width/2)].type = 'stairs_down';
-      entryPos = { x: (width/2) * 32, y: (height - 5) * 32 };
+      map[Math.floor(mapHeight/2) - 4][Math.floor(mapWidth/2)].type = 'stairs_down';
+      entryPos = { x: (mapWidth/2) * 32, y: (mapHeight - 5) * 32 };
 
       return { map, enemies, resources: [], droppedItems: [], biome: 'Dungeon', level, lights, bossId, entryPos, shopZones: [] };
   }
 
   // --- Normal Dungeon Generation ---
-  for(let y=0; y<height; y++) {
-    for(let x=0; x<width; x++) {
+  for(let y=0; y<mapHeight; y++) {
+    for(let x=0; x<mapWidth; x++) {
       map[y][x].type = 'wall'; 
       map[y][x].solid = true;
     }
@@ -462,15 +481,15 @@ const generateFloor = (level: number, locationId?: string): FloorData => {
   for (let i = 0; i < maxRooms; i++) {
     const w = Math.floor(Math.random() * (maxRoomSize - minRoomSize + 1)) + minRoomSize;
     const h = Math.floor(Math.random() * (maxRoomSize - minRoomSize + 1)) + minRoomSize;
-    const x = Math.floor(Math.random() * (width - w - 2)) + 1;
-    const y = Math.floor(Math.random() * (height - h - 2)) + 1;
+    const x = Math.floor(Math.random() * (mapWidth - w - 2)) + 1;
+    const y = Math.floor(Math.random() * (mapHeight - h - 2)) + 1;
 
     const newRoom = { x, y, w, h };
     rooms.push(newRoom);
 
     for (let ry = y; ry < y + h; ry++) {
       for (let rx = x; rx < x + w; rx++) {
-        if (ry > 0 && ry < height -1 && rx > 0 && rx < width -1) {
+        if (ry > 0 && ry < mapHeight -1 && rx > 0 && rx < mapWidth -1) {
             let floorType: TileType = 'floor';
             if (biome === 'Snow') floorType = 'snow';
             else if (biome === 'Desert') floorType = 'sand';
@@ -508,7 +527,7 @@ const generateFloor = (level: number, locationId?: string): FloorData => {
 
       const carveH = (y: number, x1: number, x2: number) => {
           for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x++) {
-              if (y > 0 && y < height-1 && x > 0 && x < width-1) {
+              if (y > 0 && y < mapHeight-1 && x > 0 && x < mapWidth-1) {
                 let floorType: TileType = 'floor';
                 if (biome === 'Snow') floorType = 'snow';
                 else if (biome === 'Desert') floorType = 'sand';
@@ -520,7 +539,7 @@ const generateFloor = (level: number, locationId?: string): FloorData => {
       };
       const carveV = (x: number, y1: number, y2: number) => {
           for (let y = Math.min(y1, y2); y <= Math.max(y1, y2); y++) {
-              if (y > 0 && y < height-1 && x > 0 && x < width-1) {
+              if (y > 0 && y < mapHeight-1 && x > 0 && x < mapWidth-1) {
                 let floorType: TileType = 'floor';
                 if (biome === 'Snow') floorType = 'snow';
                 else if (biome === 'Desert') floorType = 'sand';
@@ -538,11 +557,11 @@ const generateFloor = (level: number, locationId?: string): FloorData => {
   const getRandomFloorTile = () => {
       let limit = 1000;
       while(limit-- > 0) {
-          const rx = Math.floor(Math.random() * (width - 2)) + 1;
-          const ry = Math.floor(Math.random() * (height - 2)) + 1;
+          const rx = Math.floor(Math.random() * (mapWidth - 2)) + 1;
+          const ry = Math.floor(Math.random() * (mapHeight - 2)) + 1;
           if (!map[ry][rx].solid) return {x: rx, y: ry};
       }
-      return {x: Math.floor(width/2), y: Math.floor(height/2)};
+      return {x: Math.floor(mapWidth/2), y: Math.floor(mapHeight/2)};
   };
 
   const entryTile = getRandomFloorTile();
@@ -585,7 +604,8 @@ const resolveMapCollision = (entity: Entity, dx: number, dy: number, map: Tile[]
   const T = GAME_CONFIG.TILE_SIZE;
   const nextX = entity.x + dx, nextY = entity.y + dy;
   const startX = Math.floor(nextX / T), endX = Math.floor((nextX + entity.width) / T), startY = Math.floor(nextY / T), endY = Math.floor((nextY + entity.height) / T);
-  if (startX < 0 || endX >= GAME_CONFIG.MAP_WIDTH || startY < 0 || endY >= GAME_CONFIG.MAP_HEIGHT) return { x: entity.x, y: entity.y };
+  // Bounds check using map dimensions
+  if (startX < 0 || endX >= map[0].length || startY < 0 || endY >= map.length) return { x: entity.x, y: entity.y };
   for (let y = startY; y <= endY; y++) for (let x = startX; x <= endX; x++) if (map[y]?.[x]?.solid) return { x: entity.x, y: entity.y };
   return { x: nextX, y: nextY };
 };
@@ -692,10 +712,13 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
   ctx.translate(-camX, -camY);
   state.camera = { x: camX, y: camY };
 
+  const mapWidth = state.map[0]?.length || GAME_CONFIG.MAP_WIDTH;
+  const mapHeight = state.map.length || GAME_CONFIG.MAP_HEIGHT;
+
   const startCol = Math.max(0, Math.floor(camX / T));
-  const endCol = Math.min(GAME_CONFIG.MAP_WIDTH - 1, startCol + (width / T) + 1);
+  const endCol = Math.min(mapWidth - 1, startCol + (width / T) + 1);
   const startRow = Math.max(0, Math.floor(camY / T));
-  const endRow = Math.min(GAME_CONFIG.MAP_HEIGHT - 1, startRow + (height / T) + 1);
+  const endRow = Math.min(mapHeight - 1, startRow + (height / T) + 1);
 
   // Layer 1: World
   for (let y = startRow; y <= endRow; y++) {
@@ -728,17 +751,13 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
     }
   }
 
-  // Shop Zones Rendering (Visual indicators)
+  // Shop Zones Rendering
   if (state.dungeonLevel === 0 && state.shopZones) {
       state.shopZones.forEach(z => {
           ctx.fillStyle = 'rgba(255, 255, 0, 0.2)'; 
           ctx.fillRect(z.x, z.y, z.w, z.h);
-          ctx.font = 'bold 14px Arial';
-          ctx.fillStyle = '#fff';
-          ctx.textAlign = 'center';
-          ctx.fillText(z.type === 'general' ? 'General Store' : 'Blacksmith', z.x + z.w/2, z.y + z.h/2);
-          ctx.font = '24px Arial';
-          ctx.fillText(z.type === 'general' ? '🎒' : '🔨', z.x + z.w/2, z.y + z.h/2 - 20);
+          ctx.font = 'bold 14px Arial'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(z.type === 'general' ? 'General Store' : 'Blacksmith', z.x + z.w/2, z.y + z.h/2);
+          ctx.font = '24px Arial'; ctx.fillText(z.type === 'general' ? '🎒' : '🔨', z.x + z.w/2, z.y + z.h/2 - 20);
       });
   }
 
@@ -746,16 +765,26 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
   state.droppedItems.forEach(drop => {
     const bob = Math.sin(state.gameTime / 10) * 5 + drop.bounceOffset;
     ctx.shadowColor = drop.item.color; ctx.shadowBlur = 10;
-    ctx.fillStyle = '#8d6e63'; ctx.fillRect(drop.x + 8, drop.y + 8 + bob, 16, 16);
-    ctx.fillStyle = drop.item.color; ctx.fillRect(drop.x + 8, drop.y + 12 + bob, 16, 4);
-    ctx.font = '16px Arial'; ctx.textAlign = 'center'; ctx.fillText(drop.item.icon, drop.x + 16, drop.y + 4 + bob); ctx.shadowBlur = 0;
+    
+    // Check if icon is an SVG asset key
+    if (drop.item.icon.startsWith('svg:')) {
+        const key = drop.item.icon.split(':')[1];
+        if (images[key]) {
+            ctx.drawImage(images[key], drop.x + 8, drop.y + 8 + bob, 16, 16);
+            // Draw color bar below
+            ctx.fillStyle = drop.item.color; ctx.fillRect(drop.x + 8, drop.y + 24 + bob, 16, 4);
+        }
+    } else {
+        // Fallback to text
+        ctx.fillStyle = '#8d6e63'; ctx.fillRect(drop.x + 8, drop.y + 8 + bob, 16, 16);
+        ctx.fillStyle = drop.item.color; ctx.fillRect(drop.x + 8, drop.y + 12 + bob, 16, 4);
+        ctx.font = '16px Arial'; ctx.textAlign = 'center'; ctx.fillText(drop.item.icon, drop.x + 16, drop.y + 4 + bob); 
+    }
+    ctx.shadowBlur = 0;
   });
 
   state.projectiles.forEach(proj => {
-      ctx.fillStyle = proj.color;
-      ctx.beginPath();
-      ctx.arc(proj.x + proj.width/2, proj.y + proj.height/2, 4, 0, Math.PI*2);
-      ctx.fill();
+      ctx.fillStyle = proj.color; ctx.beginPath(); ctx.arc(proj.x + proj.width/2, proj.y + proj.height/2, 4, 0, Math.PI*2); ctx.fill();
       ctx.strokeStyle = proj.color; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(proj.x + proj.width/2, proj.y + proj.height/2); ctx.lineTo(proj.x + proj.width/2 - proj.vx! * 2, proj.y + proj.height/2 - proj.vy! * 2); ctx.stroke();
   });
 
@@ -763,9 +792,7 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
       let imgKey = r.resourceType === 'tree' ? 'Tree' : (r.resourceType === 'ore' ? 'Ore' : 'Rock');
       if (images[imgKey]) {
           const wobble = Math.sin(state.gameTime / 5) * (r.hp < r.maxHp ? 2 : 0);
-          ctx.save(); ctx.translate(r.x + 16 + wobble, r.y + 16);
-          ctx.drawImage(images[imgKey], -16, -16, 32, 32);
-          ctx.restore();
+          ctx.save(); ctx.translate(r.x + 16 + wobble, r.y + 16); ctx.drawImage(images[imgKey], -16, -16, 32, 32); ctx.restore();
       } else {
           ctx.fillStyle = r.color; ctx.fillRect(r.x, r.y, r.width, r.height);
       }
@@ -1063,9 +1090,12 @@ const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: any) => (
       <h3 className="text-xl font-bold text-yellow-500 mb-2 border-b border-slate-700 pb-2">装備</h3>
       {[{ slot: 'mainHand', label: '右手', icon: '⚔️' }, { slot: 'offHand', label: '左手', icon: '🛡️' }, { slot: 'helm', label: '頭', icon: '🪖' }, { slot: 'armor', label: '体', icon: '🛡️' }, { slot: 'boots', label: '足', icon: '👢' }].map((s) => {
         const item = uiState.equipment[s.slot];
+        // @ts-ignore
+        const imgSrc = item && item.icon.startsWith('svg:') ? svgToUrl(ASSETS_SVG[item.icon.split(':')[1]]) : null;
+        
         return (
           <div key={s.slot} className="flex items-center gap-3 p-2 bg-slate-800 rounded border border-slate-700 relative group">
-            <div className="w-10 h-10 bg-slate-900 flex items-center justify-center text-2xl border border-slate-600 rounded">{item ? item.icon : s.icon}</div>
+            <div className="w-10 h-10 bg-slate-900 flex items-center justify-center text-2xl border border-slate-600 rounded">{imgSrc ? <img src={imgSrc} className="w-8 h-8" /> : (item ? item.icon : s.icon)}</div>
             <div className="flex-1">
               <div className="text-xs text-slate-400 uppercase">{s.label}</div>
               <div className={`font-bold text-sm ${item ? '' : 'text-slate-600'}`} style={{ color: item?.color }}>{item ? item.name : 'なし'}</div>
@@ -1086,10 +1116,13 @@ const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: any) => (
     <div className="flex-1 p-6 overflow-y-auto bg-slate-900">
       <div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold text-white">持ち物 ({uiState.inventory.length})</h3><button onClick={onClose} className="p-1 hover:bg-slate-700 rounded"><X /></button></div>
       <div className="grid grid-cols-2 gap-3">
-        {uiState.inventory.map((item: any) => (
+        {uiState.inventory.map((item: any) => {
+          // @ts-ignore
+          const imgSrc = item.icon.startsWith('svg:') ? svgToUrl(ASSETS_SVG[item.icon.split(':')[1]]) : null;
+          return (
           <div key={item.id} onClick={() => onEquip(item)} className="flex gap-3 p-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-yellow-500 rounded cursor-pointer transition-colors group">
             <div className="w-12 h-12 bg-slate-900 flex items-center justify-center text-2xl border border-slate-600 rounded shrink-0 relative">
-                {item.icon}
+                {imgSrc ? <img src={imgSrc} className="w-8 h-8" /> : item.icon}
                 {item.count && item.count > 1 && <span className="absolute bottom-0 right-0 bg-black/80 text-white text-[10px] px-1 rounded">{item.count}</span>}
             </div>
             <div className="flex-1 min-w-0">
@@ -1101,7 +1134,7 @@ const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: any) => (
               </div>
             </div>
           </div>
-        ))}
+        )})}
         {uiState.inventory.length === 0 && (<div className="col-span-2 text-center text-slate-500 py-10">アイテムがありません。</div>)}
       </div>
     </div>
@@ -1248,6 +1281,11 @@ export default function App() {
   const startGame = (job: Job, gender: Gender = 'Male', load = false) => {
     let player: PlayerEntity;
     
+    // Initialize World Map State
+    // let inWorldMap = true;  <-- REMOVED
+    // let worldPlayerPos = { x: 4, y: 4 }; <-- REMOVED
+    // let currentLocationId = 'world_map'; <-- REMOVED
+
     if (load && saveData) {
       player = { ...saveData.player };
       updatePlayerStats(player);
@@ -1892,7 +1930,7 @@ export default function App() {
           {activeMenu === 'inventory' && uiState && <InventoryMenu uiState={uiState} onEquip={handleEquip} onUnequip={handleUnequip} onClose={() => setActiveMenu('none')} />}
         </div>
       )}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest: Roguelike Edition v5.3 (World Map)</div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest: Roguelike Edition v5.4 (UI Fixed)</div>
     </div>
   );
 }
