@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Zap, Heart, Activity, Monitor, ArrowDownCircle, Droplets, Wind, Hammer, Coins, Shield, Clock, Star, Book } from 'lucide-react';
+import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Zap, Heart, Activity, Monitor, Droplets, Wind, Hammer, Coins, Shield, Clock, Star, Book } from 'lucide-react';
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken, Auth } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore';
@@ -111,7 +111,7 @@ interface PerkData {
   id: string;
   name: string;
   desc: string;
-  rarity: 'Common' | 'Rare' | 'Legendary';
+  rarity: 'Common' | 'Uncommon' | 'Rare' | 'Legendary';
   icon: any; 
   color: string;
 }
@@ -303,6 +303,7 @@ const createPlayer = (job: Job, gender: Gender): PlayerEntity => {
   };
 };
 
+// ... existing code (generateEnemy, generateFloor, checkCollision, resolveMapCollision) ...
 const generateEnemy = (x: number, y: number, level: number): EnemyEntity => {
   const type = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)];
   const rankRoll = Math.random();
@@ -692,7 +693,6 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
  * ############################################################################
  */
 
-// ... (ShopMenu, TitleScreen, JobSelectScreen, InventoryMenu remain unchanged) ...
 const ShopMenu = ({ type, player, onClose, onBuy, onCraft }: any) => {
     return (
         <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-8">
@@ -1064,7 +1064,6 @@ export default function App() {
       player = createPlayer(job, gender); updatePlayerStats(player);
       player.inventory.push({ id: crypto.randomUUID(), name: "松明", type: "Consumable", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🔥", color: "#ff9800", count: 3 });
       
-      // Starter Weapon based on Job
       let starterWeapon = generateRandomItem(1);
       if (starterWeapon) {
           if (job === 'Swordsman') { starterWeapon.name = "訓練用の剣"; starterWeapon.weaponClass = 'Sword'; starterWeapon.icon = ICONS.Weapon.OneHanded; }
