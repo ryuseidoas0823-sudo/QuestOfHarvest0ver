@@ -102,7 +102,6 @@ interface Entity { id: string; x: number; y: number; width: number; height: numb
 interface DroppedItem extends Entity { type: 'drop'; item: Item; life: number; bounceOffset: number; }
 interface CombatEntity extends Entity { hp: number; maxHp: number; level: number; attack: number; defense: number; speed: number; lastAttackTime: number; attackCooldown: number; isAttacking?: boolean; direction: number; shape?: ShapeType; }
 interface Attributes { vitality: number; strength: number; dexterity: number; intelligence: number; endurance: number; }
-// Phase 4: Resource Entity
 interface ResourceEntity extends Entity { type: 'resource'; resourceType: 'tree' | 'rock' | 'ore'; hp: number; maxHp: number; }
 
 interface LightSource { x: number; y: number; radius: number; flicker: boolean; color: string; }
@@ -131,7 +130,6 @@ interface EnemyEntity extends CombatEntity { targetId?: string; detectionRange: 
 interface Particle extends Entity { life: number; maxLife: number; size: number; }
 interface FloatingText extends Entity { text: string; life: number; color: string; }
 interface Projectile extends Entity { damage: number; ownerId: string; life: number; }
-// Phase 4: Added resources array to FloorData
 interface FloorData { map: Tile[][]; enemies: EnemyEntity[]; resources: ResourceEntity[]; droppedItems: DroppedItem[]; biome: Biome; level: number; lights: LightSource[]; shopZones?: {x:number, y:number, w:number, h:number, type:'blacksmith'|'general'}[]; }
 
 interface GameState { 
@@ -140,7 +138,7 @@ interface GameState {
   map: Tile[][]; 
   player: PlayerEntity; 
   enemies: EnemyEntity[]; 
-  resources: ResourceEntity[]; // Phase 4
+  resources: ResourceEntity[]; 
   droppedItems: DroppedItem[]; 
   projectiles: Projectile[]; 
   particles: Particle[]; 
@@ -567,16 +565,6 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
       }
   });
 
-  // Shop Zones Debug (Optional, commented out)
-  /*
-  if (state.dungeonLevel === 0 && state.shopZones) {
-      state.shopZones.forEach(z => {
-          ctx.strokeStyle = '#fff'; ctx.strokeRect(z.x, z.y, z.w, z.h);
-          ctx.fillStyle = '#fff'; ctx.fillText(z.type, z.x, z.y);
-      });
-  }
-  */
-
   const renderCharacter = (e: CombatEntity, icon?: string) => {
     const vw = e.visualWidth || e.width, vh = e.visualHeight || e.height;
     const centerX = e.x + e.width / 2, bottomY = e.y + e.height;
@@ -714,7 +702,7 @@ const ShopMenu = ({ type, player, onClose, onBuy, onCraft }: any) => {
     );
 };
 
-// Title Screen Component (Unchanged)
+// Title Screen Component
 const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setResolution }: any) => {
   const [showSettings, setShowSettings] = useState(false);
   return (
@@ -772,7 +760,7 @@ const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setResoluti
   );
 };
 
-// Job Select Screen (Unchanged)
+// Job Select Screen
 const JobSelectScreen = ({ onBack, onSelect, loadedAssets }: any) => {
   const [selectedGender, setSelectedGender] = useState<Gender>('Male');
   const [selectedJob, setSelectedJob] = useState<Job>('Swordsman');
@@ -886,7 +874,7 @@ const GameHUD = ({ uiState, dungeonLevel, toggleMenu, activeShop }: any) => (
   </>
 );
 
-// Inventory Menu (Unchanged)
+// Inventory Menu
 const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: any) => (
   <div className="bg-slate-900 border border-slate-600 rounded-lg w-full max-w-4xl h-[600px] flex text-white overflow-hidden shadow-2xl">
     <div className="w-1/3 bg-slate-800/50 p-6 border-r border-slate-700 flex flex-col gap-4">
@@ -896,7 +884,18 @@ const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: any) => (
         return (
           <div key={s.slot} className="flex items-center gap-3 p-2 bg-slate-800 rounded border border-slate-700 relative group">
             <div className="w-10 h-10 bg-slate-900 flex items-center justify-center text-2xl border border-slate-600 rounded">{item ? item.icon : s.icon}</div>
-            <div className="flex-1"><div className="text-xs text-slate-400 uppercase">{s.label}</div><div className={`font-bold text-sm ${item ? '' : 'text-slate-600'}`} style={{ color: item?.color }}>{item ? item.name : 'なし'}</div></div>
+            <div className="flex-1">
+              <div className="text-xs text-slate-400 uppercase">{s.label}</div>
+              <div className={`font-bold text-sm ${item ? '' : 'text-slate-600'}`} style={{ color: item?.color }}>{item ? item.name : 'なし'}</div>
+              {item && (
+                <div className="text-[10px] text-slate-300 grid grid-cols-2 gap-x-1 mt-0.5">
+                  {item.stats.attack > 0 && <span>攻+{item.stats.attack}</span>}
+                  {item.stats.defense > 0 && <span>防+{item.stats.defense}</span>}
+                  {item.stats.speed > 0 && <span>速+{item.stats.speed}</span>}
+                  {item.stats.maxHp > 0 && <span>HP+{item.stats.maxHp}</span>}
+                </div>
+              )}
+            </div>
             {item && (<button onClick={() => onUnequip(s.slot)} className="absolute right-2 top-2 p-1 hover:bg-red-900 rounded text-slate-400 hover:text-red-200"><X size={14} /></button>)}
           </div>
         );
@@ -927,7 +926,7 @@ const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: any) => (
   </div>
 );
 
-// Level Up Menu (Unchanged)
+// Level Up Menu
 const LevelUpMenu = ({ options, onSelect }: { options: PerkData[], onSelect: (perkId: string) => void }) => {
   return (
     <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center z-50 animate-fade-in p-8">
@@ -978,7 +977,7 @@ export default function App() {
   const [dungeonLevel, setDungeonLevel] = useState(0);
   const [activeMenu, setActiveMenu] = useState<MenuType>('none');
   const [levelUpOptions, setLevelUpOptions] = useState<PerkData[] | null>(null);
-  const [activeShopType, setActiveShopType] = useState<'blacksmith' | 'general' | null>(null); // For HUD
+  const [activeShopType, setActiveShopType] = useState<'blacksmith' | 'general' | null>(null); 
   const [message, setMessage] = useState<string | null>(null);
   const [viewportSize, setViewportSize] = useState({ width: 800, height: 600 });
   const [resolution, setResolution] = useState<ResolutionMode>('auto'); 
@@ -1044,7 +1043,7 @@ export default function App() {
     window.addEventListener('resize', handleResize);
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!input.current.keys[e.key.toLowerCase()]) { // Prevent repeat on hold for toggles
+      if (!input.current.keys[e.key.toLowerCase()]) { 
           if (e.key.toLowerCase() === 'i') setActiveMenu(prev => prev === 'inventory' ? 'none' : 'inventory');
           if (e.key.toLowerCase() === 'c') setActiveMenu(prev => prev === 'stats' ? 'none' : 'stats');
           if (e.key.toLowerCase() === 'f') interactAction();
@@ -1086,7 +1085,6 @@ export default function App() {
       updatePlayerStats(player);
     } else {
       player = createPlayer(job, gender); updatePlayerStats(player);
-      // Give initial torches
       player.inventory.push({ 
           id: crypto.randomUUID(), name: "松明", type: "Consumable", rarity: "Common", level: 1, 
           stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🔥", color: "#ff9800", count: 3 
@@ -1175,13 +1173,10 @@ export default function App() {
       if (!gameState.current || gameState.current.isPaused) return;
       const state = gameState.current;
       
-      // 1. Shop Check
       if (state.activeShop) {
           setActiveMenu('shop');
           return;
       }
-
-      // 2. Torch Check (Fallback)
       useTorch();
   };
 
@@ -1190,7 +1185,6 @@ export default function App() {
       const p = gameState.current.player;
       const torchIndex = p.inventory.findIndex(i => i.name === "松明");
       if (torchIndex === -1) {
-          // Check for Potion
           const potionIndex = p.inventory.findIndex(i => i.name === "ポーション");
           if (potionIndex !== -1) {
               const potion = p.inventory[potionIndex];
@@ -1236,7 +1230,7 @@ export default function App() {
           if (existing) existing.count = (existing.count || 1) + 1;
           else p.inventory.push({ id: crypto.randomUUID(), name: "ポーション", type: "Consumable", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🧪", color: "#f44336", count: 1 });
       }
-      setUiState({...p}); // Force Update
+      setUiState({...p}); 
   };
 
   const handleCraft = () => {
@@ -1252,12 +1246,10 @@ export default function App() {
           return;
       }
 
-      // Consume
       wood.count -= 2; if(wood.count<=0) p.inventory = p.inventory.filter(i=>i.id!==wood.id);
       stone.count -= 2; if(stone.count<=0) p.inventory = p.inventory.filter(i=>i.id!==stone.id);
       p.gold -= 200;
 
-      // Generate High Level Item
       const item = generateRandomItem(Math.max(5, p.level + 2), 2);
       if (item) {
           p.inventory.push(item);
@@ -1299,7 +1291,6 @@ export default function App() {
       state.gameTime++;
       const p = state.player;
       
-      // Phase 3: Stamina Regen
       if (p.stamina < p.calculatedStats.maxStamina) {
           p.stamina = Math.min(p.calculatedStats.maxStamina, p.stamina + p.calculatedStats.staminaRegen);
       }
@@ -1323,7 +1314,6 @@ export default function App() {
         const nextPos = resolveMapCollision(p, dx, dy, state.map); p.x = nextPos.x; p.y = nextPos.y;
       }
 
-      // Tile Interaction
       const cx = Math.floor((p.x + p.width/2) / GAME_CONFIG.TILE_SIZE);
       const cy = Math.floor((p.y + p.height/2) / GAME_CONFIG.TILE_SIZE);
       const currentTile = state.map[cy]?.[cx];
@@ -1333,7 +1323,6 @@ export default function App() {
         else if (currentTile.type === 'return_portal') transitionLevel(0);
       }
 
-      // Shop Zone Check
       let inShop: 'blacksmith' | 'general' | null = null;
       if (state.shopZones) {
           for (const zone of state.shopZones) {
@@ -1346,11 +1335,9 @@ export default function App() {
       state.activeShop = inShop;
       if (inShop !== activeShopType) setActiveShopType(inShop);
 
-      // Collisions & Interaction (Drops)
       state.droppedItems.forEach(drop => {
         if (checkCollision(p, drop)) {
           drop.dead = true; 
-          // Stack check
           if (drop.item.type === 'Consumable' || drop.item.type === 'Material') {
               const existing = p.inventory.find(i => i.name === drop.item.name);
               if (existing) existing.count = (existing.count || 1) + (drop.item.count || 1);
@@ -1363,7 +1350,6 @@ export default function App() {
         }
       });
 
-      // Attack Logic
       const now = Date.now();
       if ((input.current.keys[' '] || input.current.mouse.down) && now - p.lastAttackTime > p.attackCooldown) {
         if (p.stamina >= GAME_CONFIG.STAMINA_ATTACK_COST) {
@@ -1372,7 +1358,6 @@ export default function App() {
             
             const attackRect = { x: p.x + p.width/2 - 30, y: p.y + p.height/2 - 30, width: 60, height: 60 } as Entity;
             
-            // Hit Enemies
             state.enemies.forEach(e => {
               if (checkCollision(attackRect, e)) {
                 let dmg = Math.max(1, Math.floor((p.attack - e.defense/2) * (0.9 + Math.random() * 0.2))); 
@@ -1392,11 +1377,10 @@ export default function App() {
               }
             });
 
-            // Phase 4: Hit Resources
             state.resources.forEach(r => {
                 if (checkCollision(attackRect, r)) {
                     r.hp -= p.attack;
-                    const angle = Math.atan2(r.y - p.y, r.x - p.x); r.x += Math.cos(angle) * 2; r.y += Math.sin(angle) * 2; // Shake
+                    const angle = Math.atan2(r.y - p.y, r.x - p.x); r.x += Math.cos(angle) * 2; r.y += Math.sin(angle) * 2;
                     state.floatingTexts.push({ id: crypto.randomUUID(), x: r.x + r.width/2, y: r.y, width:0, height:0, color: '#ccc', type: 'text', dead: false, text: "Hit", life: 20 });
                     
                     if (r.hp <= 0) {
@@ -1416,7 +1400,6 @@ export default function App() {
         }
       }
 
-      // Enemy AI
       state.enemies.forEach(e => {
         if (e.dead) return;
         const dist = Math.sqrt((p.x - e.x)**2 + (p.y - e.y)**2);
@@ -1433,7 +1416,7 @@ export default function App() {
         }
       });
       state.enemies = state.enemies.filter(e => !e.dead); 
-      state.resources = state.resources.filter(r => !r.dead); // Clean resources
+      state.resources = state.resources.filter(r => !r.dead); 
       state.droppedItems = state.droppedItems.filter(d => !d.dead);
       state.floatingTexts.forEach(t => { t.y -= 0.5; t.life--; }); state.floatingTexts = state.floatingTexts.filter(t => t.life > 0);
     }
