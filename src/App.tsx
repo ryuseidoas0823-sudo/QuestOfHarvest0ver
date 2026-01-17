@@ -1478,12 +1478,12 @@ export default function App() {
     />
   );
   
-  if (screen === 'job_select') return <JobSelectScreen onBack={() => setScreen('title')} onSelect={(j, g) => startGame(j, g)} loadedAssets={loadedAssets} />;
+  if (screen === 'job_select') return <JobSelectScreen onBack={() => setScreen('title')} onSelect={(j: Job, g: Gender) => startGame(j, g)} loadedAssets={loadedAssets} />;
 
   return (
     <div className="w-full h-screen bg-black flex items-center justify-center overflow-hidden relative" onContextMenu={e => e.preventDefault()}>
       <canvas ref={canvasRef} width={viewportSize.width} height={viewportSize.height} className="bg-black shadow-2xl cursor-crosshair" />
-      {uiState && <GameHUD uiState={uiState} dungeonLevel={dungeonLevel} toggleMenu={(m) => setActiveMenu(activeMenu === m ? 'none' : m)} activeShop={activeShopType} />}
+      {uiState && <GameHUD uiState={uiState} dungeonLevel={dungeonLevel} toggleMenu={(m: MenuType) => setActiveMenu(activeMenu === m ? 'none' : m)} activeShop={activeShopType} />}
       {message && <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-2 rounded-full border border-yellow-500/50 animate-bounce text-center whitespace-nowrap">{message}</div>}
       
       {activeMenu !== 'none' && (
