@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Zap, Heart, Activity, Monitor, Droplets, Wind, Hammer, Coins, Shield, Clock, Star, Book } from 'lucide-react';
+import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Zap, Heart, Activity, Monitor, ArrowDownCircle, Droplets, Wind, Hammer, Coins, Shield, Clock, Star, Book, Skull } from 'lucide-react';
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken, Auth } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore';
@@ -131,7 +131,7 @@ interface EnemyEntity extends CombatEntity { targetId?: string; detectionRange: 
 interface Particle extends Entity { life: number; maxLife: number; size: number; }
 interface FloatingText extends Entity { text: string; life: number; color: string; }
 interface Projectile extends Entity { damage: number; ownerId: string; life: number; color: string; }
-interface FloorData { map: Tile[][]; enemies: EnemyEntity[]; resources: ResourceEntity[]; droppedItems: DroppedItem[]; biome: Biome; level: number; lights: LightSource[]; shopZones?: {x:number, y:number, w:number, h:number, type:'blacksmith'|'general'}[]; }
+interface FloorData { map: Tile[][]; enemies: EnemyEntity[]; resources: ResourceEntity[]; droppedItems: DroppedItem[]; biome: Biome; level: number; lights: LightSource[]; shopZones?: {x:number, y:number, w:number, h:number, type:'blacksmith'|'general'}[]; bossId?: string | null; }
 
 interface GameState { 
   dungeonLevel: number; 
@@ -151,6 +151,7 @@ interface GameState {
   lights: LightSource[];
   shopZones?: {x:number, y:number, w:number, h:number, type:'blacksmith'|'general'}[];
   activeShop: 'blacksmith' | 'general' | null;
+  activeBossId: string | null; // Phase 5: Track active boss
 }
 
 /**
@@ -220,6 +221,8 @@ const ENEMY_TYPES = [
   { name: 'Grizzly',   hp: 100,atk: 18,spd: 2.0, color: '#3e2723', icon: '🐻', xp: 50, shape: 'beast',    w: 48, h: 48, vw: 64, vh: 64 },
   { name: 'Wolf',      hp: 35, atk: 9, spd: 4.2, color: '#757575', icon: '🐺', xp: 25, shape: 'beast',    w: 32, h: 24, vw: 48, vh: 32 },
   { name: 'Ghost',     hp: 20, atk: 7, spd: 1.0, color: '#cfd8dc', icon: '👻', xp: 28, shape: 'ghost',    w: 24, h: 24, vw: 32, vh: 40 },
+  // Phase 5: Bosses
+  { name: 'Dragon',    hp: 500, atk: 30, spd: 3.0, color: '#004d40', icon: '🐲', xp: 500, shape: 'dragon', w: 64, h: 64, vw: 80, vh: 80 },
 ];
 
 /**
@@ -332,6 +335,7 @@ const generateFloor = (level: number): FloorData => {
   const lights: LightSource[] = [];
   const shopZones: {x:number, y:number, w:number, h:number, type:'blacksmith'|'general'}[] = [];
   const biome: Biome = level === 0 ? 'Town' : (['Dungeon', 'Plains', 'Forest', 'Wasteland', 'Snow', 'Desert'] as Biome[])[(level % 5) + 1] || 'Dungeon';
+  let bossId: string | null = null;
 
   // --- Town Generation (Level 0) ---
   if (level === 0) {
@@ -357,7 +361,44 @@ const generateFloor = (level: number): FloorData => {
     return { map, enemies: [], resources: [], droppedItems: [], biome: 'Town', level: 0, lights, shopZones };
   }
 
-  // --- Dungeon Generation ---
+  // --- Boss Floor (Every 5 levels) ---
+  if (level > 0 && level % 5 === 0) {
+      // Create Big Arena
+      for(let y=0; y<height; y++) {
+          for(let x=0; x<width; x++) {
+            if (x===0 || x===width-1 || y===0 || y===height-1) {
+                map[y][x].type = 'wall'; map[y][x].solid = true;
+            } else {
+                map[y][x].type = 'floor'; map[y][x].solid = false;
+            }
+          }
+      }
+      
+      // Spawn Boss
+      const cx = Math.floor(width/2) * GAME_CONFIG.TILE_SIZE;
+      const cy = Math.floor(height/2) * GAME_CONFIG.TILE_SIZE;
+      
+      // Select Boss Type
+      const bossType = ENEMY_TYPES.find(e => e.name === 'Dragon') || ENEMY_TYPES[0];
+      const boss = {
+        id: `boss_${crypto.randomUUID()}`, type: 'enemy', race: bossType.name, rank: 'Boss', x: cx, y: cy, width: bossType.w * 2, height: bossType.h * 2,
+        visualWidth: bossType.vw! * 2, visualHeight: bossType.vh! * 2, color: '#ff0000', shape: bossType.shape as ShapeType,
+        hp: bossType.hp * 5 + (level * 20), maxHp: bossType.hp * 5 + (level * 20), attack: bossType.atk * 1.5, defense: level * 3, speed: bossType.spd * 1.2,
+        level, direction: 1, dead: false, lastAttackTime: 0, attackCooldown: 800, detectionRange: 800, xpValue: bossType.xp * 10
+      } as EnemyEntity;
+      enemies.push(boss);
+      bossId = boss.id;
+
+      // Arena Lights
+      lights.push({ x: cx, y: cy, radius: 300, flicker: true, color: '#ff5252' });
+      
+      // Exit (Locked initially, logic can be added later, for now just placed)
+      map[Math.floor(height/2) - 4][Math.floor(width/2)].type = 'stairs_down';
+
+      return { map, enemies, resources: [], droppedItems: [], biome: 'Dungeon', level, lights, bossId };
+  }
+
+  // --- Normal Dungeon Generation ---
   for(let y=0; y<height; y++) {
     for(let x=0; x<width; x++) {
       map[y][x].type = 'wall'; 
@@ -693,6 +734,7 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
  * ############################################################################
  */
 
+// ... (ShopMenu, TitleScreen, JobSelectScreen, InventoryMenu, LevelUpMenu) ...
 const ShopMenu = ({ type, player, onClose, onBuy, onCraft }: any) => {
     return (
         <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-8">
@@ -742,7 +784,7 @@ const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setResoluti
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-30"></div>
       <div className="relative z-10 w-full h-full max-w-[177.78vh] max-h-[56.25vw] aspect-video m-auto flex flex-col items-center justify-center p-8">
         <div className={`text-center space-y-10 animate-fade-in transition-all duration-300 w-full ${showSettings ? 'blur-sm scale-95 opacity-50' : ''}`}>
-          <div className="relative"><h1 className="text-6xl md:text-8xl lg:text-9xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-yellow-500 to-yellow-800 drop-shadow-2xl mb-4 text-shadow-strong tracking-tighter" style={{ filter: 'drop-shadow(0 0 30px rgba(234,179,8,0.6))'}}>QUEST OF HARVEST</h1><p className="text-red-400 tracking-[1.2em] text-sm md:text-lg uppercase font-serif mt-6 border-t border-b border-red-900 py-3 inline-block bg-black/40 backdrop-blur-sm px-8 rounded-full">Phase 4: Harvest</p></div>
+          <div className="relative"><h1 className="text-6xl md:text-8xl lg:text-9xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-yellow-500 to-yellow-800 drop-shadow-2xl mb-4 text-shadow-strong tracking-tighter" style={{ filter: 'drop-shadow(0 0 30px rgba(234,179,8,0.6))'}}>QUEST OF HARVEST</h1><p className="text-red-400 tracking-[1.2em] text-sm md:text-lg uppercase font-serif mt-6 border-t border-b border-red-900 py-3 inline-block bg-black/40 backdrop-blur-sm px-8 rounded-full">Phase 5: Boss Battle</p></div>
           <div className="flex flex-col gap-4 w-80 md:w-96 mx-auto">
             <button onClick={onStart} className="group relative flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-red-900/90 to-black/90 border-2 border-red-700/50 hover:border-red-500 transition-all duration-300 text-red-100 font-black tracking-widest uppercase text-lg shadow-lg hover:shadow-red-500/20 transform hover:-translate-y-1"><Play size={24} className="group-hover:text-red-400 transition-colors" /><span>New Game</span></button>
             <button onClick={onContinue} disabled={!canContinue} className={`flex items-center justify-center gap-3 px-8 py-3 border-2 font-bold tracking-widest uppercase transition-all text-base backdrop-blur-sm ${canContinue ? 'bg-slate-800/50 border-slate-600 hover:border-blue-400 hover:bg-slate-700/80 text-slate-200' : 'bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed'}`}><Save size={20} /><span>Continue</span></button>
@@ -821,8 +863,22 @@ const JobSelectScreen = ({ onBack, onSelect, loadedAssets }: any) => {
   );
 };
 
-const GameHUD = ({ uiState, dungeonLevel, toggleMenu, activeShop }: any) => (
+const GameHUD = ({ uiState, dungeonLevel, toggleMenu, activeShop, bossData }: any) => (
   <>
+    {/* Boss HP Bar */}
+    {bossData && !bossData.dead && (
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 w-[600px] z-50 pointer-events-none">
+          <div className="flex justify-between text-red-500 font-bold mb-1 items-center">
+              <span className="flex items-center gap-2 text-xl filter drop-shadow-md"><Skull size={24}/> {bossData.race}</span>
+              <span className="text-sm">{bossData.hp}/{bossData.maxHp}</span>
+          </div>
+          <div className="h-6 bg-slate-900/80 border-2 border-red-900 rounded overflow-hidden relative shadow-[0_0_20px_rgba(220,38,38,0.5)]">
+              <div className="h-full bg-gradient-to-r from-red-900 via-red-600 to-red-500 transition-all duration-300" style={{ width: `${(bossData.hp/bossData.maxHp)*100}%` }}></div>
+              <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
+          </div>
+      </div>
+    )}
+
     <div className="absolute top-4 right-20 flex gap-4 text-white pointer-events-none">
        <div className="bg-slate-900/80 px-4 py-2 rounded border border-slate-700 flex items-center gap-2"><Compass size={16} className="text-yellow-500" /><span className="font-mono font-bold text-lg">{dungeonLevel === 0 ? "Town of Beginnings" : `Floor B${dungeonLevel}`}</span></div>
     </div>
@@ -960,6 +1016,7 @@ export default function App() {
   const [activeMenu, setActiveMenu] = useState<MenuType>('none');
   const [levelUpOptions, setLevelUpOptions] = useState<PerkData[] | null>(null);
   const [activeShopType, setActiveShopType] = useState<'blacksmith' | 'general' | null>(null); 
+  const [activeBossData, setActiveBossData] = useState<EnemyEntity | null>(null); // For HUD
   const [message, setMessage] = useState<string | null>(null);
   const [viewportSize, setViewportSize] = useState({ width: 800, height: 600 });
   const [resolution, setResolution] = useState<ResolutionMode>('auto'); 
@@ -1090,7 +1147,8 @@ export default function App() {
       levelUpOptions: null,
       lights: floorData.lights,
       shopZones: floorData.shopZones,
-      activeShop: null
+      activeShop: null,
+      activeBossId: floorData.bossId || null // Phase 5: Initialize boss
     };
     setDungeonLevel(dungeonLevel);
     setScreen('game');
@@ -1108,8 +1166,10 @@ export default function App() {
     state.droppedItems = floorData.droppedItems;
     state.lights = floorData.lights; 
     state.shopZones = floorData.shopZones;
+    state.activeBossId = floorData.bossId || null; // Phase 5: Update boss
     state.projectiles = [];
     state.particles = [];
+    setActiveBossData(null); // Reset boss HUD data
     
     if (newLevel === 0) {
       state.player.x = (GAME_CONFIG.MAP_WIDTH * GAME_CONFIG.TILE_SIZE) / 2;
@@ -1517,6 +1577,23 @@ export default function App() {
       }
 
       state.enemies.forEach(e => {
+        // --- Phase 5: Boss Tracking Logic ---
+        if (state.activeBossId && e.id === state.activeBossId) {
+             setActiveBossData({...e});
+             if (e.dead) {
+                 setActiveBossData(null);
+                 state.activeBossId = null;
+                 // Unlock stairs if boss dead (find stairs and make accessible if hidden logic existed, or just spawn reward)
+                 // For now, simple reward
+                 const rewardPos = { x: e.x, y: e.y };
+                 state.droppedItems.push({ 
+                     id: crypto.randomUUID(), type: 'drop', x: rewardPos.x, y: rewardPos.y, width: 32, height: 32, 
+                     color: '#ffd700', item: generateRandomItem(state.dungeonLevel + 5, 5)!, life: 10000, bounceOffset: 0, dead: false 
+                 });
+                 setMessage("BOSS DEFEATED!");
+             }
+        }
+
         if (e.dead) return;
         const dist = Math.sqrt((p.x - e.x)**2 + (p.y - e.y)**2);
         if (dist < e.detectionRange) {
@@ -1598,7 +1675,7 @@ export default function App() {
   return (
     <div className="w-full h-screen bg-black flex items-center justify-center overflow-hidden relative" onContextMenu={e => e.preventDefault()}>
       <canvas ref={canvasRef} width={viewportSize.width} height={viewportSize.height} className="bg-black shadow-2xl cursor-crosshair" />
-      {uiState && <GameHUD uiState={uiState} dungeonLevel={dungeonLevel} toggleMenu={(m: MenuType) => setActiveMenu(activeMenu === m ? 'none' : m)} activeShop={activeShopType} />}
+      {uiState && <GameHUD uiState={uiState} dungeonLevel={dungeonLevel} toggleMenu={(m: MenuType) => setActiveMenu(activeMenu === m ? 'none' : m)} activeShop={activeShopType} bossData={activeBossData} />}
       {message && <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-2 rounded-full border border-yellow-500/50 animate-bounce text-center whitespace-nowrap">{message}</div>}
       
       {activeMenu !== 'none' && (
@@ -1666,7 +1743,7 @@ export default function App() {
           {activeMenu === 'inventory' && uiState && <InventoryMenu uiState={uiState} onEquip={handleEquip} onUnequip={handleUnequip} onClose={() => setActiveMenu('none')} />}
         </div>
       )}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest: Roguelike Edition v4.2 (Perks)</div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest: Roguelike Edition v5.0 (Boss)</div>
     </div>
   );
 }
