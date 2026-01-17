@@ -65,17 +65,22 @@ export const generateRandomItem = (level: number, forceRarity?: Rarity): Item =>
   let weaponClass: WeaponClass | undefined;
   
   if (type === 'Weapon') {
-      const wTypes = Object.keys(ITEM_BASE_NAMES.Weapon);
-      const wType = wTypes[Math.floor(Math.random() * wTypes.length)] as WeaponStyle;
-      const names = ITEM_BASE_NAMES.Weapon[wType as any] || ['Weapon'];
+      const wTypes = Object.keys(ITEM_BASE_NAMES.Weapon) as WeaponStyle[];
+      const wType = wTypes[Math.floor(Math.random() * wTypes.length)];
+      const names = ITEM_BASE_NAMES.Weapon[wType] || ['Weapon'];
       const baseName = names[Math.floor(Math.random() * names.length)];
       name = `${rarity} ${baseName}`;
-      icon = ICONS.Weapon[wType as any] || '⚔️';
+      icon = ICONS.Weapon[wType] || '⚔️';
       stats.attack = Math.floor(5 + level * 2 * RARITY_MULTIPLIERS[rarity]);
-  } else if (['Helm', 'Armor', 'Boots'].includes(type)) {
-      const names = ITEM_BASE_NAMES[type as keyof typeof ITEM_BASE_NAMES] as string[] || ['Gear'];
+  } else if (type === 'Helm' || type === 'Armor' || type === 'Boots') {
+      // 型安全なアクセス
+      const category = ITEM_BASE_NAMES[type];
+      const names = category || ['Gear'];
       name = `${rarity} ${names[Math.floor(Math.random() * names.length)]}`;
-      icon = ICONS[type as keyof typeof ICONS] as string || '🛡️';
+      
+      const iconChar = ICONS[type] as string;
+      icon = iconChar || '🛡️';
+      
       stats.defense = Math.floor(2 + level * 1.5 * RARITY_MULTIPLIERS[rarity]);
       if (type === 'Armor') stats.maxHp = Math.floor(10 * level * RARITY_MULTIPLIERS[rarity]);
       if (type === 'Boots') stats.speed = parseFloat((0.1 * RARITY_MULTIPLIERS[rarity]).toFixed(1));
