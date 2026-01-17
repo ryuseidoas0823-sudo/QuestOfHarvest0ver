@@ -337,8 +337,6 @@ const createPlayer = (job: Job, gender: Gender): PlayerEntity => {
 };
 
 const generateEnemy = (x: number, y: number, level: number): EnemyEntity => {
-  // Biome specific enemy selection could be added here
-  // For now, use difficulty scaling
   const poolSize = Math.min(ENEMY_TYPES.length - 1, 3 + Math.floor(level / 1.5)); 
   const minIndex = Math.max(0, poolSize - 6);
   const typeIndex = minIndex + Math.floor(Math.random() * (poolSize - minIndex));
@@ -356,7 +354,7 @@ const generateEnemy = (x: number, y: number, level: number): EnemyEntity => {
   
   return {
     id: `enemy_${crypto.randomUUID()}`, type: 'enemy', race: type.name, rank, x, y,
-    width: type.w, // Fixed: removed rank check to avoid TS error
+    width: type.w,
     height: type.h,
     visualWidth: type.vw! * (rank === 'Boss' ? 1.5 : 1), 
     visualHeight: type.vh! * (rank === 'Boss' ? 1.5 : 1), 
