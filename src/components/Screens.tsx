@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Play, Save, Settings, Monitor, X, ArrowLeft, Sword, Heart, Zap, Activity } from 'lucide-react';
 import { JOB_DATA } from '../data';
 import { Job, Gender, ResolutionMode } from '../types';
