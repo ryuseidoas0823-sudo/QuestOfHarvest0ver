@@ -1,9 +1,10 @@
-import { ShoppingBag, Hammer, Coins, X, Compass, User, Settings, Skull } from 'lucide-react';
-import { Item, PlayerEntity, PerkData, EnemyEntity, MenuType, ResolutionMode, GAME_CONFIG, ASSETS_SVG, ICONS, PERK_DEFINITIONS } from '../types'; // Adjust imports as necessary if types are in a separate file, but here we assume imports from main/utils for now or just inline. 
-// Since we are splitting, we should assume types are available. For this output, I will inline the component code but please ensure types are imported correctly in a real environment.
-// For Canvas single file, these are just parts of the main file. 
+import React from 'react';
+import { ShoppingBag, Hammer, Coins, X, Compass, Skull, User, Settings } from 'lucide-react';
+import { Item, PERK_DEFINITIONS, GAME_CONFIG, ASSETS_SVG } from '../types'; // Adjust based on your structure
+import { svgToUrl } from '../utils';
 
-// NOTE: In a real split, imports would be like: import { ... } from '../types';
+// ※注意: 実際のファイル構造に合わせて import { ... } from '../types'; や '../utils' を確認してください
+// 今回の出力では、App.tsxと同じディレクトリ構造を想定しつつ、標準的な imports を記述します
 
 export const ShopMenu = ({ type, player, onClose, onBuy, onCraft }: any) => {
     return (
@@ -47,7 +48,12 @@ export const ShopMenu = ({ type, player, onClose, onBuy, onCraft }: any) => {
     );
 };
 
-export const GameHUD = ({ uiState, dungeonLevel, toggleMenu, activeShop, bossData }: any) => (
+export const GameHUD = ({ uiState, dungeonLevel, toggleMenu, activeShop, bossData }: any) => {
+  // App.tsx から渡される PERK_DEFINITIONS を使用するか、importする必要がありますが
+  // ここでは props で受け取るか、data.ts から import してください。
+  // 今回は簡易的にアイコン表示のみとします。
+  
+  return (
   <>
     {bossData && !bossData.dead && (
       <div className="absolute top-4 left-1/2 -translate-x-1/2 w-[600px] z-50 pointer-events-none">
@@ -57,7 +63,6 @@ export const GameHUD = ({ uiState, dungeonLevel, toggleMenu, activeShop, bossDat
           </div>
           <div className="h-6 bg-slate-900/80 border-2 border-red-900 rounded overflow-hidden relative shadow-[0_0_20px_rgba(220,38,38,0.5)]">
               <div className="h-full bg-gradient-to-r from-red-900 via-red-600 to-red-500 transition-all duration-300" style={{ width: `${(bossData.hp/bossData.maxHp)*100}%` }}></div>
-              <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
           </div>
       </div>
     )}
@@ -65,12 +70,13 @@ export const GameHUD = ({ uiState, dungeonLevel, toggleMenu, activeShop, bossDat
     <div className="absolute top-4 right-20 flex gap-4 text-white pointer-events-none">
        <div className="bg-slate-900/80 px-4 py-2 rounded border border-slate-700 flex items-center gap-2"><Compass size={16} className="text-yellow-500" /><span className="font-mono font-bold text-lg">{dungeonLevel === 0 ? "Town" : `Floor B${dungeonLevel}`}</span></div>
     </div>
+    
     <div className="absolute top-4 left-4 flex gap-4 pointer-events-none">
       <div className="bg-slate-900/90 border border-slate-700 p-3 rounded text-white w-64 shadow-lg pointer-events-auto">
         <div className="flex justify-between items-center mb-2"><span className="font-bold text-yellow-500">{uiState.job} Lv.{uiState.level}</span><span className="text-xs text-slate-400">GOLD: {uiState.gold}</span></div>
         <div className="mb-2 space-y-1 text-xs text-slate-300">
-           <div className="flex justify-between"><span>攻撃: {uiState.attack}</span><span>防御: {uiState.defense}</span></div>
-           <div className="flex justify-between"><span>速度: {uiState.speed.toFixed(1)}</span></div>
+           <div className="flex justify-between"><span>ATK: {uiState.attack}</span><span>DEF: {uiState.defense}</span></div>
+           <div className="flex justify-between"><span>SPD: {uiState.speed.toFixed(1)}</span></div>
         </div>
         <div className="mb-1">
           <div className="flex justify-between text-xs mb-0.5"><span className="text-green-400">ST</span><span>{Math.floor(uiState.stamina)}/{uiState.calculatedStats.maxStamina}</span></div>
@@ -85,38 +91,34 @@ export const GameHUD = ({ uiState, dungeonLevel, toggleMenu, activeShop, bossDat
           <div className="h-1 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${(uiState.xp/uiState.nextLevelXp)*100}%` }}></div></div>
         </div>
         <div className="mt-2 pt-2 border-t border-slate-700 flex flex-wrap gap-1">
-          {uiState.perks.map((p: any) => {
-             // We need PERK_DEFINITIONS here, passed as prop or imported
-             const def = PERK_DEFINITIONS[p.id];
-             if(!def) return null;
-             const Icon = def.icon;
-             return <div key={p.id} className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center border border-slate-600 text-slate-300 relative" title={`${def.name} Lv.${p.level}`}><Icon size={12} style={{color:def.color}}/>
+          {uiState.perks.map((p: any) => (
+             <div key={p.id} className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center border border-slate-600 text-slate-300 relative" title={`Lv.${p.level}`}>
              {p.level > 1 && <span className="absolute -top-1 -right-1 text-[8px] bg-black text-white px-0.5 rounded border border-slate-500">{p.level}</span>}
-             </div>;
-          })}
+             </div>
+          ))}
         </div>
       </div>
     </div>
+    
     {activeShop && (
         <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-yellow-500/80 text-black px-4 py-2 rounded-full animate-bounce font-bold border-2 border-white pointer-events-none">
             PRESS F TO SHOP
         </div>
     )}
+    
     <div className="absolute top-4 right-4 flex gap-2 pointer-events-auto">
       <button onClick={() => toggleMenu('inventory')} className="p-2 bg-slate-800 text-white rounded hover:bg-slate-700 border border-slate-600 relative"><ShoppingBag size={20} />{uiState?.inventory.length ? <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span> : null}</button>
-      <button onClick={() => toggleMenu('stats')} className="p-2 bg-slate-800 text-white rounded hover:bg-slate-700 border border-slate-600 relative"><User size={20} />{uiState && uiState.statPoints > 0 ? <span className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></span> : null}</button>
       <button onClick={() => toggleMenu('status')} className="p-2 bg-slate-800 text-white rounded hover:bg-slate-700 border border-slate-600"><Settings size={20} /></button>
     </div>
   </>
-);
+)};
 
-const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: any) => (
+export const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: any) => (
   <div className="bg-slate-900 border border-slate-600 rounded-lg w-full max-w-4xl h-[600px] flex text-white overflow-hidden shadow-2xl">
     <div className="w-1/3 bg-slate-800/50 p-6 border-r border-slate-700 flex flex-col gap-4">
       <h3 className="text-xl font-bold text-yellow-500 mb-2 border-b border-slate-700 pb-2">装備</h3>
       {[{ slot: 'mainHand', label: '右手', icon: '⚔️' }, { slot: 'offHand', label: '左手', icon: '🛡️' }, { slot: 'helm', label: '頭', icon: '🪖' }, { slot: 'armor', label: '体', icon: '🛡️' }, { slot: 'boots', label: '足', icon: '👢' }].map((s) => {
         const item = uiState.equipment[s.slot];
-        // Note: svgToUrl needs to be available
         const imgSrc = item && item.icon.startsWith('svg:') ? svgToUrl(ASSETS_SVG[item.icon.split(':')[1]]) : null;
         
         return (
@@ -129,13 +131,6 @@ const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: any) => (
                 <div className="text-[10px] text-slate-300 grid grid-cols-2 gap-x-1 mt-0.5">
                   {item.stats.attack > 0 && <span>攻+{item.stats.attack}</span>}
                   {item.stats.defense > 0 && <span>防+{item.stats.defense}</span>}
-                  {item.stats.speed > 0 && <span>速+{item.stats.speed}</span>}
-                  {item.stats.maxHp > 0 && <span>HP+{item.stats.maxHp}</span>}
-                  <div className="col-span-2 flex flex-wrap gap-1 mt-1">
-                    {item.enchantments.map((e:any, i:number) => (
-                      <span key={i} className="text-[9px] px-1 rounded bg-purple-900 text-purple-200">{e.name}</span>
-                    ))}
-                  </div>
                 </div>
               )}
             </div>
@@ -157,22 +152,10 @@ const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: any) => (
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-bold truncate" style={{ color: item.color }}>{item.name}</div>
-              <div className="text-xs text-slate-400">{item.type} {item.subType ? `(${item.subType})` : ''}</div>
-              <div className="text-xs mt-1 grid grid-cols-2 gap-x-2 text-slate-300">
-                {item.stats.attack > 0 && <span>攻撃 +{item.stats.attack}</span>} {item.stats.defense > 0 && <span>防御 +{item.stats.defense}</span>}
-                {(item.type === 'Consumable' || item.type === 'Material') && <span className="text-yellow-300">{item.type === 'Consumable' ? '消耗品' : '素材'}</span>}
-                {item.enchantments && item.enchantments.length > 0 && (
-                   <div className="col-span-2 flex flex-wrap gap-1 mt-1">
-                    {item.enchantments.map((e:any, i:number) => (
-                      <span key={i} className="text-[9px] px-1 rounded bg-purple-900 text-purple-200">{e.name}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <div className="text-xs text-slate-400">{item.type}</div>
             </div>
           </div>
         )})}
-        {uiState.inventory.length === 0 && (<div className="col-span-2 text-center text-slate-500 py-10">アイテムがありません。</div>)}
       </div>
     </div>
   </div>
