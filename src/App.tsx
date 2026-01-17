@@ -337,12 +337,7 @@ const createPlayer = (job: Job, gender: Gender): PlayerEntity => {
 };
 
 const generateEnemy = (x: number, y: number, level: number): EnemyEntity => {
-  const poolSize = Math.min(ENEMY_TYPES.length - 1, 3 + Math.floor(level / 1.5)); 
-  const minIndex = Math.max(0, poolSize - 6);
-  const typeIndex = minIndex + Math.floor(Math.random() * (poolSize - minIndex));
-  
-  const type = ENEMY_TYPES[typeIndex];
-  
+  const type = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)];
   const rankRoll = Math.random();
   let rank: 'Normal' | 'Elite' | 'Boss' = 'Normal';
   let scale = 1 + (level * 0.1);
@@ -354,10 +349,10 @@ const generateEnemy = (x: number, y: number, level: number): EnemyEntity => {
   
   return {
     id: `enemy_${crypto.randomUUID()}`, type: 'enemy', race: type.name, rank, x, y,
-    width: type.w,
+    width: type.w, 
     height: type.h,
-    visualWidth: type.vw! * (rank === 'Boss' ? 1.5 : 1), 
-    visualHeight: type.vh! * (rank === 'Boss' ? 1.5 : 1), 
+    visualWidth: type.vw!, 
+    visualHeight: type.vh!, 
     color, shape: type.shape as ShapeType,
     hp: Math.floor(type.hp * scale), maxHp: Math.floor(type.hp * scale), attack: Math.floor(type.atk * scale), defense: Math.floor(level * 2), speed: type.spd,
     level, direction: 1, dead: false, lastAttackTime: 0, attackCooldown: 1000 + Math.random() * 500, detectionRange: 350, xpValue: Math.floor(type.xp * scale * (rank === 'Elite' ? 2 : 1))
@@ -487,7 +482,6 @@ const generateFloor = (level: number, locationId?: string): FloorData => {
       }
     }
     
-    // Resources
     if (Math.random() < 0.7) {
         const resType = biome === 'Forest' || biome === 'Plains' ? 'tree' : (Math.random() < 0.3 ? 'ore' : 'rock');
         const count = Math.floor(Math.random() * 3) + 1;
@@ -734,13 +728,17 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
     }
   }
 
-  // Shop Zones Rendering
+  // Shop Zones Rendering (Visual indicators)
   if (state.dungeonLevel === 0 && state.shopZones) {
       state.shopZones.forEach(z => {
           ctx.fillStyle = 'rgba(255, 255, 0, 0.2)'; 
           ctx.fillRect(z.x, z.y, z.w, z.h);
-          ctx.font = 'bold 14px Arial'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(z.type === 'general' ? 'General Store' : 'Blacksmith', z.x + z.w/2, z.y + z.h/2);
-          ctx.font = '24px Arial'; ctx.fillText(z.type === 'general' ? '🎒' : '🔨', z.x + z.w/2, z.y + z.h/2 - 20);
+          ctx.font = 'bold 14px Arial';
+          ctx.fillStyle = '#fff';
+          ctx.textAlign = 'center';
+          ctx.fillText(z.type === 'general' ? 'General Store' : 'Blacksmith', z.x + z.w/2, z.y + z.h/2);
+          ctx.font = '24px Arial';
+          ctx.fillText(z.type === 'general' ? '🎒' : '🔨', z.x + z.w/2, z.y + z.h/2 - 20);
       });
   }
 
@@ -754,7 +752,10 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
   });
 
   state.projectiles.forEach(proj => {
-      ctx.fillStyle = proj.color; ctx.beginPath(); ctx.arc(proj.x + proj.width/2, proj.y + proj.height/2, 4, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = proj.color;
+      ctx.beginPath();
+      ctx.arc(proj.x + proj.width/2, proj.y + proj.height/2, 4, 0, Math.PI*2);
+      ctx.fill();
       ctx.strokeStyle = proj.color; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(proj.x + proj.width/2, proj.y + proj.height/2); ctx.lineTo(proj.x + proj.width/2 - proj.vx! * 2, proj.y + proj.height/2 - proj.vy! * 2); ctx.stroke();
   });
 
@@ -762,7 +763,9 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
       let imgKey = r.resourceType === 'tree' ? 'Tree' : (r.resourceType === 'ore' ? 'Ore' : 'Rock');
       if (images[imgKey]) {
           const wobble = Math.sin(state.gameTime / 5) * (r.hp < r.maxHp ? 2 : 0);
-          ctx.save(); ctx.translate(r.x + 16 + wobble, r.y + 16); ctx.drawImage(images[imgKey], -16, -16, 32, 32); ctx.restore();
+          ctx.save(); ctx.translate(r.x + 16 + wobble, r.y + 16);
+          ctx.drawImage(images[imgKey], -16, -16, 32, 32);
+          ctx.restore();
       } else {
           ctx.fillStyle = r.color; ctx.fillRect(r.x, r.y, r.width, r.height);
       }
@@ -1008,7 +1011,7 @@ const GameHUD = ({ uiState, dungeonLevel, toggleMenu, activeShop, bossData }: an
     )}
 
     <div className="absolute top-4 right-20 flex gap-4 text-white pointer-events-none">
-       <div className="bg-slate-900/80 px-4 py-2 rounded border border-slate-700 flex items-center gap-2"><Compass size={16} className="text-yellow-500" /><span className="font-mono font-bold text-lg">{dungeonLevel === 0 ? "Town of Beginnings" : `Floor B${dungeonLevel}`}</span></div>
+       <div className="bg-slate-900/80 px-4 py-2 rounded border border-slate-700 flex items-center gap-2"><Compass size={16} className="text-yellow-500" /><span className="font-mono font-bold text-lg">{dungeonLevel === 0 ? "Town" : `Floor B${dungeonLevel}`}</span></div>
     </div>
     <div className="absolute top-4 left-4 flex gap-4 pointer-events-none">
       <div className="bg-slate-900/90 border border-slate-700 p-3 rounded text-white w-64 shadow-lg pointer-events-auto">
@@ -1245,11 +1248,6 @@ export default function App() {
   const startGame = (job: Job, gender: Gender = 'Male', load = false) => {
     let player: PlayerEntity;
     
-    // Initialize World Map State
-    let inWorldMap = true;
-    let worldPlayerPos = { x: 4, y: 4 }; // Default start near town
-    let currentLocationId = 'world_map';
-
     if (load && saveData) {
       player = { ...saveData.player };
       updatePlayerStats(player);
