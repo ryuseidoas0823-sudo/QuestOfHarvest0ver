@@ -92,12 +92,13 @@ type Biome = 'Plains' | 'Forest' | 'Desert' | 'Snow' | 'Wasteland' | 'Town' | 'D
 type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary';
 type EquipmentType = 'Weapon' | 'Helm' | 'Armor' | 'Shield' | 'Boots' | 'Consumable' | 'Material';
 type WeaponStyle = 'OneHanded' | 'TwoHanded' | 'DualWield';
+type WeaponClass = 'Sword' | 'Axe' | 'Bow' | 'Staff' | 'Wand'; // New
 type MenuType = 'none' | 'status' | 'inventory' | 'stats' | 'level_up' | 'crafting' | 'shop'; 
 type ResolutionMode = 'auto' | '800x600' | '1024x768' | '1280x720';
 
 interface Tile { x: number; y: number; type: TileType; solid: boolean; }
 interface Enchantment { type: 'Attack' | 'Defense' | 'Speed' | 'MaxHp'; value: number; strength: 'Weak' | 'Medium' | 'Strong'; name: string; }
-interface Item { id: string; name: string; type: EquipmentType; subType?: WeaponStyle; rarity: Rarity; level: number; stats: { attack: number; defense: number; speed: number; maxHp: number; }; enchantments: Enchantment[]; icon: string; color: string; count?: number; }
+interface Item { id: string; name: string; type: EquipmentType; subType?: WeaponStyle; weaponClass?: WeaponClass; rarity: Rarity; level: number; stats: { attack: number; defense: number; speed: number; maxHp: number; }; enchantments: Enchantment[]; icon: string; color: string; count?: number; }
 interface Entity { id: string; x: number; y: number; width: number; height: number; visualWidth?: number; visualHeight?: number; color: string; type: EntityType; dead: boolean; vx?: number; vy?: number; }
 interface DroppedItem extends Entity { type: 'drop'; item: Item; life: number; bounceOffset: number; }
 interface CombatEntity extends Entity { hp: number; maxHp: number; level: number; attack: number; defense: number; speed: number; lastAttackTime: number; attackCooldown: number; isAttacking?: boolean; direction: number; shape?: ShapeType; }
@@ -129,7 +130,8 @@ interface PlayerEntity extends CombatEntity {
 interface EnemyEntity extends CombatEntity { targetId?: string; detectionRange: number; race: string; xpValue: number; rank: 'Normal' | 'Elite' | 'Boss'; }
 interface Particle extends Entity { life: number; maxLife: number; size: number; }
 interface FloatingText extends Entity { text: string; life: number; color: string; }
-interface Projectile extends Entity { damage: number; ownerId: string; life: number; }
+// Updated Projectile Interface
+interface Projectile extends Entity { damage: number; ownerId: string; life: number; color: string; }
 interface FloorData { map: Tile[][]; enemies: EnemyEntity[]; resources: ResourceEntity[]; droppedItems: DroppedItem[]; biome: Biome; level: number; lights: LightSource[]; shopZones?: {x:number, y:number, w:number, h:number, type:'blacksmith'|'general'}[]; }
 
 interface GameState { 
@@ -162,6 +164,7 @@ const GAME_CONFIG = {
   STAMINA_ATTACK_COST: 15,
   STAMINA_DASH_COST: 1, 
   STAMINA_REGEN: 0.5,
+  PROJECTILE_SPEED: 8, // New
 };
 
 const THEME = {
@@ -173,8 +176,12 @@ const THEME = {
 
 const RARITY_MULTIPLIERS = { Common: 1.0, Uncommon: 1.2, Rare: 1.5, Epic: 2.0, Legendary: 3.0 };
 const ENCHANT_SLOTS = { Common: 0, Uncommon: 1, Rare: 2, Epic: 3, Legendary: 5 };
-const ITEM_BASE_NAMES = { Weapon: { OneHanded: '剣', TwoHanded: '大剣', DualWield: '双剣' }, Helm: '兜', Armor: '板金鎧', Shield: '盾', Boots: '具足', Consumable: '道具', Material: '素材' };
-const ICONS = { Weapon: { OneHanded: '⚔️', TwoHanded: '🗡️', DualWield: '⚔️' }, Helm: '🪖', Armor: '🛡️', Shield: '🛡️', Boots: '👢', Consumable: '🎒', Material: '📦' };
+// Consumable, Material are kept
+// ICONS will handle visual representation
+const ICONS = { 
+    Weapon: { OneHanded: '⚔️', TwoHanded: '🗡️', DualWield: '⚔️', Bow: '🏹', Staff: '🪄', Wand: '🥢' }, 
+    Helm: '🪖', Armor: '🛡️', Shield: '🛡️', Boots: '👢', Consumable: '🎒', Material: '📦' 
+};
 
 const PERK_DEFINITIONS: Record<string, PerkData> = {
   'thunder_strike': { id: 'thunder_strike', name: 'Thunder Strike', desc: '攻撃時20%の確率で雷撃が発生し、追加ダメージを与える。', rarity: 'Rare', icon: Zap, color: '#fbbf24' },
@@ -218,26 +225,31 @@ const generateRandomItem = (level: number, rankBonus: number = 0): Item | null =
   let roll = Math.random() * 100 - rankBonus * 5;
   
   if (Math.random() < 0.15) {
-      // Small chance for consumables
       const typeRoll = Math.random();
-      if (typeRoll < 0.5) {
-        return { 
-            id: crypto.randomUUID(), name: "松明", type: "Consumable", rarity: "Common", level: 1, 
-            stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🔥", color: "#ff9800", count: 1
-        };
-      } else {
-        return { 
-            id: crypto.randomUUID(), name: "ポーション", type: "Consumable", rarity: "Common", level: 1, 
-            stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🧪", color: "#f44336", count: 1
-        };
-      }
+      if (typeRoll < 0.5) return { id: crypto.randomUUID(), name: "松明", type: "Consumable", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🔥", color: "#ff9800", count: 1 };
+      else return { id: crypto.randomUUID(), name: "ポーション", type: "Consumable", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🧪", color: "#f44336", count: 1 };
   }
 
   let rarity: Rarity = roll < 1 ? 'Legendary' : roll < 5 ? 'Epic' : roll < 15 ? 'Rare' : roll < 40 ? 'Uncommon' : 'Common';
   const types: EquipmentType[] = ['Weapon', 'Helm', 'Armor', 'Shield', 'Boots'];
   const type = types[Math.floor(Math.random() * types.length)];
+  
+  // Refined Weapon Generation for Jobs
   let subType: WeaponStyle | undefined;
-  if (type === 'Weapon') subType = (['OneHanded', 'TwoHanded', 'DualWield'] as WeaponStyle[])[Math.floor(Math.random() * 3)];
+  let weaponClass: WeaponClass | undefined;
+  let icon = "";
+  
+  if (type === 'Weapon') {
+      const wRoll = Math.random();
+      if (wRoll < 0.3) { weaponClass = 'Sword'; subType = 'OneHanded'; icon = ICONS.Weapon.OneHanded; }
+      else if (wRoll < 0.45) { weaponClass = 'Axe'; subType = 'TwoHanded'; icon = ICONS.Weapon.TwoHanded; } // Axes act as 2H swords for now
+      else if (wRoll < 0.65) { weaponClass = 'Bow'; subType = 'TwoHanded'; icon = ICONS.Weapon.Bow; }
+      else if (wRoll < 0.85) { weaponClass = 'Staff'; subType = 'TwoHanded'; icon = ICONS.Weapon.Staff; }
+      else { weaponClass = 'Wand'; subType = 'OneHanded'; icon = ICONS.Weapon.Wand; }
+  } else {
+      // @ts-ignore
+      icon = ICONS[type];
+  }
 
   const mult = RARITY_MULTIPLIERS[rarity];
   const baseVal = Math.max(1, level * 2);
@@ -245,8 +257,12 @@ const generateRandomItem = (level: number, rankBonus: number = 0): Item | null =
 
   if (type === 'Weapon') {
     stats.attack = Math.floor(baseVal * 3 * mult);
-    if (subType === 'TwoHanded') stats.attack = Math.floor(stats.attack * 1.5);
-    if (subType === 'DualWield') { stats.attack = Math.floor(stats.attack * 0.8); stats.speed = 1; }
+    if (weaponClass === 'Axe' || weaponClass === 'Staff' || weaponClass === 'Bow') stats.attack = Math.floor(stats.attack * 1.3); // 2H bonus
+    if (weaponClass === 'Wand') stats.attack = Math.floor(stats.attack * 0.8); // 1H Wand slightly weaker base
+    
+    // Speed adjustments
+    if (weaponClass === 'Axe') stats.speed = -1;
+    if (weaponClass === 'Bow') stats.speed = 1;
   } else if (type === 'Armor') { stats.defense = Math.floor(baseVal * 2 * mult); stats.maxHp = Math.floor(baseVal * 5 * mult);
   } else if (type === 'Helm') { stats.defense = Math.floor(baseVal * 1 * mult); stats.maxHp = Math.floor(baseVal * 2 * mult);
   } else if (type === 'Shield') { stats.defense = Math.floor(baseVal * 2.5 * mult);
@@ -256,20 +272,20 @@ const generateRandomItem = (level: number, rankBonus: number = 0): Item | null =
   const enchantCount = Math.floor(Math.random() * (ENCHANT_SLOTS[rarity] + 1));
   for (let i = 0; i < enchantCount; i++) {
     const eType = (['Attack', 'Defense', 'Speed', 'MaxHp'] as const)[Math.floor(Math.random() * 4)];
-    const strIdx = Math.floor(Math.random() * 3);
-    const strength = (['Weak', 'Medium', 'Strong'] as const)[strIdx];
+    const strength = (['Weak', 'Medium', 'Strong'] as const)[Math.floor(Math.random() * 3)];
     let val = 0;
-    if (eType === 'Attack' || eType === 'Defense') val = Math.floor(level * (strIdx + 1));
-    else if (eType === 'MaxHp') val = Math.floor(level * 5 * (strIdx + 1));
-    else if (eType === 'Speed') val = Number((0.1 * (strIdx + 1)).toFixed(1));
-    const name = `${{Weak:'微かな',Medium:'普通の',Strong:'強力な'}[strength]}${{Attack:'攻撃',Defense:'防御',Speed:'敏捷',MaxHp:'体力'}[eType]}`;
-    enchantments.push({ type: eType, value: val, strength, name });
+    if (eType === 'Attack' || eType === 'Defense') val = Math.floor(level * (strength === 'Strong' ? 3 : strength === 'Medium' ? 2 : 1));
+    else if (eType === 'MaxHp') val = Math.floor(level * 5 * (strength === 'Strong' ? 3 : strength === 'Medium' ? 2 : 1));
+    else if (eType === 'Speed') val = Number((0.1 * (strength === 'Strong' ? 3 : strength === 'Medium' ? 2 : 1)).toFixed(1));
+    enchantments.push({ type: eType, value: val, strength, name: `${eType}+` });
+    // @ts-ignore
     if (eType === 'Attack') stats.attack += val; else if (eType === 'Defense') stats.defense += val; else if (eType === 'MaxHp') stats.maxHp += val; else if (eType === 'Speed') stats.speed += val;
   }
-  let name = rarity === 'Common' ? '' : `${rarity} `;
-  // @ts-ignore
-  if (type === 'Weapon') name += ITEM_BASE_NAMES[type][subType!]; else name += ITEM_BASE_NAMES[type];
-  return { id: crypto.randomUUID(), name, type, subType, rarity, level, stats, enchantments, icon: type === 'Weapon' ? ICONS.Weapon[subType!] : ICONS[type], color: THEME.colors.rarity[rarity] };
+  
+  let namePrefix = rarity === 'Common' ? '' : `${rarity} `;
+  let baseName = type === 'Weapon' ? (weaponClass === 'Axe' ? '斧' : weaponClass === 'Bow' ? '弓' : weaponClass === 'Staff' ? '杖' : weaponClass === 'Wand' ? '短杖' : '剣') : ITEM_BASE_NAMES[type];
+  
+  return { id: crypto.randomUUID(), name: `${namePrefix}${baseName}`, type, subType, weaponClass, rarity, level, stats, enchantments, icon, color: THEME.colors.rarity[rarity] };
 };
 
 const createPlayer = (job: Job, gender: Gender): PlayerEntity => {
@@ -283,6 +299,7 @@ const createPlayer = (job: Job, gender: Gender): PlayerEntity => {
   };
 };
 
+// ... existing code (generateEnemy, generateFloor, checkCollision, resolveMapCollision) ...
 const generateEnemy = (x: number, y: number, level: number): EnemyEntity => {
   const type = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)];
   const rankRoll = Math.random();
@@ -544,7 +561,21 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
     ctx.font = '16px Arial'; ctx.textAlign = 'center'; ctx.fillText(drop.item.icon, drop.x + 16, drop.y + 4 + bob); ctx.shadowBlur = 0;
   });
 
-  // Phase 4: Render Resources
+  // Render Projectiles
+  state.projectiles.forEach(proj => {
+      ctx.fillStyle = proj.color;
+      ctx.beginPath();
+      ctx.arc(proj.x + proj.width/2, proj.y + proj.height/2, 4, 0, Math.PI*2);
+      ctx.fill();
+      // Trail effect
+      ctx.strokeStyle = proj.color;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(proj.x + proj.width/2, proj.y + proj.height/2);
+      ctx.lineTo(proj.x + proj.width/2 - proj.vx * 2, proj.y + proj.height/2 - proj.vy * 2);
+      ctx.stroke();
+  });
+
   state.resources.forEach(r => {
       let imgKey = r.resourceType === 'tree' ? 'Tree' : (r.resourceType === 'ore' ? 'Ore' : 'Rock');
       if (images[imgKey]) {
@@ -612,9 +643,13 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
   });
 
   if (state.player.isAttacking) {
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath();
-    const radius = Math.max(0, 60 * Math.min(Math.max((Date.now() - state.player.lastAttackTime) / 200, 0), 1));
-    ctx.arc(state.player.x + state.player.width/2, state.player.y + state.player.height/2, radius, 0, Math.PI*2); ctx.stroke();
+    // Only show melee swing arc if not using ranged
+    const weapon = state.player.equipment.mainHand;
+    if (!weapon || (weapon.weaponClass !== 'Bow' && weapon.weaponClass !== 'Staff' && weapon.weaponClass !== 'Wand')) {
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath();
+        const radius = Math.max(0, 60 * Math.min(Math.max((Date.now() - state.player.lastAttackTime) / 200, 0), 1));
+        ctx.arc(state.player.x + state.player.width/2, state.player.y + state.player.height/2, radius, 0, Math.PI*2); ctx.stroke();
+    }
   }
 
   state.floatingTexts.forEach(t => {
@@ -636,6 +671,7 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
       };
       drawLight(state.player.x + state.player.width/2, state.player.y + state.player.height/2, 180, false);
       state.lights.forEach(l => { drawLight(l.x, l.y, l.radius, l.flicker); });
+      state.projectiles.forEach(p => { drawLight(p.x + 4, p.y + 4, 30, true); }); // Projectiles emit light
       ctx.globalCompositeOperation = 'source-over'; 
   }
 
@@ -648,7 +684,7 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
  * ############################################################################
  */
 
-// --- Phase 4: Shop / Crafting UI ---
+// ... (ShopMenu, TitleScreen, JobSelectScreen, GameHUD, InventoryMenu, LevelUpMenu remain mostly the same, ensuring types are correct) ...
 const ShopMenu = ({ type, player, onClose, onBuy, onCraft }: any) => {
     return (
         <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-8">
@@ -658,21 +694,14 @@ const ShopMenu = ({ type, player, onClose, onBuy, onCraft }: any) => {
                     {type === 'general' ? <ShoppingBag size={32}/> : <Hammer size={32}/>}
                     {type === 'general' ? 'General Store' : 'Blacksmith Forge'}
                 </h2>
-                
                 {type === 'general' ? (
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-slate-700 p-4 rounded flex justify-between items-center">
-                            <div className="flex items-center gap-3">
-                                <div className="text-2xl">🔥</div>
-                                <div><div className="font-bold text-white">松明 (Torch)</div><div className="text-xs text-slate-400">暗闇を照らす</div></div>
-                            </div>
+                            <div className="flex items-center gap-3"><div className="text-2xl">🔥</div><div><div className="font-bold text-white">松明 (Torch)</div><div className="text-xs text-slate-400">暗闇を照らす</div></div></div>
                             <button onClick={() => onBuy('torch')} className="bg-yellow-600 hover:bg-yellow-500 px-4 py-2 rounded text-white font-bold flex items-center gap-1">50 <span className="text-xs">G</span></button>
                         </div>
                         <div className="bg-slate-700 p-4 rounded flex justify-between items-center">
-                            <div className="flex items-center gap-3">
-                                <div className="text-2xl">🧪</div>
-                                <div><div className="font-bold text-white">ポーション</div><div className="text-xs text-slate-400">HP 50回復</div></div>
-                            </div>
+                            <div className="flex items-center gap-3"><div className="text-2xl">🧪</div><div><div className="font-bold text-white">ポーション</div><div className="text-xs text-slate-400">HP 50回復</div></div></div>
                             <button onClick={() => onBuy('potion')} className="bg-yellow-600 hover:bg-yellow-500 px-4 py-2 rounded text-white font-bold flex items-center gap-1">100 <span className="text-xs">G</span></button>
                         </div>
                     </div>
@@ -680,15 +709,11 @@ const ShopMenu = ({ type, player, onClose, onBuy, onCraft }: any) => {
                     <div className="space-y-4">
                         <p className="text-slate-400 mb-4">素材とゴールドを使って、新しい装備を作成します。</p>
                         <div className="bg-slate-700 p-4 rounded flex justify-between items-center">
-                            <div>
-                                <div className="font-bold text-white text-lg">ランダム装備作成</div>
-                                <div className="text-xs text-slate-400">必要: 木材x2, 石x2, 200G</div>
-                            </div>
+                            <div><div className="font-bold text-white text-lg">ランダム装備作成</div><div className="text-xs text-slate-400">必要: 木材x2, 石x2, 200G</div></div>
                             <button onClick={onCraft} className="bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded text-white font-bold uppercase tracking-wider">CRAFT</button>
                         </div>
                     </div>
                 )}
-                
                 <div className="mt-8 pt-4 border-t border-slate-600 flex justify-between text-slate-300">
                     <div className="flex items-center gap-2"><Coins size={16} className="text-yellow-500"/> {player.gold} G</div>
                     <div className="flex gap-4">
@@ -702,7 +727,6 @@ const ShopMenu = ({ type, player, onClose, onBuy, onCraft }: any) => {
     );
 };
 
-// Title Screen Component
 const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setResolution }: any) => {
   const [showSettings, setShowSettings] = useState(false);
   return (
@@ -710,57 +734,30 @@ const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setResoluti
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-30"></div>
       <div className="relative z-10 w-full h-full max-w-[177.78vh] max-h-[56.25vw] aspect-video m-auto flex flex-col items-center justify-center p-8">
         <div className={`text-center space-y-10 animate-fade-in transition-all duration-300 w-full ${showSettings ? 'blur-sm scale-95 opacity-50' : ''}`}>
-          <div className="relative">
-            <h1 className="text-6xl md:text-8xl lg:text-9xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-yellow-500 to-yellow-800 drop-shadow-2xl mb-4 text-shadow-strong tracking-tighter" 
-                style={{ filter: 'drop-shadow(0 0 30px rgba(234,179,8,0.6))'}}>
-              QUEST OF HARVEST
-            </h1>
-            <p className="text-red-400 tracking-[1.2em] text-sm md:text-lg uppercase font-serif mt-6 border-t border-b border-red-900 py-3 inline-block bg-black/40 backdrop-blur-sm px-8 rounded-full">
-              Phase 4: Harvest
-            </p>
-          </div>
+          <div className="relative"><h1 className="text-6xl md:text-8xl lg:text-9xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-yellow-500 to-yellow-800 drop-shadow-2xl mb-4 text-shadow-strong tracking-tighter" style={{ filter: 'drop-shadow(0 0 30px rgba(234,179,8,0.6))'}}>QUEST OF HARVEST</h1><p className="text-red-400 tracking-[1.2em] text-sm md:text-lg uppercase font-serif mt-6 border-t border-b border-red-900 py-3 inline-block bg-black/40 backdrop-blur-sm px-8 rounded-full">Phase 4: Harvest</p></div>
           <div className="flex flex-col gap-4 w-80 md:w-96 mx-auto">
-            <button onClick={onStart} className="group relative flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-red-900/90 to-black/90 border-2 border-red-700/50 hover:border-red-500 transition-all duration-300 text-red-100 font-black tracking-widest uppercase text-lg shadow-lg hover:shadow-red-500/20 transform hover:-translate-y-1">
-              <Play size={24} className="group-hover:text-red-400 transition-colors" /><span>New Game</span>
-            </button>
-            <button onClick={onContinue} disabled={!canContinue} className={`flex items-center justify-center gap-3 px-8 py-3 border-2 font-bold tracking-widest uppercase transition-all text-base backdrop-blur-sm ${canContinue ? 'bg-slate-800/50 border-slate-600 hover:border-blue-400 hover:bg-slate-700/80 text-slate-200' : 'bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed'}`}>
-              <Save size={20} /><span>Continue</span>
-            </button>
-            <button onClick={() => setShowSettings(true)} className="flex items-center justify-center gap-3 px-8 py-3 border-2 border-slate-700 bg-slate-800/30 hover:bg-slate-800/60 hover:border-slate-500 font-bold tracking-widest uppercase text-slate-300 hover:text-white backdrop-blur-sm text-base">
-              <Settings size={20} /><span>Settings</span>
-            </button>
+            <button onClick={onStart} className="group relative flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-red-900/90 to-black/90 border-2 border-red-700/50 hover:border-red-500 transition-all duration-300 text-red-100 font-black tracking-widest uppercase text-lg shadow-lg hover:shadow-red-500/20 transform hover:-translate-y-1"><Play size={24} className="group-hover:text-red-400 transition-colors" /><span>New Game</span></button>
+            <button onClick={onContinue} disabled={!canContinue} className={`flex items-center justify-center gap-3 px-8 py-3 border-2 font-bold tracking-widest uppercase transition-all text-base backdrop-blur-sm ${canContinue ? 'bg-slate-800/50 border-slate-600 hover:border-blue-400 hover:bg-slate-700/80 text-slate-200' : 'bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed'}`}><Save size={20} /><span>Continue</span></button>
+            <button onClick={() => setShowSettings(true)} className="flex items-center justify-center gap-3 px-8 py-3 border-2 border-slate-700 bg-slate-800/30 hover:bg-slate-800/60 hover:border-slate-500 font-bold tracking-widest uppercase text-slate-300 hover:text-white backdrop-blur-sm text-base"><Settings size={20} /><span>Settings</span></button>
           </div>
         </div>
         {showSettings && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-fade-in">
             <div className="bg-slate-900 p-8 rounded-xl border-2 border-slate-600 w-[400px] shadow-2xl transform scale-100 transition-all">
-              <div className="flex justify-between items-center mb-8 border-b border-slate-700 pb-4">
-                <h2 className="text-2xl font-bold text-white flex items-center gap-2"><Settings className="text-slate-400" /> SETTINGS</h2>
-                <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-white transition-colors p-1 hover:bg-slate-800 rounded-full"><X size={24} /></button>
-              </div>
+              <div className="flex justify-between items-center mb-8 border-b border-slate-700 pb-4"><h2 className="text-2xl font-bold text-white flex items-center gap-2"><Settings className="text-slate-400" /> SETTINGS</h2><button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-white transition-colors p-1 hover:bg-slate-800 rounded-full"><X size={24} /></button></div>
               <div className="space-y-6">
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2"><Monitor size={16} /> Screen Resolution</label>
-                  <div className="grid grid-cols-1 gap-2">
-                    {[{ label: 'AUTO', val: 'auto' }, { label: 'SVGA (800x600)', val: '800x600' }, { label: 'HD (1280x720)', val: '1280x720' }].map(opt => (
-                      <button key={opt.val} onClick={() => setResolution(opt.val as ResolutionMode)} className={`flex flex-col items-start p-3 rounded border transition-all ${resolution === opt.val ? 'bg-yellow-600/20 border-yellow-500 text-yellow-100' : 'bg-slate-800 border-slate-700 text-slate-400'}`}><span className="font-bold text-sm">{opt.label}</span></button>
-                    ))}
-                  </div>
-                </div>
+                <div><label className="block text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2"><Monitor size={16} /> Screen Resolution</label><div className="grid grid-cols-1 gap-2">{[{ label: 'AUTO', val: 'auto' }, { label: 'SVGA (800x600)', val: '800x600' }, { label: 'HD (1280x720)', val: '1280x720' }].map(opt => (<button key={opt.val} onClick={() => setResolution(opt.val as ResolutionMode)} className={`flex flex-col items-start p-3 rounded border transition-all ${resolution === opt.val ? 'bg-yellow-600/20 border-yellow-500 text-yellow-100' : 'bg-slate-800 border-slate-700 text-slate-400'}`}><span className="font-bold text-sm">{opt.label}</span></button>))}</div></div>
               </div>
               <button onClick={() => setShowSettings(false)} className="w-full mt-8 py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded transition-colors uppercase tracking-wider text-sm">Close</button>
             </div>
           </div>
         )}
       </div>
-      <div className="absolute bottom-8 text-xs text-slate-500 font-mono tracking-wider opacity-60">
-        WASD: MOVE • SHIFT: DASH • SPACE: ATTACK • F: ACTION
-      </div>
+      <div className="absolute bottom-8 text-xs text-slate-500 font-mono tracking-wider opacity-60">WASD: MOVE • SHIFT: DASH • SPACE: ATTACK • F: ACTION</div>
     </div>
   );
 };
 
-// Job Select Screen
 const JobSelectScreen = ({ onBack, onSelect, loadedAssets }: any) => {
   const [selectedGender, setSelectedGender] = useState<Gender>('Male');
   const [selectedJob, setSelectedJob] = useState<Job>('Swordsman');
@@ -816,18 +813,11 @@ const JobSelectScreen = ({ onBack, onSelect, loadedAssets }: any) => {
   );
 };
 
-// Game HUD Component
 const GameHUD = ({ uiState, dungeonLevel, toggleMenu, activeShop }: any) => (
   <>
     <div className="absolute top-4 right-20 flex gap-4 text-white pointer-events-none">
-       <div className="bg-slate-900/80 px-4 py-2 rounded border border-slate-700 flex items-center gap-2">
-          {dungeonLevel === 0 ? <Compass size={16} className="text-yellow-500" /> : <ArrowDownCircle size={16} className="text-red-500" />}
-          <span className="font-mono font-bold text-lg">
-            {dungeonLevel === 0 ? "Town of Beginnings" : `Floor B${dungeonLevel}`}
-          </span>
-       </div>
+       <div className="bg-slate-900/80 px-4 py-2 rounded border border-slate-700 flex items-center gap-2"><Compass size={16} className="text-yellow-500" /><span className="font-mono font-bold text-lg">{dungeonLevel === 0 ? "Town of Beginnings" : `Floor B${dungeonLevel}`}</span></div>
     </div>
-
     <div className="absolute top-4 left-4 flex gap-4 pointer-events-none">
       <div className="bg-slate-900/90 border border-slate-700 p-3 rounded text-white w-64 shadow-lg pointer-events-auto">
         <div className="flex justify-between items-center mb-2"><span className="font-bold text-yellow-500">{uiState.job} Lv.{uiState.level}</span><span className="text-xs text-slate-400">GOLD: {uiState.gold}</span></div>
@@ -835,12 +825,10 @@ const GameHUD = ({ uiState, dungeonLevel, toggleMenu, activeShop }: any) => (
            <div className="flex justify-between"><span>攻撃: {uiState.attack}</span><span>防御: {uiState.defense}</span></div>
            <div className="flex justify-between"><span>速度: {uiState.speed.toFixed(1)}</span></div>
         </div>
-        
         <div className="mb-1">
           <div className="flex justify-between text-xs mb-0.5"><span className="text-green-400">ST</span><span>{Math.floor(uiState.stamina)}/{uiState.calculatedStats.maxStamina}</span></div>
           <div className="h-1 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-green-500 transition-all duration-75" style={{ width: `${(uiState.stamina/uiState.calculatedStats.maxStamina)*100}%` }}></div></div>
         </div>
-
         <div className="mb-1">
           <div className="flex justify-between text-xs mb-0.5"><span>HP</span><span>{uiState.hp}/{uiState.maxHp}</span></div>
           <div className="h-2 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-red-600 transition-all duration-300" style={{ width: `${(uiState.hp/uiState.maxHp)*100}%` }}></div></div>
@@ -859,13 +847,11 @@ const GameHUD = ({ uiState, dungeonLevel, toggleMenu, activeShop }: any) => (
         </div>
       </div>
     </div>
-
     {activeShop && (
         <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-yellow-500/80 text-black px-4 py-2 rounded-full animate-bounce font-bold border-2 border-white pointer-events-none">
             PRESS F TO SHOP
         </div>
     )}
-
     <div className="absolute top-4 right-4 flex gap-2 pointer-events-auto">
       <button onClick={() => toggleMenu('inventory')} className="p-2 bg-slate-800 text-white rounded hover:bg-slate-700 border border-slate-600 relative"><ShoppingBag size={20} />{uiState?.inventory.length ? <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span> : null}</button>
       <button onClick={() => toggleMenu('stats')} className="p-2 bg-slate-800 text-white rounded hover:bg-slate-700 border border-slate-600 relative"><User size={20} />{uiState && uiState.statPoints > 0 ? <span className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></span> : null}</button>
@@ -874,7 +860,6 @@ const GameHUD = ({ uiState, dungeonLevel, toggleMenu, activeShop }: any) => (
   </>
 );
 
-// Inventory Menu
 const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: any) => (
   <div className="bg-slate-900 border border-slate-600 rounded-lg w-full max-w-4xl h-[600px] flex text-white overflow-hidden shadow-2xl">
     <div className="w-1/3 bg-slate-800/50 p-6 border-r border-slate-700 flex flex-col gap-4">
@@ -926,31 +911,20 @@ const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: any) => (
   </div>
 );
 
-// Level Up Menu
 const LevelUpMenu = ({ options, onSelect }: { options: PerkData[], onSelect: (perkId: string) => void }) => {
   return (
     <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center z-50 animate-fade-in p-8">
       <h2 className="text-4xl font-extrabold text-yellow-500 mb-2 uppercase tracking-widest text-shadow-strong">Level Up!</h2>
       <p className="text-slate-400 mb-12">Select a new ability to acquire</p>
-      
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
         {options.map((perk, i) => {
            const Icon = perk.icon;
            return (
-             <button 
-               key={perk.id} 
-               onClick={() => onSelect(perk.id)}
-               className="group relative bg-slate-800 border-2 border-slate-600 hover:border-white p-6 rounded-xl transition-all hover:-translate-y-2 hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] flex flex-col items-center text-center overflow-hidden"
-               style={{ animationDelay: `${i*100}ms` }}
-             >
+             <button key={perk.id} onClick={() => onSelect(perk.id)} className="group relative bg-slate-800 border-2 border-slate-600 hover:border-white p-6 rounded-xl transition-all hover:-translate-y-2 hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] flex flex-col items-center text-center overflow-hidden" style={{ animationDelay: `${i*100}ms` }}>
                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-               <div className="w-24 h-24 rounded-full bg-slate-900 flex items-center justify-center mb-6 border border-slate-700 group-hover:border-white/50 transition-colors shadow-xl">
-                 <Icon size={48} style={{ color: perk.color }} className="group-hover:scale-110 transition-transform" />
-               </div>
+               <div className="w-24 h-24 rounded-full bg-slate-900 flex items-center justify-center mb-6 border border-slate-700 group-hover:border-white/50 transition-colors shadow-xl"><Icon size={48} style={{ color: perk.color }} className="group-hover:scale-110 transition-transform" /></div>
                <h3 className="text-xl font-bold text-white mb-2 uppercase tracking-wider">{perk.name}</h3>
-               <span className={`text-xs px-2 py-1 rounded mb-4 font-bold uppercase ${perk.rarity === 'Legendary' ? 'bg-orange-500/20 text-orange-400' : perk.rarity === 'Rare' ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-700 text-slate-400'}`}>
-                 {perk.rarity}
-               </span>
+               <span className={`text-xs px-2 py-1 rounded mb-4 font-bold uppercase ${perk.rarity === 'Legendary' ? 'bg-orange-500/20 text-orange-400' : perk.rarity === 'Rare' ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-700 text-slate-400'}`}>{perk.rarity}</span>
                <p className="text-sm text-slate-400 leading-relaxed">{perk.desc}</p>
              </button>
            );
@@ -960,11 +934,6 @@ const LevelUpMenu = ({ options, onSelect }: { options: PerkData[], onSelect: (pe
   );
 };
 
-/**
- * ############################################################################
- * SECTION 8: MAIN APP COMPONENT
- * ############################################################################
- */
 export default function App() {
   const [screen, setScreen] = useState<'auth' | 'title' | 'game' | 'job_select'>('auth');
   const [saveData, setSaveData] = useState<any>(null);
@@ -984,14 +953,12 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // --- Assets Loading ---
   const loadedAssets = useMemo(() => {
     const images: Record<string, HTMLImageElement> = {};
     Object.entries(ASSETS_SVG).forEach(([key, svg]) => { const img = new Image(); img.src = svgToUrl(svg); images[key] = img; });
     return images;
   }, []);
 
-  // --- Styles Injection ---
   useEffect(() => {
     const style = document.createElement('style');
     style.innerHTML = `
@@ -1007,7 +974,6 @@ export default function App() {
     document.head.appendChild(style); return () => { document.head.removeChild(style); };
   }, []);
 
-  // --- Auth & Initial Load ---
   useEffect(() => {
     if (!auth) {
       console.warn("Auth not initialized. Starting in offline mode.");
@@ -1029,7 +995,6 @@ export default function App() {
     return onAuthStateChanged(auth, (u) => { setUser(u); if (u) checkSaveData(u.uid); });
   }, []);
 
-  // --- Event Listeners & Resize Logic ---
   useEffect(() => {
     const handleResize = () => {
       if (resolution === 'auto') {
@@ -1067,7 +1032,6 @@ export default function App() {
     };
   }, [resolution]);
 
-  // --- Game Functions ---
   const checkSaveData = async (uid: string) => {
     if (!db) { setScreen('title'); return; }
     try {
@@ -1085,12 +1049,17 @@ export default function App() {
       updatePlayerStats(player);
     } else {
       player = createPlayer(job, gender); updatePlayerStats(player);
-      player.inventory.push({ 
-          id: crypto.randomUUID(), name: "松明", type: "Consumable", rarity: "Common", level: 1, 
-          stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🔥", color: "#ff9800", count: 3 
-      });
-      const starterSword = generateRandomItem(1); 
-      if(starterSword) { starterSword.name = "錆びた剣"; starterSword.type = 'Weapon'; starterSword.subType = 'OneHanded'; player.inventory.push(starterSword); }
+      player.inventory.push({ id: crypto.randomUUID(), name: "松明", type: "Consumable", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🔥", color: "#ff9800", count: 3 });
+      
+      // Starter Weapon based on Job
+      let starterWeapon = generateRandomItem(1);
+      if (starterWeapon) {
+          if (job === 'Swordsman') { starterWeapon.name = "訓練用の剣"; starterWeapon.weaponClass = 'Sword'; starterWeapon.icon = ICONS.Weapon.OneHanded; }
+          else if (job === 'Warrior') { starterWeapon.name = "錆びた斧"; starterWeapon.weaponClass = 'Axe'; starterWeapon.icon = ICONS.Weapon.TwoHanded; }
+          else if (job === 'Archer') { starterWeapon.name = "練習用の弓"; starterWeapon.weaponClass = 'Bow'; starterWeapon.icon = ICONS.Weapon.Bow; }
+          else if (job === 'Mage') { starterWeapon.name = "古い杖"; starterWeapon.weaponClass = 'Staff'; starterWeapon.icon = ICONS.Weapon.Staff; }
+          player.inventory.push(starterWeapon);
+      }
     }
     const floorData = generateFloor(dungeonLevel);
     player.x = (GAME_CONFIG.MAP_WIDTH * GAME_CONFIG.TILE_SIZE) / 2;
@@ -1168,7 +1137,6 @@ export default function App() {
     setTimeout(() => setMessage(null), 5000);
   };
 
-  // --- PHASE 3 & 4: INTERACTIONS ---
   const interactAction = () => {
       if (!gameState.current || gameState.current.isPaused) return;
       const state = gameState.current;
@@ -1259,7 +1227,6 @@ export default function App() {
       setUiState({...p});
   };
 
-  // --- PHASE 2: PERK HANDLING ---
   const triggerLevelUp = () => {
     if (!gameState.current) return;
     gameState.current.isPaused = true;
@@ -1283,7 +1250,6 @@ export default function App() {
     setTimeout(() => setMessage(null), 3000);
   };
 
-  // --- Game Loop ---
   const gameLoop = () => {
     if (!gameState.current || !canvasRef.current) { reqRef.current = requestAnimationFrame(gameLoop); return; }
     const state = gameState.current; const ctx = canvasRef.current.getContext('2d'); if (!ctx) return;
@@ -1350,51 +1316,115 @@ export default function App() {
         }
       });
 
+      // Update Projectiles
+      state.projectiles.forEach(proj => {
+          proj.life--;
+          if (proj.life <= 0) { proj.dead = true; return; }
+          
+          const nextX = proj.x + proj.vx!;
+          const nextY = proj.y + proj.vy!;
+          
+          // Wall Collision
+          const tileX = Math.floor(nextX / 32);
+          const tileY = Math.floor(nextY / 32);
+          if (state.map[tileY]?.[tileX]?.solid) {
+              proj.dead = true;
+              return;
+          }
+          
+          proj.x = nextX;
+          proj.y = nextY;
+
+          // Enemy Collision
+          state.enemies.forEach(e => {
+              if (!e.dead && checkCollision(proj, e)) {
+                  proj.dead = true;
+                  e.hp -= proj.damage;
+                  state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#fff', type: 'text', dead: false, text: `-${proj.damage}`, life: 30 });
+                  if (e.hp <= 0) {
+                      e.dead = true; p.xp += e.xpValue; p.gold += Math.floor(Math.random() * 5 * (state.dungeonLevel || 1)) + 1;
+                      state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#ffd700', type: 'text', dead: false, text: `+${e.xpValue} XP`, life: 45 });
+                      if (p.xp >= p.nextLevelXp) { p.level++; p.xp -= p.nextLevelXp; p.nextLevelXp = Math.floor(p.nextLevelXp * 1.5); p.statPoints += 3; updatePlayerStats(p); p.hp = p.maxHp; state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 40, width:0, height:0, color: '#00ff00', type: 'text', dead: false, text: "LEVEL UP!", life: 90 }); triggerLevelUp(); }
+                      const dropChance = GAME_CONFIG.BASE_DROP_RATE * (e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 1);
+                      if (Math.random() < dropChance) { const item = generateRandomItem(state.dungeonLevel || 1, e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 0); if (item) state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: e.x, y: e.y, width: 32, height: 32, color: item.color, item, life: 3000, bounceOffset: Math.random() * 10, dead: false }); }
+                  }
+              }
+          });
+      });
+      state.projectiles = state.projectiles.filter(p => !p.dead);
+
       const now = Date.now();
       if ((input.current.keys[' '] || input.current.mouse.down) && now - p.lastAttackTime > p.attackCooldown) {
         if (p.stamina >= GAME_CONFIG.STAMINA_ATTACK_COST) {
             p.stamina -= GAME_CONFIG.STAMINA_ATTACK_COST;
             p.lastAttackTime = now; p.isAttacking = true; setTimeout(() => { if(gameState.current) gameState.current.player.isAttacking = false; }, 200);
             
-            const attackRect = { x: p.x + p.width/2 - 30, y: p.y + p.height/2 - 30, width: 60, height: 60 } as Entity;
+            // Check Weapon Type for Ranged Attack
+            const weapon = p.equipment.mainHand;
+            const isRanged = weapon && (weapon.weaponClass === 'Bow' || weapon.weaponClass === 'Staff' || weapon.weaponClass === 'Wand');
             
-            state.enemies.forEach(e => {
-              if (checkCollision(attackRect, e)) {
-                let dmg = Math.max(1, Math.floor((p.attack - e.defense/2) * (0.9 + Math.random() * 0.2))); 
-                if (p.perks.includes('thunder_strike') && Math.random() < 0.2) { dmg += 15; state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y - 20, width:0, height:0, color: '#fbbf24', type: 'text', dead: false, text: "⚡ THUNDER!", life: 45 }); }
-                e.hp -= dmg;
-                state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#fff', type: 'text', dead: false, text: `-${dmg}`, life: 30 });
-                const angle = Math.atan2(e.y - p.y, e.x - p.x); e.x += Math.cos(angle) * 10; e.y += Math.sin(angle) * 10;
+            if (isRanged) {
+                // Ranged Attack
+                let dmg = Math.floor(p.attack * 0.8); // Base ranged damage check
+                // Stat Bonus
+                if (weapon.weaponClass === 'Bow') dmg += Math.floor(p.attributes.dexterity * 1.5);
+                if (weapon.weaponClass === 'Staff' || weapon.weaponClass === 'Wand') dmg += Math.floor(p.attributes.intelligence * 1.5);
+
+                const mx = input.current.mouse.x + state.camera.x;
+                const my = input.current.mouse.y + state.camera.y;
+                const angle = Math.atan2(my - (p.y + p.height/2), mx - (p.x + p.width/2));
                 
-                if (e.hp <= 0) {
-                  e.dead = true; p.xp += e.xpValue; p.gold += Math.floor(Math.random() * 5 * (state.dungeonLevel || 1)) + 1;
-                  state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#ffd700', type: 'text', dead: false, text: `+${e.xpValue} XP`, life: 45 });
-                  if (p.perks.includes('vampire')) { const heal = 5; p.hp = Math.min(p.maxHp, p.hp + heal); state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y - 30, width:0, height:0, color: '#f43f5e', type: 'text', dead: false, text: `+${heal} HP`, life: 45 }); }
-                  if (p.xp >= p.nextLevelXp) { p.level++; p.xp -= p.nextLevelXp; p.nextLevelXp = Math.floor(p.nextLevelXp * 1.5); p.statPoints += 3; updatePlayerStats(p); p.hp = p.maxHp; state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 40, width:0, height:0, color: '#00ff00', type: 'text', dead: false, text: "LEVEL UP!", life: 90 }); triggerLevelUp(); }
-                  const dropChance = GAME_CONFIG.BASE_DROP_RATE * (e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 1);
-                  if (Math.random() < dropChance) { const item = generateRandomItem(state.dungeonLevel || 1, e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 0); if (item) state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: e.x, y: e.y, width: 32, height: 32, color: item.color, item, life: 3000, bounceOffset: Math.random() * 10, dead: false }); }
-                }
-              }
-            });
+                state.projectiles.push({
+                    id: crypto.randomUUID(),
+                    type: 'projectile',
+                    x: p.x + p.width/2,
+                    y: p.y + p.height/2,
+                    width: 8, height: 8,
+                    vx: Math.cos(angle) * GAME_CONFIG.PROJECTILE_SPEED,
+                    vy: Math.sin(angle) * GAME_CONFIG.PROJECTILE_SPEED,
+                    damage: dmg,
+                    ownerId: p.id,
+                    life: 100,
+                    color: weapon.weaponClass === 'Bow' ? '#fff' : '#00ffff',
+                    dead: false
+                });
 
-            state.resources.forEach(r => {
-                if (checkCollision(attackRect, r)) {
-                    r.hp -= p.attack;
-                    const angle = Math.atan2(r.y - p.y, r.x - p.x); r.x += Math.cos(angle) * 2; r.y += Math.sin(angle) * 2;
-                    state.floatingTexts.push({ id: crypto.randomUUID(), x: r.x + r.width/2, y: r.y, width:0, height:0, color: '#ccc', type: 'text', dead: false, text: "Hit", life: 20 });
-                    
-                    if (r.hp <= 0) {
-                        r.dead = true;
-                        let item: Item | null = null;
-                        if (r.resourceType === 'tree') item = { id: crypto.randomUUID(), name: "木材", type: "Material", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🪵", color: "#795548", count: Math.floor(Math.random()*3)+1 };
-                        else if (r.resourceType === 'rock') item = { id: crypto.randomUUID(), name: "石", type: "Material", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🪨", color: "#9e9e9e", count: Math.floor(Math.random()*2)+1 };
-                        else if (r.resourceType === 'ore') item = { id: crypto.randomUUID(), name: "鉱石", type: "Material", rarity: "Uncommon", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "⛏️", color: "#607d8b", count: 1 };
-                        
-                        if (item) state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: r.x, y: r.y, width: 32, height: 32, color: item.color, item, life: 3000, bounceOffset: Math.random() * 10, dead: false });
+            } else {
+                // Melee Attack (Existing Logic)
+                const attackRect = { x: p.x + p.width/2 - 30, y: p.y + p.height/2 - 30, width: 60, height: 60 } as Entity;
+                state.enemies.forEach(e => {
+                  if (checkCollision(attackRect, e)) {
+                    let dmg = Math.max(1, Math.floor((p.attack - e.defense/2) * (0.9 + Math.random() * 0.2))); 
+                    if (p.perks.includes('thunder_strike') && Math.random() < 0.2) { dmg += 15; state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y - 20, width:0, height:0, color: '#fbbf24', type: 'text', dead: false, text: "⚡ THUNDER!", life: 45 }); }
+                    e.hp -= dmg;
+                    state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#fff', type: 'text', dead: false, text: `-${dmg}`, life: 30 });
+                    const angle = Math.atan2(e.y - p.y, e.x - p.x); e.x += Math.cos(angle) * 10; e.y += Math.sin(angle) * 10;
+                    if (e.hp <= 0) {
+                      e.dead = true; p.xp += e.xpValue; p.gold += Math.floor(Math.random() * 5 * (state.dungeonLevel || 1)) + 1;
+                      state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#ffd700', type: 'text', dead: false, text: `+${e.xpValue} XP`, life: 45 });
+                      if (p.perks.includes('vampire')) { const heal = 5; p.hp = Math.min(p.maxHp, p.hp + heal); state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y - 30, width:0, height:0, color: '#f43f5e', type: 'text', dead: false, text: `+${heal} HP`, life: 45 }); }
+                      if (p.xp >= p.nextLevelXp) { p.level++; p.xp -= p.nextLevelXp; p.nextLevelXp = Math.floor(p.nextLevelXp * 1.5); p.statPoints += 3; updatePlayerStats(p); p.hp = p.maxHp; state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 40, width:0, height:0, color: '#00ff00', type: 'text', dead: false, text: "LEVEL UP!", life: 90 }); triggerLevelUp(); }
+                      const dropChance = GAME_CONFIG.BASE_DROP_RATE * (e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 1);
+                      if (Math.random() < dropChance) { const item = generateRandomItem(state.dungeonLevel || 1, e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 0); if (item) state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: e.x, y: e.y, width: 32, height: 32, color: item.color, item, life: 3000, bounceOffset: Math.random() * 10, dead: false }); }
                     }
-                }
-            });
-
+                  }
+                });
+                state.resources.forEach(r => {
+                    if (checkCollision(attackRect, r)) {
+                        r.hp -= p.attack;
+                        const angle = Math.atan2(r.y - p.y, r.x - p.x); r.x += Math.cos(angle) * 2; r.y += Math.sin(angle) * 2;
+                        state.floatingTexts.push({ id: crypto.randomUUID(), x: r.x + r.width/2, y: r.y, width:0, height:0, color: '#ccc', type: 'text', dead: false, text: "Hit", life: 20 });
+                        if (r.hp <= 0) {
+                            r.dead = true;
+                            let item: Item | null = null;
+                            if (r.resourceType === 'tree') item = { id: crypto.randomUUID(), name: "木材", type: "Material", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🪵", color: "#795548", count: Math.floor(Math.random()*3)+1 };
+                            else if (r.resourceType === 'rock') item = { id: crypto.randomUUID(), name: "石", type: "Material", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🪨", color: "#9e9e9e", count: Math.floor(Math.random()*2)+1 };
+                            else if (r.resourceType === 'ore') item = { id: crypto.randomUUID(), name: "鉱石", type: "Material", rarity: "Uncommon", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "⛏️", color: "#607d8b", count: 1 };
+                            if (item) state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: r.x, y: r.y, width: 32, height: 32, color: item.color, item, life: 3000, bounceOffset: Math.random() * 10, dead: false });
+                        }
+                    }
+                });
+            }
         } else {
             state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y - 20, width:0, height:0, color: '#ef4444', type: 'text', dead: false, text: "No Stamina!", life: 20 });
         }
@@ -1426,7 +1456,7 @@ export default function App() {
   };
   useEffect(() => { if (screen === 'game') gameLoop(); return () => { if (reqRef.current) cancelAnimationFrame(reqRef.current); } }, [screen]);
 
-  // --- UI Handlers ---
+  // UI Handlers
   const saveGame = async () => {
     if (!gameState.current || !user || !db) return;
     setIsSaving(true);
@@ -1464,7 +1494,6 @@ export default function App() {
     if (p.statPoints > 0) { p.attributes[attr]++; p.statPoints--; updatePlayerStats(p); setUiState({...p}); }
   };
 
-  // --- Render ---
   if (!isConfigValid) return <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white p-8"><AlertTriangle size={64} className="text-red-500 mb-4" /><h2 className="text-2xl font-bold mb-2">設定エラー</h2></div>;
   if (screen === 'auth') return <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white"><Loader className="animate-spin text-yellow-500 mb-4" size={48} /><h2 className="text-xl">{loadingMessage}</h2></div>;
   
@@ -1551,7 +1580,7 @@ export default function App() {
           {activeMenu === 'inventory' && uiState && <InventoryMenu uiState={uiState} onEquip={handleEquip} onUnequip={handleUnequip} onClose={() => setActiveMenu('none')} />}
         </div>
       )}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest: Roguelike Edition v4.0 (Harvest)</div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest: Roguelike Edition v4.1 (Ranged)</div>
     </div>
   );
 }
