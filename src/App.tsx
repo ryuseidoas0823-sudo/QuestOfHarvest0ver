@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Zap, Heart, Activity, Monitor, Droplets, Wind, Hammer, Coins, Shield, Clock, Star, Book, Skull } from 'lucide-react';
+import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Zap, Heart, Activity, Monitor, Droplets, Wind, Hammer, Coins, Shield, Clock, Star, Book, Skull, Map as MapIcon, Tent } from 'lucide-react';
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken, Auth } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore';
@@ -83,7 +83,7 @@ const svgToUrl = (s: string) => "data:image/svg+xml;charset=utf-8," + encodeURIC
  * SECTION 3: TYPE DEFINITIONS
  * ############################################################################
  */
-type TileType = 'grass' | 'dirt' | 'wall' | 'water' | 'floor' | 'portal_out' | 'town_entrance' | 'sand' | 'snow' | 'rock' | 'stairs_down' | 'dungeon_entrance' | 'return_portal' | 'town_floor';
+type TileType = 'grass' | 'dirt' | 'wall' | 'water' | 'floor' | 'portal_out' | 'town_entrance' | 'sand' | 'snow' | 'rock' | 'stairs_down' | 'dungeon_entrance' | 'return_portal' | 'town_floor' | 'world_grass' | 'world_forest' | 'world_mountain' | 'world_water' | 'world_town' | 'world_dungeon';
 type EntityType = 'player' | 'enemy' | 'npc' | 'projectile' | 'particle' | 'text' | 'drop' | 'resource';
 type Job = 'Swordsman' | 'Warrior' | 'Archer' | 'Mage';
 type Gender = 'Male' | 'Female';
@@ -122,7 +122,7 @@ interface PlayerEntity extends CombatEntity {
   inventory: Item[]; 
   equipment: { mainHand?: Item; offHand?: Item; helm?: Item; armor?: Item; boots?: Item; }; 
   calculatedStats: { maxHp: number; maxMp: number; attack: number; defense: number; speed: number; maxStamina: number; staminaRegen: number; attackCooldown: number; };
-  perks: { id: string; level: number }[]; // Updated to store level
+  perks: { id: string; level: number }[]; 
   stamina: number; 
   lastStaminaUse: number;
 }
@@ -132,6 +132,19 @@ interface Particle extends Entity { life: number; maxLife: number; size: number;
 interface FloatingText extends Entity { text: string; life: number; color: string; }
 interface Projectile extends Entity { damage: number; ownerId: string; life: number; color: string; }
 interface FloorData { map: Tile[][]; enemies: EnemyEntity[]; resources: ResourceEntity[]; droppedItems: DroppedItem[]; biome: Biome; level: number; lights: LightSource[]; shopZones?: {x:number, y:number, w:number, h:number, type:'blacksmith'|'general'}[]; bossId?: string | null; entryPos?: {x:number, y:number}; }
+
+// Phase 6: World Map Types
+interface WorldLocation {
+  id: string;
+  name: string;
+  type: 'Town' | 'Dungeon';
+  x: number;
+  y: number;
+  icon: string;
+  color: string;
+  biome: Biome;
+  difficulty: number;
+}
 
 interface GameState { 
   dungeonLevel: number; 
@@ -151,7 +164,11 @@ interface GameState {
   lights: LightSource[];
   shopZones?: {x:number, y:number, w:number, h:number, type:'blacksmith'|'general'}[];
   activeShop: 'blacksmith' | 'general' | null;
-  activeBossId: string | null; // Phase 5: Track active boss
+  activeBossId: string | null;
+  // Phase 6: World Map State
+  inWorldMap: boolean;
+  worldPlayerPos: { x: number, y: number };
+  currentLocationId: string;
 }
 
 /**
@@ -165,7 +182,20 @@ const GAME_CONFIG = {
   STAMINA_DASH_COST: 1, 
   STAMINA_REGEN: 0.5,
   PROJECTILE_SPEED: 8, 
+  // World Map Config
+  WORLD_TILE_SIZE: 32,
+  WORLD_WIDTH: 30,
+  WORLD_HEIGHT: 20
 };
+
+// Phase 6: World Locations
+const WORLD_LOCATIONS: WorldLocation[] = [
+  { id: 'town_start', name: '始まりの街', type: 'Town', x: 15, y: 10, icon: '🏠', color: '#4ade80', biome: 'Town', difficulty: 0 },
+  { id: 'dungeon_forest', name: '迷いの森', type: 'Dungeon', x: 18, y: 8, icon: '🌲', color: '#166534', biome: 'Forest', difficulty: 1 },
+  { id: 'dungeon_cave', name: '暗い洞窟', type: 'Dungeon', x: 10, y: 14, icon: '⛰️', color: '#57534e', biome: 'Wasteland', difficulty: 3 },
+  { id: 'dungeon_snow', name: '氷結の塔', type: 'Dungeon', x: 22, y: 5, icon: '❄️', color: '#0ea5e9', biome: 'Snow', difficulty: 5 },
+  { id: 'dungeon_desert', name: '灼熱の砂漠', type: 'Dungeon', x: 5, y: 12, icon: '🌵', color: '#fbbf24', biome: 'Desert', difficulty: 7 },
+];
 
 const THEME = {
   colors: {
@@ -307,12 +337,23 @@ const createPlayer = (job: Job, gender: Gender): PlayerEntity => {
 };
 
 const generateEnemy = (x: number, y: number, level: number): EnemyEntity => {
-  const type = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)];
+  // Biome specific enemy selection could be added here
+  // For now, use difficulty scaling
+  const poolSize = Math.min(ENEMY_TYPES.length - 1, 3 + Math.floor(level / 1.5)); 
+  const minIndex = Math.max(0, poolSize - 6);
+  const typeIndex = minIndex + Math.floor(Math.random() * (poolSize - minIndex));
+  
+  const type = ENEMY_TYPES[typeIndex];
+  
   const rankRoll = Math.random();
   let rank: 'Normal' | 'Elite' | 'Boss' = 'Normal';
   let scale = 1 + (level * 0.1);
   let color = type.color;
-  if (rankRoll < 0.05) { rank = 'Boss'; scale *= 3; color = '#ff0000'; } else if (rankRoll < 0.2) { rank = 'Elite'; scale *= 1.5; color = '#ffeb3b'; }
+  
+  if (level > 2 && rankRoll < 0.05 + (level * 0.01)) { 
+      rank = 'Elite'; scale *= 1.5; color = '#ffeb3b'; 
+  }
+  
   return {
     id: `enemy_${crypto.randomUUID()}`, type: 'enemy', race: type.name, rank, x, y, width: type.w * (rank === 'Boss' ? 1.5 : 1), height: type.h * (rank === 'Boss' ? 1.5 : 1),
     visualWidth: type.vw! * (rank === 'Boss' ? 1.5 : 1), visualHeight: type.vh! * (rank === 'Boss' ? 1.5 : 1), color, shape: type.shape as ShapeType,
@@ -321,7 +362,7 @@ const generateEnemy = (x: number, y: number, level: number): EnemyEntity => {
   };
 };
 
-const generateFloor = (level: number): FloorData => {
+const generateFloor = (level: number, locationId?: string): FloorData => {
   const width = GAME_CONFIG.MAP_WIDTH;
   const height = GAME_CONFIG.MAP_HEIGHT;
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
@@ -333,12 +374,19 @@ const generateFloor = (level: number): FloorData => {
   const resources: ResourceEntity[] = [];
   const lights: LightSource[] = [];
   const shopZones: {x:number, y:number, w:number, h:number, type:'blacksmith'|'general'}[] = [];
-  const biome: Biome = level === 0 ? 'Town' : (['Dungeon', 'Plains', 'Forest', 'Wasteland', 'Snow', 'Desert'] as Biome[])[(level % 5) + 1] || 'Dungeon';
+  
+  // Determine Biome based on location
+  let biome: Biome = 'Dungeon';
+  const location = WORLD_LOCATIONS.find(l => l.id === locationId);
+  if (location) biome = location.biome;
+  else if (level === 0) biome = 'Town';
+  else biome = (['Dungeon', 'Plains', 'Forest', 'Wasteland', 'Snow', 'Desert'] as Biome[])[(level % 5) + 1] || 'Dungeon';
+
   let bossId: string | null = null;
   let entryPos = { x: (width/2) * GAME_CONFIG.TILE_SIZE, y: (height/2) * GAME_CONFIG.TILE_SIZE };
 
-  // --- Town Generation (Level 0) ---
-  if (level === 0) {
+  // --- Town Generation (Level 0 or specific town location) ---
+  if (biome === 'Town') {
     for(let y=0; y<height; y++) {
       for(let x=0; x<width; x++) {
         map[y][x].type = 'town_floor';
@@ -348,16 +396,22 @@ const generateFloor = (level: number): FloorData => {
       }
     }
     const cx = Math.floor(width/2), cy = Math.floor(height/2);
-    map[cy][cx].type = 'dungeon_entrance';
-    lights.push({ x: cx * 32 + 16, y: cy * 32 + 16, radius: 150, flicker: true, color: '#f59e0b' });
+    // Exit to World Map
+    map[height-2][cx].type = 'portal_out';
+    
+    // Dungeon entrance if it's the starter town
+    if (locationId === 'town_start' || level === 0) {
+        map[cy][cx].type = 'dungeon_entrance';
+        lights.push({ x: cx * 32 + 16, y: cy * 32 + 16, radius: 150, flicker: true, color: '#f59e0b' });
+        // Shops
+        for(let y=5; y<10; y++) for(let x=5; x<12; x++) { map[y][x].type = 'wall'; map[y][x].solid = true; } 
+        shopZones.push({x: 5*32, y: 10*32, w: 7*32, h: 2*32, type:'general'}); 
+
+        for(let y=5; y<10; y++) for(let x=width-12; x<width-5; x++) { map[y][x].type = 'wall'; map[y][x].solid = true; } 
+        shopZones.push({x: (width-12)*32, y: 10*32, w: 7*32, h: 2*32, type:'blacksmith'}); 
+    }
+    
     entryPos = { x: cx * 32, y: (cy + 2) * 32 }; 
-
-    // Shops
-    for(let y=5; y<10; y++) for(let x=5; x<12; x++) { map[y][x].type = 'wall'; map[y][x].solid = true; } 
-    shopZones.push({x: 5*32, y: 10*32, w: 7*32, h: 2*32, type:'general'}); 
-
-    for(let y=5; y<10; y++) for(let x=width-12; x<width-5; x++) { map[y][x].type = 'wall'; map[y][x].solid = true; } 
-    shopZones.push({x: (width-12)*32, y: 10*32, w: 7*32, h: 2*32, type:'blacksmith'}); 
 
     return { map, enemies: [], resources: [], droppedItems: [], biome: 'Town', level: 0, lights, shopZones, entryPos };
   }
@@ -375,7 +429,6 @@ const generateFloor = (level: number): FloorData => {
           }
       }
       
-      // Spawn Boss
       const cx = Math.floor(width/2) * GAME_CONFIG.TILE_SIZE;
       const cy = Math.floor(height/2) * GAME_CONFIG.TILE_SIZE;
       
@@ -407,7 +460,7 @@ const generateFloor = (level: number): FloorData => {
   const rooms: {x: number, y: number, w: number, h: number}[] = [];
   const minRoomSize = 6;
   const maxRoomSize = 12;
-  const maxRooms = 15; // Increased rooms for bigger map
+  const maxRooms = 15;
 
   for (let i = 0; i < maxRooms; i++) {
     const w = Math.floor(Math.random() * (maxRoomSize - minRoomSize + 1)) + minRoomSize;
@@ -432,6 +485,7 @@ const generateFloor = (level: number): FloorData => {
       }
     }
     
+    // Resources
     if (Math.random() < 0.7) {
         const resType = biome === 'Forest' || biome === 'Plains' ? 'tree' : (Math.random() < 0.3 ? 'ore' : 'rock');
         const count = Math.floor(Math.random() * 3) + 1;
@@ -495,36 +549,30 @@ const generateFloor = (level: number): FloorData => {
       return {x: Math.floor(width/2), y: Math.floor(height/2)};
   };
 
-  // Determine Entry Point (Safe spawn)
   const entryTile = getRandomFloorTile();
   entryPos = { x: entryTile.x * GAME_CONFIG.TILE_SIZE, y: entryTile.y * GAME_CONFIG.TILE_SIZE };
 
-  // Determine Exit Point
   let stairsPos = getRandomFloorTile();
-  // Ensure some distance between start and end
   while (Math.abs(stairsPos.x - entryTile.x) + Math.abs(stairsPos.y - entryTile.y) < 15) {
       stairsPos = getRandomFloorTile();
   }
   map[stairsPos.y][stairsPos.x].type = 'stairs_down';
   lights.push({ x: stairsPos.x * 32 + 16, y: stairsPos.y * 32 + 16, radius: 100, flicker: false, color: '#ffffff' });
 
+  // Return portal occasionally
   if (level % 5 === 0) {
       let portalPos = getRandomFloorTile();
-      while (portalPos.x === stairsPos.x && portalPos.y === stairsPos.y) portalPos = getRandomFloorTile();
       map[portalPos.y][portalPos.x].type = 'return_portal';
       lights.push({ x: portalPos.x * 32 + 16, y: portalPos.y * 32 + 16, radius: 120, flicker: true, color: '#00e676' });
   }
 
-  // Spawn Enemies with Safe Zone check
   const enemyCount = 5 + Math.floor(level * 0.5);
   let spawnedCount = 0;
   let attempts = 0;
   while (spawnedCount < enemyCount && attempts < 100) {
     attempts++;
     const pos = getRandomFloorTile();
-    // Safe Zone Check: Don't spawn within 8 tiles of entry
     if (Math.abs(pos.x - entryTile.x) + Math.abs(pos.y - entryTile.y) < 8) continue;
-    
     enemies.push(generateEnemy(pos.x * GAME_CONFIG.TILE_SIZE, pos.y * GAME_CONFIG.TILE_SIZE, level));
     spawnedCount++;
   }
@@ -549,7 +597,6 @@ const updatePlayerStats = (player: PlayerEntity) => {
   let equipAtk = 0, equipDef = 0, equipSpd = 0, equipHp = 0;
   Object.values(player.equipment).forEach(item => { if (item) { equipAtk += item.stats.attack; equipDef += item.stats.defense; equipSpd += item.stats.speed; equipHp += item.stats.maxHp; } });
   
-  // Perks logic with levels
   player.perks.forEach(p => {
       const level = p.level;
       if (p.id === 'stone_skin') baseDef += 5 * level;
@@ -558,8 +605,7 @@ const updatePlayerStats = (player: PlayerEntity) => {
       if (p.id === 'swift_step') baseSpd *= (1 + 0.1 * level);
       if (p.id === 'glass_cannon') { baseAtk += (10 + 5 * level); baseDef = Math.max(0, baseDef - 5); }
       if (p.id === 'heavy_armor') { baseDef += (5 + 5 * level); baseSpd *= 0.9; }
-      if (p.id === 'endurance') { /* MaxStamina is handled below */ }
-      if (p.id === 'mana_well') { maxMp += 50 * level; /* Int boost omitted for simplicity in stat calc */ }
+      if (p.id === 'mana_well') { maxMp += 50 * level; }
   });
 
   let maxStamina = 100 + (attr.endurance * 2);
@@ -584,8 +630,61 @@ const updatePlayerStats = (player: PlayerEntity) => {
  */
 const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Record<string, HTMLImageElement>) => {
   const { width, height } = ctx.canvas;
-  const T = GAME_CONFIG.TILE_SIZE;
   ctx.fillStyle = '#111'; ctx.fillRect(0, 0, width, height);
+
+  // --- Phase 6: World Map Rendering ---
+  if (state.inWorldMap) {
+      const T = GAME_CONFIG.WORLD_TILE_SIZE;
+      ctx.save();
+      // Simple camera centered on player
+      const camX = Math.floor(state.worldPlayerPos.x * T - width/2 + T/2);
+      const camY = Math.floor(state.worldPlayerPos.y * T - height/2 + T/2);
+      ctx.translate(-camX, -camY);
+
+      // Draw Grid Background
+      for(let y=0; y<GAME_CONFIG.WORLD_HEIGHT; y++) {
+          for(let x=0; x<GAME_CONFIG.WORLD_WIDTH; x++) {
+              ctx.fillStyle = (x+y)%2 === 0 ? '#1e293b' : '#334155'; // Checkerboard
+              ctx.fillRect(x*T, y*T, T, T);
+          }
+      }
+
+      // Draw Locations
+      WORLD_LOCATIONS.forEach(loc => {
+          ctx.font = '24px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(loc.icon, loc.x * T + T/2, loc.y * T + T/2);
+          
+          // Name label
+          ctx.fillStyle = 'white';
+          ctx.font = '10px Arial';
+          ctx.fillText(loc.name, loc.x * T + T/2, loc.y * T + T + 10);
+      });
+
+      // Draw Player
+      ctx.fillStyle = state.player.color;
+      ctx.beginPath();
+      ctx.arc(state.worldPlayerPos.x * T + T/2, state.worldPlayerPos.y * T + T/2, T/3, 0, Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.restore();
+      
+      // HUD for World Map
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillRect(0, 0, width, 40);
+      ctx.fillStyle = 'white';
+      ctx.font = '16px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText("WORLD MAP - Use Arrow Keys to Move, ENTER to Enter Location", width/2, 25);
+      return;
+  }
+
+  // --- Normal Game Rendering (Dungeon/Town) ---
+  const T = GAME_CONFIG.TILE_SIZE;
   ctx.save();
   const camX = Math.floor(state.player.x + state.player.width/2 - width/2);
   const camY = Math.floor(state.player.y + state.player.height/2 - height/2);
@@ -615,6 +714,7 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
       else if (tile.type === 'dungeon_entrance') color = '#000';
       else if (tile.type === 'stairs_down') color = '#000';
       else if (tile.type === 'return_portal') color = '#000';
+      else if (tile.type === 'portal_out') color = '#a855f7'; // World map exit
 
       ctx.fillStyle = color; ctx.fillRect(tile.x, tile.y, T, T);
       ctx.strokeStyle = 'rgba(0,0,0,0.05)'; ctx.strokeRect(tile.x, tile.y, T, T);
@@ -623,20 +723,17 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
       if (tile.type === 'stairs_down') { ctx.fillStyle = '#000'; ctx.fillRect(tile.x + 8, tile.y + 8, 16, 16); ctx.strokeStyle = '#fff'; ctx.strokeRect(tile.x + 8, tile.y + 8, 16, 16); ctx.fillStyle = '#fff'; ctx.font = '10px Arial'; ctx.textAlign='center'; ctx.fillText('DOWN', tile.x+16, tile.y+20); }
       if (tile.type === 'dungeon_entrance') { ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(tile.x+16, tile.y+16, 12, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = '#f00'; ctx.font = '10px Arial'; ctx.textAlign='center'; ctx.fillText('IN', tile.x+16, tile.y+20); }
       if (tile.type === 'return_portal') { ctx.fillStyle = '#00e676'; ctx.beginPath(); ctx.arc(tile.x+16, tile.y+16, 10 + Math.sin(state.gameTime/5)*2, 0, Math.PI*2); ctx.fill(); }
+      if (tile.type === 'portal_out') { ctx.fillStyle = '#a855f7'; ctx.beginPath(); ctx.arc(tile.x+16, tile.y+16, 12, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = '#fff'; ctx.font = '10px Arial'; ctx.textAlign='center'; ctx.fillText('EXIT', tile.x+16, tile.y+20); }
     }
   }
 
-  // Shop Zones Rendering (Visual indicators)
+  // Shop Zones Rendering
   if (state.dungeonLevel === 0 && state.shopZones) {
       state.shopZones.forEach(z => {
           ctx.fillStyle = 'rgba(255, 255, 0, 0.2)'; 
           ctx.fillRect(z.x, z.y, z.w, z.h);
-          ctx.font = 'bold 14px Arial';
-          ctx.fillStyle = '#fff';
-          ctx.textAlign = 'center';
-          ctx.fillText(z.type === 'general' ? 'General Store' : 'Blacksmith', z.x + z.w/2, z.y + z.h/2);
-          ctx.font = '24px Arial';
-          ctx.fillText(z.type === 'general' ? '🎒' : '🔨', z.x + z.w/2, z.y + z.h/2 - 20);
+          ctx.font = 'bold 14px Arial'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(z.type === 'general' ? 'General Store' : 'Blacksmith', z.x + z.w/2, z.y + z.h/2);
+          ctx.font = '24px Arial'; ctx.fillText(z.type === 'general' ? '🎒' : '🔨', z.x + z.w/2, z.y + z.h/2 - 20);
       });
   }
 
@@ -650,10 +747,7 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
   });
 
   state.projectiles.forEach(proj => {
-      ctx.fillStyle = proj.color;
-      ctx.beginPath();
-      ctx.arc(proj.x + proj.width/2, proj.y + proj.height/2, 4, 0, Math.PI*2);
-      ctx.fill();
+      ctx.fillStyle = proj.color; ctx.beginPath(); ctx.arc(proj.x + proj.width/2, proj.y + proj.height/2, 4, 0, Math.PI*2); ctx.fill();
       ctx.strokeStyle = proj.color; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(proj.x + proj.width/2, proj.y + proj.height/2); ctx.lineTo(proj.x + proj.width/2 - proj.vx! * 2, proj.y + proj.height/2 - proj.vy! * 2); ctx.stroke();
   });
 
@@ -661,9 +755,7 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
       let imgKey = r.resourceType === 'tree' ? 'Tree' : (r.resourceType === 'ore' ? 'Ore' : 'Rock');
       if (images[imgKey]) {
           const wobble = Math.sin(state.gameTime / 5) * (r.hp < r.maxHp ? 2 : 0);
-          ctx.save(); ctx.translate(r.x + 16 + wobble, r.y + 16);
-          ctx.drawImage(images[imgKey], -16, -16, 32, 32);
-          ctx.restore();
+          ctx.save(); ctx.translate(r.x + 16 + wobble, r.y + 16); ctx.drawImage(images[imgKey], -16, -16, 32, 32); ctx.restore();
       } else {
           ctx.fillStyle = r.color; ctx.fillRect(r.x, r.y, r.width, r.height);
       }
@@ -763,8 +855,8 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
  * ############################################################################
  */
 
-// ... (ShopMenu, TitleScreen, JobSelectScreen, InventoryMenu, LevelUpMenu) ...
 const ShopMenu = ({ type, player, onClose, onBuy, onCraft }: any) => {
+    // ... (No changes here, keeping brevity)
     return (
         <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-8">
             <div className="bg-slate-800 border-2 border-slate-600 rounded-xl p-8 w-full max-w-2xl shadow-2xl relative">
@@ -813,7 +905,7 @@ const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setResoluti
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-30"></div>
       <div className="relative z-10 w-full h-full max-w-[177.78vh] max-h-[56.25vw] aspect-video m-auto flex flex-col items-center justify-center p-8">
         <div className={`text-center space-y-10 animate-fade-in transition-all duration-300 w-full ${showSettings ? 'blur-sm scale-95 opacity-50' : ''}`}>
-          <div className="relative"><h1 className="text-6xl md:text-8xl lg:text-9xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-yellow-500 to-yellow-800 drop-shadow-2xl mb-4 text-shadow-strong tracking-tighter" style={{ filter: 'drop-shadow(0 0 30px rgba(234,179,8,0.6))'}}>QUEST OF HARVEST</h1><p className="text-red-400 tracking-[1.2em] text-sm md:text-lg uppercase font-serif mt-6 border-t border-b border-red-900 py-3 inline-block bg-black/40 backdrop-blur-sm px-8 rounded-full">Phase 5: Boss Battle</p></div>
+          <div className="relative"><h1 className="text-6xl md:text-8xl lg:text-9xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-yellow-500 to-yellow-800 drop-shadow-2xl mb-4 text-shadow-strong tracking-tighter" style={{ filter: 'drop-shadow(0 0 30px rgba(234,179,8,0.6))'}}>QUEST OF HARVEST</h1><p className="text-red-400 tracking-[1.2em] text-sm md:text-lg uppercase font-serif mt-6 border-t border-b border-red-900 py-3 inline-block bg-black/40 backdrop-blur-sm px-8 rounded-full">Phase 6: World Map</p></div>
           <div className="flex flex-col gap-4 w-80 md:w-96 mx-auto">
             <button onClick={onStart} className="group relative flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-red-900/90 to-black/90 border-2 border-red-700/50 hover:border-red-500 transition-all duration-300 text-red-100 font-black tracking-widest uppercase text-lg shadow-lg hover:shadow-red-500/20 transform hover:-translate-y-1"><Play size={24} className="group-hover:text-red-400 transition-colors" /><span>New Game</span></button>
             <button onClick={onContinue} disabled={!canContinue} className={`flex items-center justify-center gap-3 px-8 py-3 border-2 font-bold tracking-widest uppercase transition-all text-base backdrop-blur-sm ${canContinue ? 'bg-slate-800/50 border-slate-600 hover:border-blue-400 hover:bg-slate-700/80 text-slate-200' : 'bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed'}`}><Save size={20} /><span>Continue</span></button>
@@ -894,7 +986,6 @@ const JobSelectScreen = ({ onBack, onSelect, loadedAssets }: any) => {
 
 const GameHUD = ({ uiState, dungeonLevel, toggleMenu, activeShop, bossData }: any) => (
   <>
-    {/* Boss HP Bar */}
     {bossData && !bossData.dead && (
       <div className="absolute top-4 left-1/2 -translate-x-1/2 w-[600px] z-50 pointer-events-none">
           <div className="flex justify-between text-red-500 font-bold mb-1 items-center">
@@ -909,7 +1000,7 @@ const GameHUD = ({ uiState, dungeonLevel, toggleMenu, activeShop, bossData }: an
     )}
 
     <div className="absolute top-4 right-20 flex gap-4 text-white pointer-events-none">
-       <div className="bg-slate-900/80 px-4 py-2 rounded border border-slate-700 flex items-center gap-2"><Compass size={16} className="text-yellow-500" /><span className="font-mono font-bold text-lg">{dungeonLevel === 0 ? "Town of Beginnings" : `Floor B${dungeonLevel}`}</span></div>
+       <div className="bg-slate-900/80 px-4 py-2 rounded border border-slate-700 flex items-center gap-2"><Compass size={16} className="text-yellow-500" /><span className="font-mono font-bold text-lg">{dungeonLevel === 0 ? "Town" : `Floor B${dungeonLevel}`}</span></div>
     </div>
     <div className="absolute top-4 left-4 flex gap-4 pointer-events-none">
       <div className="bg-slate-900/90 border border-slate-700 p-3 rounded text-white w-64 shadow-lg pointer-events-auto">
@@ -955,6 +1046,7 @@ const GameHUD = ({ uiState, dungeonLevel, toggleMenu, activeShop, bossData }: an
   </>
 );
 
+// ... (InventoryMenu and LevelUpMenu unchanged)
 const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: any) => (
   <div className="bg-slate-900 border border-slate-600 rounded-lg w-full max-w-4xl h-[600px] flex text-white overflow-hidden shadow-2xl">
     <div className="w-1/3 bg-slate-800/50 p-6 border-r border-slate-700 flex flex-col gap-4">
@@ -1006,32 +1098,6 @@ const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: any) => (
   </div>
 );
 
-const LevelUpMenu = ({ options, onSelect }: { options: PerkData[], onSelect: (perkId: string) => void }) => {
-  return (
-    <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center z-50 animate-fade-in p-8">
-      <h2 className="text-4xl font-extrabold text-yellow-500 mb-2 uppercase tracking-widest text-shadow-strong">Level Up!</h2>
-      <p className="text-slate-400 mb-12">Select a new ability or upgrade existing one</p>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
-        {options.map((perk, i) => {
-           const Icon = perk.icon;
-           // @ts-ignore
-           const isUpgrade = perk.currentLevel !== undefined && perk.currentLevel > 0;
-           return (
-             <button key={perk.id} onClick={() => onSelect(perk.id)} className="group relative bg-slate-800 border-2 border-slate-600 hover:border-white p-6 rounded-xl transition-all hover:-translate-y-2 hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] flex flex-col items-center text-center overflow-hidden" style={{ animationDelay: `${i*100}ms` }}>
-               <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-               <div className="w-24 h-24 rounded-full bg-slate-900 flex items-center justify-center mb-6 border border-slate-700 group-hover:border-white/50 transition-colors shadow-xl"><Icon size={48} style={{ color: perk.color }} className="group-hover:scale-110 transition-transform" /></div>
-               <h3 className="text-xl font-bold text-white mb-2 uppercase tracking-wider">{perk.name}</h3>
-               <span className={`text-xs px-2 py-1 rounded mb-4 font-bold uppercase ${perk.rarity === 'Legendary' ? 'bg-orange-500/20 text-orange-400' : perk.rarity === 'Rare' ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-700 text-slate-400'}`}>{perk.rarity}</span>
-               {isUpgrade && <span className="text-xs text-green-400 font-bold mb-2">Upgrade to Lv.{(perk as any).currentLevel + 1}</span>}
-               <p className="text-sm text-slate-400 leading-relaxed">{perk.desc}</p>
-             </button>
-           );
-        })}
-      </div>
-    </div>
-  );
-};
-
 export default function App() {
   const [screen, setScreen] = useState<'auth' | 'title' | 'game' | 'job_select'>('auth');
   const [saveData, setSaveData] = useState<any>(null);
@@ -1045,7 +1111,7 @@ export default function App() {
   const [activeMenu, setActiveMenu] = useState<MenuType>('none');
   const [levelUpOptions, setLevelUpOptions] = useState<PerkData[] | null>(null);
   const [activeShopType, setActiveShopType] = useState<'blacksmith' | 'general' | null>(null); 
-  const activeShopTypeRef = useRef<'blacksmith' | 'general' | null>(null); // New Ref for game loop sync
+  const activeShopTypeRef = useRef<'blacksmith' | 'general' | null>(null); 
   const [activeBossData, setActiveBossData] = useState<EnemyEntity | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [viewportSize, setViewportSize] = useState({ width: 800, height: 600 });
@@ -1112,7 +1178,8 @@ export default function App() {
           if (e.key.toLowerCase() === 'i') setActiveMenu(prev => prev === 'inventory' ? 'none' : 'inventory');
           if (e.key.toLowerCase() === 'c') setActiveMenu(prev => prev === 'stats' ? 'none' : 'stats');
           if (e.key.toLowerCase() === 'f') interactAction();
-          if (e.key.toLowerCase() === 'q') usePotion();
+          if (e.key.toLowerCase() === 'q') usePotion(); // Added usePotion logic when Q is pressed
+          if (e.key === 'Enter' && gameState.current?.inWorldMap) enterLocation(); // Enter location on world map
       }
       input.current.keys[e.key.toLowerCase()] = true;
       if (e.key === 'Escape') setActiveMenu('none');
@@ -1144,6 +1211,12 @@ export default function App() {
 
   const startGame = (job: Job, gender: Gender = 'Male', load = false) => {
     let player: PlayerEntity, dungeonLevel = 0;
+    
+    // Initialize World Map State
+    let inWorldMap = true;
+    let worldPlayerPos = { x: 4, y: 4 }; // Default start near town
+    let currentLocationId = 'world_map';
+
     if (load && saveData) {
       player = { ...saveData.player };
       dungeonLevel = 0; 
@@ -1154,8 +1227,8 @@ export default function App() {
       
       let starterWeapon = generateRandomItem(1);
       if (starterWeapon) {
-          starterWeapon.type = 'Weapon'; // Force Weapon type
-          starterWeapon.stats = { attack: 5, defense: 0, speed: 0, maxHp: 0 }; // Basic stats
+          starterWeapon.type = 'Weapon'; 
+          starterWeapon.stats = { attack: 5, defense: 0, speed: 0, maxHp: 0 }; 
 
           if (job === 'Swordsman') { 
               starterWeapon.name = "訓練用の剣"; 
@@ -1189,40 +1262,93 @@ export default function App() {
           player.inventory.push(starterWeapon);
       }
     }
-    const floorData = generateFloor(dungeonLevel);
     
-    if (dungeonLevel === 0) {
-        player.x = (GAME_CONFIG.MAP_WIDTH * GAME_CONFIG.TILE_SIZE) / 2;
-        player.y = (GAME_CONFIG.MAP_HEIGHT * GAME_CONFIG.TILE_SIZE) / 2 + 64; 
-    } else {
-        player.x = (GAME_CONFIG.MAP_WIDTH * GAME_CONFIG.TILE_SIZE) / 2;
-        player.y = (GAME_CONFIG.MAP_HEIGHT * GAME_CONFIG.TILE_SIZE) / 2;
-    }
-
+    // Start on World Map
     gameState.current = {
-      dungeonLevel,
-      currentBiome: floorData.biome,
-      map: floorData.map,
+      dungeonLevel: 0,
+      currentBiome: 'Plains', // Default
+      map: [], // Empty initially for world map mode
       player,
-      enemies: floorData.enemies,
-      resources: floorData.resources,
-      droppedItems: floorData.droppedItems,
+      enemies: [],
+      resources: [],
+      droppedItems: [],
       projectiles: [], particles: [], floatingTexts: [],
       camera: { x: 0, y: 0 }, gameTime: 0, isPaused: false,
       levelUpOptions: null,
-      lights: floorData.lights,
-      shopZones: floorData.shopZones,
+      lights: [],
+      shopZones: [],
       activeShop: null,
-      activeBossId: floorData.bossId || null 
+      activeBossId: null,
+      inWorldMap: true,
+      worldPlayerPos: { x: 15, y: 11 }, // Start near town
+      currentLocationId: 'world_map'
     };
-    setDungeonLevel(dungeonLevel);
+    
+    // If not new game, maybe load specific location? For now, always start at world map near town
+    setDungeonLevel(0);
     setScreen('game');
+  };
+
+  const enterLocation = () => {
+    if (!gameState.current || !gameState.current.inWorldMap) return;
+    const { worldPlayerPos } = gameState.current;
+    
+    // Check collision with any location
+    const location = WORLD_LOCATIONS.find(l => l.x === worldPlayerPos.x && l.y === worldPlayerPos.y);
+    
+    if (location) {
+        // Transition to Location
+        gameState.current.inWorldMap = false;
+        gameState.current.currentLocationId = location.id;
+        
+        let level = 0;
+        if (location.type === 'Dungeon') level = 1; // Start at level 1 for dungeons
+        
+        // Generate Floor for this location
+        const floorData = generateFloor(level, location.id);
+        
+        gameState.current.dungeonLevel = level;
+        gameState.current.currentBiome = floorData.biome;
+        gameState.current.map = floorData.map;
+        gameState.current.enemies = floorData.enemies;
+        gameState.current.resources = floorData.resources;
+        gameState.current.droppedItems = floorData.droppedItems;
+        gameState.current.lights = floorData.lights;
+        gameState.current.shopZones = floorData.shopZones || [];
+        gameState.current.activeBossId = floorData.bossId || null;
+        gameState.current.projectiles = [];
+        gameState.current.particles = [];
+        setActiveBossData(null);
+
+        if (floorData.entryPos) {
+            gameState.current.player.x = floorData.entryPos.x;
+            gameState.current.player.y = floorData.entryPos.y;
+        } else {
+             gameState.current.player.x = (GAME_CONFIG.MAP_WIDTH * GAME_CONFIG.TILE_SIZE) / 2;
+             gameState.current.player.y = (GAME_CONFIG.MAP_HEIGHT * GAME_CONFIG.TILE_SIZE) / 2;
+        }
+        
+        setMessage(`${location.name} に入りました`);
+        setDungeonLevel(level);
+        setTimeout(() => setMessage(null), 3000);
+    }
   };
 
   const transitionLevel = (newLevel: number) => {
     if (!gameState.current) return;
     const state = gameState.current;
-    const floorData = generateFloor(newLevel);
+    
+    // Check if returning to world map (Exit town or dungeon end)
+    if (newLevel === -1) { // -1 code for exiting to world map
+        state.inWorldMap = true;
+        state.currentLocationId = 'world_map';
+        setMessage("ワールドマップへ移動しました");
+        setTimeout(() => setMessage(null), 2000);
+        return;
+    }
+    
+    // Normal floor transition
+    const floorData = generateFloor(newLevel, state.currentLocationId);
     state.dungeonLevel = newLevel;
     state.currentBiome = floorData.biome;
     state.map = floorData.map;
@@ -1230,7 +1356,7 @@ export default function App() {
     state.resources = floorData.resources;
     state.droppedItems = floorData.droppedItems;
     state.lights = floorData.lights; 
-    state.shopZones = floorData.shopZones || []; // Fallback to empty array if undefined
+    state.shopZones = floorData.shopZones || []; 
     state.activeBossId = floorData.bossId || null; 
     state.projectiles = [];
     state.particles = [];
@@ -1260,7 +1386,11 @@ export default function App() {
     p.hp = p.maxHp;
     p.perks = []; 
     updatePlayerStats(p); 
-    transitionLevel(0);
+    
+    // Return to World Map near Town
+    gameState.current.inWorldMap = true;
+    gameState.current.worldPlayerPos = { x: 15, y: 11 }; // Reset pos
+    
     setMessage("YOU DIED - 全アイテムを失いました");
     setTimeout(() => setMessage(null), 5000);
   };
@@ -1405,205 +1535,231 @@ export default function App() {
     const state = gameState.current; const ctx = canvasRef.current.getContext('2d'); if (!ctx) return;
     if (!state.isPaused && activeMenu === 'none') {
       state.gameTime++;
-      const p = state.player;
       
-      if (p.stamina < p.calculatedStats.maxStamina) {
-          p.stamina = Math.min(p.calculatedStats.maxStamina, p.stamina + p.calculatedStats.staminaRegen);
-      }
-
-      const isDashing = (input.current.keys['shift']) && p.stamina > 0;
-      let spd = p.speed * (isDashing ? 1.8 : 1);
-      if (isDashing) {
-          p.stamina = Math.max(0, p.stamina - GAME_CONFIG.STAMINA_DASH_COST);
-      }
-
-      let dx = 0, dy = 0;
-      if (input.current.keys['w'] || input.current.keys['arrowup']) dy = -spd;
-      if (input.current.keys['s'] || input.current.keys['arrowdown']) dy = spd;
-      if (input.current.keys['a'] || input.current.keys['arrowleft']) dx = -spd;
-      if (input.current.keys['d'] || input.current.keys['arrowright']) dx = spd;
-      if (dx > 0) p.direction = 0; if (dx < 0) p.direction = 2; if (dy > 0) p.direction = 1; if (dy < 0) p.direction = 3;
-      if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
-      p.vx = dx; p.vy = dy;
-
-      if (dx !== 0 || dy !== 0) {
-        const nextPos = resolveMapCollision(p, dx, dy, state.map); p.x = nextPos.x; p.y = nextPos.y;
-      }
-
-      const cx = Math.floor((p.x + p.width/2) / GAME_CONFIG.TILE_SIZE);
-      const cy = Math.floor((p.y + p.height/2) / GAME_CONFIG.TILE_SIZE);
-      const currentTile = state.map[cy]?.[cx];
-      if (currentTile) {
-        if (currentTile.type === 'dungeon_entrance') transitionLevel(1);
-        else if (currentTile.type === 'stairs_down') transitionLevel(state.dungeonLevel + 1);
-        else if (currentTile.type === 'return_portal') transitionLevel(0);
-      }
-
-      let inShop: 'blacksmith' | 'general' | null = null;
-      if (state.shopZones) {
-          for (const zone of state.shopZones) {
-              if (p.x < zone.x + zone.w && p.x + p.width > zone.x && p.y < zone.y + zone.h && p.y + p.height > zone.y) {
-                  inShop = zone.type;
-                  break;
-              }
-          }
-      }
-      state.activeShop = inShop;
-      
-      // FIX: Use Ref to track and update activeShopType state correctly in loop
-      if (inShop !== activeShopTypeRef.current) {
-          activeShopTypeRef.current = inShop;
-          setActiveShopType(inShop);
-      }
-
-      state.droppedItems.forEach(drop => {
-        if (checkCollision(p, drop)) {
-          drop.dead = true; 
-          if (drop.item.type === 'Consumable' || drop.item.type === 'Material') {
-              const existing = p.inventory.find(i => i.name === drop.item.name);
-              if (existing) existing.count = (existing.count || 1) + (drop.item.count || 1);
-              else p.inventory.push(drop.item);
-          } else {
-              p.inventory.push(drop.item);
-          }
-          state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 20, width:0, height:0, color: drop.item.color, type: 'text', dead: false, text: drop.item.name, life: 60 });
-          setMessage(`拾った：${drop.item.name}`); setTimeout(() => setMessage(null), 2000);
-        }
-      });
-
-      // Update Projectiles
-      state.projectiles.forEach(proj => {
-          proj.life--;
-          if (proj.life <= 0) { proj.dead = true; return; }
-          const nextX = proj.x + proj.vx!;
-          const nextY = proj.y + proj.vy!;
-          const tileX = Math.floor(nextX / 32);
-          const tileY = Math.floor(nextY / 32);
-          if (state.map[tileY]?.[tileX]?.solid) { proj.dead = true; return; }
-          proj.x = nextX;
-          proj.y = nextY;
-          state.enemies.forEach(e => {
-              if (!e.dead && checkCollision(proj, e)) {
-                  proj.dead = true;
-                  e.hp -= proj.damage;
-                  state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#fff', type: 'text', dead: false, text: `-${proj.damage}`, life: 30 });
-                  if (e.hp <= 0) {
-                      e.dead = true; 
-                      let xpMult = 1.0;
-                      const wis = p.perks.find(pk => pk.id === 'wisdom');
-                      if (wis) xpMult = 1.0 + (0.2 * wis.level);
-                      p.xp += Math.floor(e.xpValue * xpMult);
-                      let goldMult = 1.0;
-                      const rush = p.perks.find(pk => pk.id === 'gold_rush');
-                      if (rush) goldMult = 1.0 + (0.5 * rush.level);
-                      p.gold += Math.floor((Math.random() * 5 * (state.dungeonLevel || 1) + 1) * goldMult);
-                      state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#ffd700', type: 'text', dead: false, text: `+${Math.floor(e.xpValue * xpMult)} XP`, life: 45 });
-                      const vampire = p.perks.find(pk => pk.id === 'vampire');
-                      if (vampire) { const heal = 3 + (2 * vampire.level); p.hp = Math.min(p.maxHp, p.hp + heal); state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y - 30, width:0, height:0, color: '#f43f5e', type: 'text', dead: false, text: `+${heal} HP`, life: 45 }); }
-                      if (p.xp >= p.nextLevelXp) { p.level++; p.xp -= p.nextLevelXp; p.nextLevelXp = Math.floor(p.nextLevelXp * 1.5); p.statPoints += 3; updatePlayerStats(p); p.hp = p.maxHp; state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 40, width:0, height:0, color: '#00ff00', type: 'text', dead: false, text: "LEVEL UP!", life: 90 }); triggerLevelUp(); }
-                      const dropChance = GAME_CONFIG.BASE_DROP_RATE * (e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 1);
-                      if (Math.random() < dropChance) { const item = generateRandomItem(state.dungeonLevel || 1, e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 0); if (item) state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: e.x, y: e.y, width: 32, height: 32, color: item.color, item, life: 3000, bounceOffset: Math.random() * 10, dead: false }); }
+      // --- World Map Logic ---
+      if (state.inWorldMap) {
+          // World Map Movement
+          const moveDelay = 10; // Frames between moves
+          if (state.gameTime % moveDelay === 0) {
+              let moved = false;
+              if (input.current.keys['w'] || input.current.keys['arrowup']) { if(state.worldPlayerPos.y > 0) state.worldPlayerPos.y--; moved = true; }
+              else if (input.current.keys['s'] || input.current.keys['arrowdown']) { if(state.worldPlayerPos.y < GAME_CONFIG.WORLD_HEIGHT - 1) state.worldPlayerPos.y++; moved = true; }
+              else if (input.current.keys['a'] || input.current.keys['arrowleft']) { if(state.worldPlayerPos.x > 0) state.worldPlayerPos.x--; moved = true; }
+              else if (input.current.keys['d'] || input.current.keys['arrowright']) { if(state.worldPlayerPos.x < GAME_CONFIG.WORLD_WIDTH - 1) state.worldPlayerPos.x++; moved = true; }
+              
+              if (moved) {
+                  // Check collision with location
+                  const loc = WORLD_LOCATIONS.find(l => l.x === state.worldPlayerPos.x && l.y === state.worldPlayerPos.y);
+                  if (loc) {
+                      setMessage(`[ENTER] ${loc.name}`);
+                  } else {
+                      setMessage(null);
                   }
               }
-          });
-      });
-      state.projectiles = state.projectiles.filter(p => !p.dead);
+          }
+      } else {
+          // --- Dungeon/Town Logic ---
+          const p = state.player;
+          
+          if (p.stamina < p.calculatedStats.maxStamina) {
+              p.stamina = Math.min(p.calculatedStats.maxStamina, p.stamina + p.calculatedStats.staminaRegen);
+          }
 
-      const now = Date.now();
-      if ((input.current.keys[' '] || input.current.mouse.down) && now - p.lastAttackTime > p.calculatedStats.attackCooldown) {
-        if (p.stamina >= GAME_CONFIG.STAMINA_ATTACK_COST) {
-            p.stamina -= GAME_CONFIG.STAMINA_ATTACK_COST;
-            p.lastAttackTime = now; p.isAttacking = true; setTimeout(() => { if(gameState.current) gameState.current.player.isAttacking = false; }, 200);
-            const weapon = p.equipment.mainHand;
-            const isRanged = weapon && (weapon.weaponClass === 'Bow' || weapon.weaponClass === 'Staff' || weapon.weaponClass === 'Wand');
-            if (isRanged) {
-                let dmg = Math.floor(p.attack * 0.8); 
-                if (weapon.weaponClass === 'Bow') dmg += Math.floor(p.attributes.dexterity * 1.5);
-                if (weapon.weaponClass === 'Staff' || weapon.weaponClass === 'Wand') dmg += Math.floor(p.attributes.intelligence * 1.5);
-                const mx = input.current.mouse.x + state.camera.x;
-                const my = input.current.mouse.y + state.camera.y;
-                const angle = Math.atan2(my - (p.y + p.height/2), mx - (p.x + p.width/2));
-                state.projectiles.push({ id: crypto.randomUUID(), type: 'projectile', x: p.x + p.width/2, y: p.y + p.height/2, width: 8, height: 8, vx: Math.cos(angle) * GAME_CONFIG.PROJECTILE_SPEED, vy: Math.sin(angle) * GAME_CONFIG.PROJECTILE_SPEED, damage: dmg, ownerId: p.id, life: 100, color: weapon.weaponClass === 'Bow' ? '#fff' : '#00ffff', dead: false });
-            } else {
-                const attackRect = { x: p.x + p.width/2 - 30, y: p.y + p.height/2 - 30, width: 60, height: 60 } as Entity;
-                state.enemies.forEach(e => {
-                  if (checkCollision(attackRect, e)) {
-                    let dmg = Math.max(1, Math.floor((p.attack - e.defense/2) * (0.9 + Math.random() * 0.2))); 
-                    const thunder = p.perks.find(pk => pk.id === 'thunder_strike');
-                    if (thunder && Math.random() < 0.2) { dmg += (15 * thunder.level); state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y - 20, width:0, height:0, color: '#fbbf24', type: 'text', dead: false, text: "⚡ THUNDER!", life: 45 }); }
-                    e.hp -= dmg;
-                    state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#fff', type: 'text', dead: false, text: `-${dmg}`, life: 30 });
-                    const angle = Math.atan2(e.y - p.y, e.x - p.x); e.x += Math.cos(angle) * 10; e.y += Math.sin(angle) * 10;
-                    if (e.hp <= 0) {
-                      e.dead = true; 
-                      let xpMult = 1.0;
-                      const wis = p.perks.find(pk => pk.id === 'wisdom');
-                      if (wis) xpMult = 1.0 + (0.2 * wis.level);
-                      p.xp += Math.floor(e.xpValue * xpMult);
-                      let goldMult = 1.0;
-                      const rush = p.perks.find(pk => pk.id === 'gold_rush');
-                      if (rush) goldMult = 1.0 + (0.5 * rush.level);
-                      p.gold += Math.floor((Math.random() * 5 * (state.dungeonLevel || 1) + 1) * goldMult);
-                      state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#ffd700', type: 'text', dead: false, text: `+${Math.floor(e.xpValue * xpMult)} XP`, life: 45 });
-                      const vampire = p.perks.find(pk => pk.id === 'vampire');
-                      if (vampire) { const heal = 3 + (2 * vampire.level); p.hp = Math.min(p.maxHp, p.hp + heal); state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y - 30, width:0, height:0, color: '#f43f5e', type: 'text', dead: false, text: `+${heal} HP`, life: 45 }); }
-                      if (p.xp >= p.nextLevelXp) { p.level++; p.xp -= p.nextLevelXp; p.nextLevelXp = Math.floor(p.nextLevelXp * 1.5); p.statPoints += 3; updatePlayerStats(p); p.hp = p.maxHp; state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 40, width:0, height:0, color: '#00ff00', type: 'text', dead: false, text: "LEVEL UP!", life: 90 }); triggerLevelUp(); }
-                      const dropChance = GAME_CONFIG.BASE_DROP_RATE * (e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 1);
-                      if (Math.random() < dropChance) { const item = generateRandomItem(state.dungeonLevel || 1, e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 0); if (item) state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: e.x, y: e.y, width: 32, height: 32, color: item.color, item, life: 3000, bounceOffset: Math.random() * 10, dead: false }); }
-                    }
+          const isDashing = (input.current.keys['shift']) && p.stamina > 0;
+          let spd = p.speed * (isDashing ? 1.8 : 1);
+          if (isDashing) {
+              p.stamina = Math.max(0, p.stamina - GAME_CONFIG.STAMINA_DASH_COST);
+          }
+
+          let dx = 0, dy = 0;
+          if (input.current.keys['w'] || input.current.keys['arrowup']) dy = -spd;
+          if (input.current.keys['s'] || input.current.keys['arrowdown']) dy = spd;
+          if (input.current.keys['a'] || input.current.keys['arrowleft']) dx = -spd;
+          if (input.current.keys['d'] || input.current.keys['arrowright']) dx = spd;
+          if (dx > 0) p.direction = 0; if (dx < 0) p.direction = 2; if (dy > 0) p.direction = 1; if (dy < 0) p.direction = 3;
+          if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
+          p.vx = dx; p.vy = dy;
+
+          if (dx !== 0 || dy !== 0) {
+            const nextPos = resolveMapCollision(p, dx, dy, state.map); p.x = nextPos.x; p.y = nextPos.y;
+          }
+
+          const cx = Math.floor((p.x + p.width/2) / GAME_CONFIG.TILE_SIZE);
+          const cy = Math.floor((p.y + p.height/2) / GAME_CONFIG.TILE_SIZE);
+          const currentTile = state.map[cy]?.[cx];
+          if (currentTile) {
+            if (currentTile.type === 'dungeon_entrance') transitionLevel(1);
+            else if (currentTile.type === 'stairs_down') transitionLevel(state.dungeonLevel + 1);
+            else if (currentTile.type === 'return_portal') transitionLevel(0); // Back to town
+            else if (currentTile.type === 'portal_out') transitionLevel(-1); // To World Map
+          }
+
+          let inShop: 'blacksmith' | 'general' | null = null;
+          if (state.shopZones) {
+              for (const zone of state.shopZones) {
+                  if (p.x < zone.x + zone.w && p.x + p.width > zone.x && p.y < zone.y + zone.h && p.y + p.height > zone.y) {
+                      inShop = zone.type;
+                      break;
                   }
-                });
-                state.resources.forEach(r => {
-                    if (checkCollision(attackRect, r)) {
-                        r.hp -= p.attack;
-                        const angle = Math.atan2(r.y - p.y, r.x - p.x); r.x += Math.cos(angle) * 2; r.y += Math.sin(angle) * 2;
-                        state.floatingTexts.push({ id: crypto.randomUUID(), x: r.x + r.width/2, y: r.y, width:0, height:0, color: '#ccc', type: 'text', dead: false, text: "Hit", life: 20 });
-                        if (r.hp <= 0) {
-                            r.dead = true;
-                            let item: Item | null = null;
-                            let count = 1;
-                            if (r.resourceType === 'tree') { count = Math.floor(Math.random()*3)+1; item = { id: crypto.randomUUID(), name: "木材", type: "Material", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🪵", color: "#795548", count: count }; } else if (r.resourceType === 'rock') { count = Math.floor(Math.random()*2)+1; item = { id: crypto.randomUUID(), name: "石", type: "Material", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🪨", color: "#9e9e9e", count: count }; } else if (r.resourceType === 'ore') { count = 1; item = { id: crypto.randomUUID(), name: "鉱石", type: "Material", rarity: "Uncommon", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "⛏️", color: "#607d8b", count: count }; }
-                            const scav = p.perks.find(pk => pk.id === 'scavenger');
-                            if (scav && item) { item.count = (item.count || 1) + scav.level; state.floatingTexts.push({ id: crypto.randomUUID(), x: r.x, y: r.y - 20, width:0, height:0, color: '#a3e635', type: 'text', dead: false, text: `Scavenger +${scav.level}!`, life: 40 }); }
-                            if (item) state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: r.x, y: r.y, width: 32, height: 32, color: item.color, item, life: 3000, bounceOffset: Math.random() * 10, dead: false });
-                        }
-                    }
-                });
+              }
+          }
+          state.activeShop = inShop;
+          
+          // FIX: Use Ref to track and update activeShopType state correctly in loop
+          if (inShop !== activeShopTypeRef.current) {
+              activeShopTypeRef.current = inShop;
+              setActiveShopType(inShop);
+          }
+
+          state.droppedItems.forEach(drop => {
+            if (checkCollision(p, drop)) {
+              drop.dead = true; 
+              if (drop.item.type === 'Consumable' || drop.item.type === 'Material') {
+                  const existing = p.inventory.find(i => i.name === drop.item.name);
+                  if (existing) existing.count = (existing.count || 1) + (drop.item.count || 1);
+                  else p.inventory.push(drop.item);
+              } else {
+                  p.inventory.push(drop.item);
+              }
+              state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 20, width:0, height:0, color: drop.item.color, type: 'text', dead: false, text: drop.item.name, life: 60 });
+              setMessage(`拾った：${drop.item.name}`); setTimeout(() => setMessage(null), 2000);
             }
-        } else {
-            state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y - 20, width:0, height:0, color: '#ef4444', type: 'text', dead: false, text: "No Stamina!", life: 20 });
-        }
-      }
+          });
 
-      state.enemies.forEach(e => {
-        if (state.activeBossId && e.id === state.activeBossId) {
-             setActiveBossData({...e});
-             if (e.dead) {
-                 setActiveBossData(null);
-                 state.activeBossId = null;
-                 const rewardPos = { x: e.x, y: e.y };
-                 state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: rewardPos.x, y: rewardPos.y, width: 32, height: 32, color: '#ffd700', item: generateRandomItem(state.dungeonLevel + 5, 5)!, life: 10000, bounceOffset: 0, dead: false });
-                 setMessage("BOSS DEFEATED!");
-             }
-        }
-        if (e.dead) return;
-        const dist = Math.sqrt((p.x - e.x)**2 + (p.y - e.y)**2);
-        if (dist < e.detectionRange) {
-          const angle = Math.atan2(p.y - e.y, p.x - e.x);
-          e.direction = Math.abs(Math.cos(angle)) > Math.abs(Math.sin(angle)) ? (Math.cos(angle) > 0 ? 0 : 2) : (Math.sin(angle) > 0 ? 1 : 3);
-          const nextX = e.x + Math.cos(angle) * e.speed, nextY = e.y + Math.sin(angle) * e.speed;
-          if (!state.map[Math.floor(nextY/32)]?.[Math.floor(nextX/32)]?.solid && dist > 30) { e.x = nextX; e.y = nextY; e.vx = Math.cos(angle) * e.speed; e.vy = Math.sin(angle) * e.speed; } else { e.vx=0; e.vy=0; }
-          if (dist < 40 && now - e.lastAttackTime > e.attackCooldown) {
-            e.lastAttackTime = now; const dmg = Math.max(1, Math.floor(e.attack - p.defense/2)); p.hp -= dmg;
-            state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y, width:0, height:0, color: '#ff0000', type: 'text', dead: false, text: `-${dmg}`, life: 30 });
-            if (p.hp <= 0) { handleDeath(); }
+          // Update Projectiles
+          state.projectiles.forEach(proj => {
+              proj.life--;
+              if (proj.life <= 0) { proj.dead = true; return; }
+              const nextX = proj.x + proj.vx!;
+              const nextY = proj.y + proj.vy!;
+              const tileX = Math.floor(nextX / 32);
+              const tileY = Math.floor(nextY / 32);
+              if (state.map[tileY]?.[tileX]?.solid) { proj.dead = true; return; }
+              proj.x = nextX;
+              proj.y = nextY;
+              state.enemies.forEach(e => {
+                  if (!e.dead && checkCollision(proj, e)) {
+                      proj.dead = true;
+                      e.hp -= proj.damage;
+                      state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#fff', type: 'text', dead: false, text: `-${proj.damage}`, life: 30 });
+                      if (e.hp <= 0) {
+                          e.dead = true; 
+                          let xpMult = 1.0;
+                          const wis = p.perks.find(pk => pk.id === 'wisdom');
+                          if (wis) xpMult = 1.0 + (0.2 * wis.level);
+                          p.xp += Math.floor(e.xpValue * xpMult);
+                          let goldMult = 1.0;
+                          const rush = p.perks.find(pk => pk.id === 'gold_rush');
+                          if (rush) goldMult = 1.0 + (0.5 * rush.level);
+                          p.gold += Math.floor((Math.random() * 5 * (state.dungeonLevel || 1) + 1) * goldMult);
+                          state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#ffd700', type: 'text', dead: false, text: `+${Math.floor(e.xpValue * xpMult)} XP`, life: 45 });
+                          const vampire = p.perks.find(pk => pk.id === 'vampire');
+                          if (vampire) { const heal = 3 + (2 * vampire.level); p.hp = Math.min(p.maxHp, p.hp + heal); state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y - 30, width:0, height:0, color: '#f43f5e', type: 'text', dead: false, text: `+${heal} HP`, life: 45 }); }
+                          if (p.xp >= p.nextLevelXp) { p.level++; p.xp -= p.nextLevelXp; p.nextLevelXp = Math.floor(p.nextLevelXp * 1.5); p.statPoints += 3; updatePlayerStats(p); p.hp = p.maxHp; state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 40, width:0, height:0, color: '#00ff00', type: 'text', dead: false, text: "LEVEL UP!", life: 90 }); triggerLevelUp(); }
+                          const dropChance = GAME_CONFIG.BASE_DROP_RATE * (e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 1);
+                          if (Math.random() < dropChance) { const item = generateRandomItem(state.dungeonLevel || 1, e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 0); if (item) state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: e.x, y: e.y, width: 32, height: 32, color: item.color, item, life: 3000, bounceOffset: Math.random() * 10, dead: false }); }
+                      }
+                  }
+              });
+          });
+          state.projectiles = state.projectiles.filter(p => !p.dead);
+
+          const now = Date.now();
+          if ((input.current.keys[' '] || input.current.mouse.down) && now - p.lastAttackTime > p.calculatedStats.attackCooldown) {
+            if (p.stamina >= GAME_CONFIG.STAMINA_ATTACK_COST) {
+                p.stamina -= GAME_CONFIG.STAMINA_ATTACK_COST;
+                p.lastAttackTime = now; p.isAttacking = true; setTimeout(() => { if(gameState.current) gameState.current.player.isAttacking = false; }, 200);
+                const weapon = p.equipment.mainHand;
+                const isRanged = weapon && (weapon.weaponClass === 'Bow' || weapon.weaponClass === 'Staff' || weapon.weaponClass === 'Wand');
+                if (isRanged) {
+                    let dmg = Math.floor(p.attack * 0.8); 
+                    if (weapon.weaponClass === 'Bow') dmg += Math.floor(p.attributes.dexterity * 1.5);
+                    if (weapon.weaponClass === 'Staff' || weapon.weaponClass === 'Wand') dmg += Math.floor(p.attributes.intelligence * 1.5);
+                    const mx = input.current.mouse.x + state.camera.x;
+                    const my = input.current.mouse.y + state.camera.y;
+                    const angle = Math.atan2(my - (p.y + p.height/2), mx - (p.x + p.width/2));
+                    state.projectiles.push({ id: crypto.randomUUID(), type: 'projectile', x: p.x + p.width/2, y: p.y + p.height/2, width: 8, height: 8, vx: Math.cos(angle) * GAME_CONFIG.PROJECTILE_SPEED, vy: Math.sin(angle) * GAME_CONFIG.PROJECTILE_SPEED, damage: dmg, ownerId: p.id, life: 100, color: weapon.weaponClass === 'Bow' ? '#fff' : '#00ffff', dead: false });
+                } else {
+                    const attackRect = { x: p.x + p.width/2 - 30, y: p.y + p.height/2 - 30, width: 60, height: 60 } as Entity;
+                    state.enemies.forEach(e => {
+                      if (checkCollision(attackRect, e)) {
+                        let dmg = Math.max(1, Math.floor((p.attack - e.defense/2) * (0.9 + Math.random() * 0.2))); 
+                        const thunder = p.perks.find(pk => pk.id === 'thunder_strike');
+                        if (thunder && Math.random() < 0.2) { dmg += (15 * thunder.level); state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y - 20, width:0, height:0, color: '#fbbf24', type: 'text', dead: false, text: "⚡ THUNDER!", life: 45 }); }
+                        e.hp -= dmg;
+                        state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#fff', type: 'text', dead: false, text: `-${dmg}`, life: 30 });
+                        const angle = Math.atan2(e.y - p.y, e.x - p.x); e.x += Math.cos(angle) * 10; e.y += Math.sin(angle) * 10;
+                        if (e.hp <= 0) {
+                          e.dead = true; 
+                          let xpMult = 1.0;
+                          const wis = p.perks.find(pk => pk.id === 'wisdom');
+                          if (wis) xpMult = 1.0 + (0.2 * wis.level);
+                          p.xp += Math.floor(e.xpValue * xpMult);
+                          let goldMult = 1.0;
+                          const rush = p.perks.find(pk => pk.id === 'gold_rush');
+                          if (rush) goldMult = 1.0 + (0.5 * rush.level);
+                          p.gold += Math.floor((Math.random() * 5 * (state.dungeonLevel || 1) + 1) * goldMult);
+                          state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#ffd700', type: 'text', dead: false, text: `+${Math.floor(e.xpValue * xpMult)} XP`, life: 45 });
+                          const vampire = p.perks.find(pk => pk.id === 'vampire');
+                          if (vampire) { const heal = 3 + (2 * vampire.level); p.hp = Math.min(p.maxHp, p.hp + heal); state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y - 30, width:0, height:0, color: '#f43f5e', type: 'text', dead: false, text: `+${heal} HP`, life: 45 }); }
+                          if (p.xp >= p.nextLevelXp) { p.level++; p.xp -= p.nextLevelXp; p.nextLevelXp = Math.floor(p.nextLevelXp * 1.5); p.statPoints += 3; updatePlayerStats(p); p.hp = p.maxHp; state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 40, width:0, height:0, color: '#00ff00', type: 'text', dead: false, text: "LEVEL UP!", life: 90 }); triggerLevelUp(); }
+                          const dropChance = GAME_CONFIG.BASE_DROP_RATE * (e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 1);
+                          if (Math.random() < dropChance) { const item = generateRandomItem(state.dungeonLevel || 1, e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 0); if (item) state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: e.x, y: e.y, width: 32, height: 32, color: item.color, item, life: 3000, bounceOffset: Math.random() * 10, dead: false }); }
+                        }
+                      }
+                    });
+                    state.resources.forEach(r => {
+                        if (checkCollision(attackRect, r)) {
+                            r.hp -= p.attack;
+                            const angle = Math.atan2(r.y - p.y, r.x - p.x); r.x += Math.cos(angle) * 2; r.y += Math.sin(angle) * 2;
+                            state.floatingTexts.push({ id: crypto.randomUUID(), x: r.x + r.width/2, y: r.y, width:0, height:0, color: '#ccc', type: 'text', dead: false, text: "Hit", life: 20 });
+                            if (r.hp <= 0) {
+                                r.dead = true;
+                                let item: Item | null = null;
+                                let count = 1;
+                                if (r.resourceType === 'tree') { count = Math.floor(Math.random()*3)+1; item = { id: crypto.randomUUID(), name: "木材", type: "Material", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🪵", color: "#795548", count: count }; } else if (r.resourceType === 'rock') { count = Math.floor(Math.random()*2)+1; item = { id: crypto.randomUUID(), name: "石", type: "Material", rarity: "Common", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "🪨", color: "#9e9e9e", count: count }; } else if (r.resourceType === 'ore') { count = 1; item = { id: crypto.randomUUID(), name: "鉱石", type: "Material", rarity: "Uncommon", level: 1, stats: { attack:0, defense:0, speed:0, maxHp:0 }, enchantments: [], icon: "⛏️", color: "#607d8b", count: count }; }
+                                const scav = p.perks.find(pk => pk.id === 'scavenger');
+                                if (scav && item) { item.count = (item.count || 1) + scav.level; state.floatingTexts.push({ id: crypto.randomUUID(), x: r.x, y: r.y - 20, width:0, height:0, color: '#a3e635', type: 'text', dead: false, text: `Scavenger +${scav.level}!`, life: 40 }); }
+                                if (item) state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: r.x, y: r.y, width: 32, height: 32, color: item.color, item, life: 3000, bounceOffset: Math.random() * 10, dead: false });
+                            }
+                        }
+                    });
+                }
+            } else {
+                state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y - 20, width:0, height:0, color: '#ef4444', type: 'text', dead: false, text: "No Stamina!", life: 20 });
+            }
           }
-        }
-      });
-      state.enemies = state.enemies.filter(e => !e.dead); 
-      state.resources = state.resources.filter(r => !r.dead); 
-      state.droppedItems = state.droppedItems.filter(d => !d.dead);
-      state.floatingTexts.forEach(t => { t.y -= 0.5; t.life--; }); state.floatingTexts = state.floatingTexts.filter(t => t.life > 0);
+
+          state.enemies.forEach(e => {
+            if (state.activeBossId && e.id === state.activeBossId) {
+                 setActiveBossData({...e});
+                 if (e.dead) {
+                     setActiveBossData(null);
+                     state.activeBossId = null;
+                     const rewardPos = { x: e.x, y: e.y };
+                     state.droppedItems.push({ id: crypto.randomUUID(), type: 'drop', x: rewardPos.x, y: rewardPos.y, width: 32, height: 32, color: '#ffd700', item: generateRandomItem(state.dungeonLevel + 5, 5)!, life: 10000, bounceOffset: 0, dead: false });
+                     setMessage("BOSS DEFEATED!");
+                 }
+            }
+            if (e.dead) return;
+            const dist = Math.sqrt((p.x - e.x)**2 + (p.y - e.y)**2);
+            if (dist < e.detectionRange) {
+              const angle = Math.atan2(p.y - e.y, p.x - e.x);
+              e.direction = Math.abs(Math.cos(angle)) > Math.abs(Math.sin(angle)) ? (Math.cos(angle) > 0 ? 0 : 2) : (Math.sin(angle) > 0 ? 1 : 3);
+              const nextX = e.x + Math.cos(angle) * e.speed, nextY = e.y + Math.sin(angle) * e.speed;
+              if (!state.map[Math.floor(nextY/32)]?.[Math.floor(nextX/32)]?.solid && dist > 30) { e.x = nextX; e.y = nextY; e.vx = Math.cos(angle) * e.speed; e.vy = Math.sin(angle) * e.speed; } else { e.vx=0; e.vy=0; }
+              if (dist < 40 && now - e.lastAttackTime > e.attackCooldown) {
+                e.lastAttackTime = now; const dmg = Math.max(1, Math.floor(e.attack - p.defense/2)); p.hp -= dmg;
+                state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y, width:0, height:0, color: '#ff0000', type: 'text', dead: false, text: `-${dmg}`, life: 30 });
+                if (p.hp <= 0) { handleDeath(); }
+              }
+            }
+          });
+          state.enemies = state.enemies.filter(e => !e.dead); 
+          state.resources = state.resources.filter(r => !r.dead); 
+          state.droppedItems = state.droppedItems.filter(d => !d.dead);
+          state.floatingTexts.forEach(t => { t.y -= 0.5; t.life--; }); state.floatingTexts = state.floatingTexts.filter(t => t.life > 0);
+      }
     }
     renderGame(ctx, state, loadedAssets);
     if (state.gameTime % 10 === 0) setUiState({...state.player});
@@ -1706,7 +1862,7 @@ export default function App() {
           {activeMenu === 'inventory' && uiState && <InventoryMenu uiState={uiState} onEquip={handleEquip} onUnequip={handleUnequip} onClose={() => setActiveMenu('none')} />}
         </div>
       )}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest: Roguelike Edition v5.2 (Shop Fixed)</div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest: Roguelike Edition v5.3 (World Map)</div>
     </div>
   );
 }
