@@ -38,14 +38,22 @@ export default function App() {
         player.y = floorData.entryPos.y;
     }
 
+    // GameStateの型定義に合わせてプロパティを設定
     setGameState({
+      // FloorData由来のプロパティ
+      map: floorData.map,
+      enemies: floorData.enemies,
+      resources: floorData.resources,
+      droppedItems: floorData.droppedItems,
+      biome: floorData.biome, // GameStateの型定義にあるbiome
+      level: floorData.level, // GameStateの型定義にあるlevel
+      lights: floorData.lights,
+      entryPos: floorData.entryPos,
+
+      // GameState固有のプロパティ
       dungeonLevel: 1,
       currentBiome: 'Forest',
-      map: floorData.map,
       player,
-      enemies: floorData.enemies,
-      resources: [],
-      droppedItems: [],
       projectiles: [],
       particles: [],
       floatingTexts: [],
@@ -53,7 +61,6 @@ export default function App() {
       gameTime: 0,
       isPaused: false,
       levelUpOptions: null,
-      lights: [],
       activeShop: null,
       activeBossId: null,
       inWorldMap: false,
@@ -98,10 +105,28 @@ export default function App() {
         if (tile && tile.type === 'stairs_down') {
              const nextLevel = gameState.dungeonLevel + 1;
              const nextFloor = generateFloor(nextLevel, 'Dungeon');
-             gameState.map = nextFloor.map;
-             gameState.enemies = nextFloor.enemies;
-             gameState.dungeonLevel = nextLevel;
-             if(nextFloor.entryPos) { player.x = nextFloor.entryPos.x; player.y = nextFloor.entryPos.y; }
+             
+             // 次の階層へ更新する際もGameStateの型を維持
+             setGameState(prev => {
+                if(!prev) return null;
+                return {
+                    ...prev,
+                    map: nextFloor.map,
+                    enemies: nextFloor.enemies,
+                    resources: nextFloor.resources,
+                    droppedItems: nextFloor.droppedItems,
+                    biome: nextFloor.biome,
+                    level: nextFloor.level,
+                    lights: nextFloor.lights,
+                    entryPos: nextFloor.entryPos,
+                    dungeonLevel: nextLevel,
+                    player: {
+                        ...prev.player,
+                        x: nextFloor.entryPos ? nextFloor.entryPos.x : prev.player.x,
+                        y: nextFloor.entryPos ? nextFloor.entryPos.y : prev.player.y
+                    }
+                };
+             });
         }
       }
 
