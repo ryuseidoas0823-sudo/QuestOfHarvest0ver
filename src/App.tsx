@@ -160,7 +160,7 @@ interface GameState {
  * ############################################################################
  */
 const GAME_CONFIG = {
-  TILE_SIZE: 32, MAP_WIDTH: 40, MAP_HEIGHT: 30, PLAYER_SPEED: 5, ENEMY_SPAWN_RATE: 0.02, BASE_DROP_RATE: 0.2,
+  TILE_SIZE: 32, MAP_WIDTH: 80, MAP_HEIGHT: 60, PLAYER_SPEED: 5, ENEMY_SPAWN_RATE: 0.02, BASE_DROP_RATE: 0.2,
   STAMINA_ATTACK_COST: 15,
   STAMINA_DASH_COST: 1, 
   STAMINA_REGEN: 0.5,
@@ -306,7 +306,6 @@ const createPlayer = (job: Job, gender: Gender): PlayerEntity => {
   };
 };
 
-// ... existing code (generateEnemy, generateFloor, checkCollision, resolveMapCollision) ...
 const generateEnemy = (x: number, y: number, level: number): EnemyEntity => {
   const type = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)];
   const rankRoll = Math.random();
@@ -408,7 +407,7 @@ const generateFloor = (level: number): FloorData => {
   const rooms: {x: number, y: number, w: number, h: number}[] = [];
   const minRoomSize = 6;
   const maxRoomSize = 12;
-  const maxRooms = 8;
+  const maxRooms = 15; // Increased rooms for bigger map
 
   for (let i = 0; i < maxRooms; i++) {
     const w = Math.floor(Math.random() * (maxRoomSize - minRoomSize + 1)) + minRoomSize;
