@@ -242,7 +242,7 @@ const ENEMY_TYPES = [
   { name: 'Giant Ant', hp: 20, atk: 6, spd: 3.0, color: '#3e2723', icon: '🐜', xp: 10, shape: 'insect',   w: 24, h: 20, vw: 32, vh: 24 },
   { name: 'Spider',    hp: 25, atk: 8, spd: 2.5, color: '#263238', icon: '🕷️', xp: 18, shape: 'insect',   w: 28, h: 24, vw: 40, vh: 32 },
   { name: 'Imp',       hp: 25, atk: 9, spd: 3.8, color: '#b71c1c', icon: '😈', xp: 20, shape: 'demon',    w: 20, h: 20, vw: 24, vh: 32 },
-  { name: 'Bat',       hp: 15, atk: 5, spd: 4.5, color: '#4a148c', icon: '🦇', xp: 8,  shape: 'flying',   w: 16, h: 16, vw: 32, vh: 24 },
+  { name: 'Bat',       hp: 15, atk: 5, spd: 4.5, color: '#4a148c', icon: '🦇', xp: 8,  shape: 'flying',   w: 16, h: 16, vw: 24, vh: 24 },
   { name: 'Slime',     hp: 30, atk: 4, spd: 2.0, color: '#76ff03', icon: '💧', xp: 10, shape: 'slime',    w: 24, h: 24, vw: 32, vh: 32 },
   { name: 'Red Jelly', hp: 25, atk: 12,spd: 2.5, color: '#ff1744', icon: '🔥', xp: 18, shape: 'slime',    w: 24, h: 24, vw: 32, vh: 32 },
   { name: 'Bandit',    hp: 40, atk: 8, spd: 3.2, color: '#ff9800', icon: '🗡️', xp: 22, shape: 'humanoid', w: 24, h: 24, vw: 32, vh: 48 },
@@ -362,7 +362,7 @@ const generateEnemy = (x: number, y: number, level: number): EnemyEntity => {
     visualHeight: type.vh! * (rank === 'Boss' ? 1.5 : 1), 
     color, shape: type.shape as ShapeType,
     hp: Math.floor(type.hp * scale), maxHp: Math.floor(type.hp * scale), attack: Math.floor(type.atk * scale), defense: Math.floor(level * 2), speed: type.spd,
-    level, direction: 1, dead: false, lastAttackTime: 0, attackCooldown: 1000 + Math.random() * 500, detectionRange: 350, xpValue: Math.floor(type.xp * scale * (rank === 'Boss' ? 5 : rank === 'Elite' ? 2 : 1))
+    level, direction: 1, dead: false, lastAttackTime: 0, attackCooldown: 1000 + Math.random() * 500, detectionRange: 350, xpValue: Math.floor(type.xp * scale * (rank === 'Elite' ? 2 : 1))
   };
 };
 
@@ -570,13 +570,16 @@ const generateFloor = (level: number, locationId?: string): FloorData => {
       lights.push({ x: portalPos.x * 32 + 16, y: portalPos.y * 32 + 16, radius: 120, flicker: true, color: '#00e676' });
   }
 
+  // Spawn Enemies with Safe Zone check
   const enemyCount = 5 + Math.floor(level * 0.5);
   let spawnedCount = 0;
   let attempts = 0;
   while (spawnedCount < enemyCount && attempts < 100) {
     attempts++;
     const pos = getRandomFloorTile();
+    // Safe Zone Check: Don't spawn within 8 tiles of entry
     if (Math.abs(pos.x - entryTile.x) + Math.abs(pos.y - entryTile.y) < 8) continue;
+    
     enemies.push(generateEnemy(pos.x * GAME_CONFIG.TILE_SIZE, pos.y * GAME_CONFIG.TILE_SIZE, level));
     spawnedCount++;
   }
@@ -1007,7 +1010,7 @@ const GameHUD = ({ uiState, dungeonLevel, toggleMenu, activeShop, bossData }: an
     )}
 
     <div className="absolute top-4 right-20 flex gap-4 text-white pointer-events-none">
-       <div className="bg-slate-900/80 px-4 py-2 rounded border border-slate-700 flex items-center gap-2"><Compass size={16} className="text-yellow-500" /><span className="font-mono font-bold text-lg">{dungeonLevel === 0 ? "Town" : `Floor B${dungeonLevel}`}</span></div>
+       <div className="bg-slate-900/80 px-4 py-2 rounded border border-slate-700 flex items-center gap-2"><Compass size={16} className="text-yellow-500" /><span className="font-mono font-bold text-lg">{dungeonLevel === 0 ? "Town of Beginnings" : `Floor B${dungeonLevel}`}</span></div>
     </div>
     <div className="absolute top-4 left-4 flex gap-4 pointer-events-none">
       <div className="bg-slate-900/90 border border-slate-700 p-3 rounded text-white w-64 shadow-lg pointer-events-auto">
