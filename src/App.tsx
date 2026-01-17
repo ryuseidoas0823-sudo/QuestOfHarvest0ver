@@ -1,80 +1,3 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  Zap, Shield, Sword, Heart, Star, LayoutGrid, 
-  ShoppingBag, Hammer, Coins, X, Compass, User, Settings, Skull,
-  Play, Save, Monitor, ArrowLeft, Activity, Clock, Book, Wind, Droplets
-} from 'lucide-react';
-
-// ==========================================
-// FILE: src/types.ts
-// ==========================================
-
-export type TileType = 'grass' | 'dirt' | 'wall' | 'water' | 'floor' | 'portal_out' | 'town_entrance' | 'sand' | 'snow' | 'rock' | 'stairs_down' | 'dungeon_entrance' | 'return_portal' | 'town_floor' | 'world_grass' | 'world_forest' | 'world_mountain' | 'world_water' | 'world_town' | 'world_dungeon';
-export type EntityType = 'player' | 'enemy' | 'npc' | 'projectile' | 'particle' | 'text' | 'drop' | 'resource';
-export type Job = 'Swordsman' | 'Warrior' | 'Archer' | 'Mage';
-export type Gender = 'Male' | 'Female';
-export type ShapeType = 'humanoid' | 'beast' | 'slime' | 'large' | 'insect' | 'ghost' | 'demon' | 'dragon' | 'flying';
-export type Biome = 'Plains' | 'Forest' | 'Desert' | 'Snow' | 'Wasteland' | 'Town' | 'Dungeon';
-export type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary';
-export type EquipmentType = 'Weapon' | 'Helm' | 'Armor' | 'Shield' | 'Boots' | 'Consumable' | 'Material';
-export type WeaponStyle = 'OneHanded' | 'TwoHanded' | 'DualWield';
-export type WeaponClass = 'Sword' | 'Axe' | 'Bow' | 'Staff' | 'Wand';
-export type MenuType = 'none' | 'status' | 'inventory' | 'stats' | 'level_up' | 'crafting' | 'shop'; 
-export type ResolutionMode = 'auto' | '800x600' | '1024x768' | '1280x720';
-export type EnchantType = 'Attack' | 'Defense' | 'Speed' | 'MaxHp' | 'Fire' | 'Ice' | 'Paralysis' | 'Range';
-
-export interface Enchantment { type: EnchantType; value: number; strength: 'Weak' | 'Medium' | 'Strong'; name: string; }
-export interface Tile { x: number; y: number; type: TileType; solid: boolean; }
-export interface Item { id: string; name: string; type: EquipmentType; subType?: WeaponStyle; weaponClass?: WeaponClass; rarity: Rarity; level: number; stats: { attack: number; defense: number; speed: number; maxHp: number; }; enchantments: Enchantment[]; icon: string; color: string; count?: number; }
-export interface Entity { id: string; x: number; y: number; width: number; height: number; visualWidth?: number; visualHeight?: number; color: string; type: EntityType; dead: boolean; vx?: number; vy?: number; }
-export interface DroppedItem extends Entity { type: 'drop'; item: Item; life: number; bounceOffset: number; }
-export interface CombatEntity extends Entity { hp: number; maxHp: number; level: number; attack: number; defense: number; speed: number; lastAttackTime: number; attackCooldown: number; isAttacking?: boolean; direction: number; shape?: ShapeType; }
-export interface Attributes { vitality: number; strength: number; dexterity: number; intelligence: number; endurance: number; }
-export interface ResourceEntity extends Entity { type: 'resource'; resourceType: 'tree' | 'rock' | 'ore'; hp: number; maxHp: number; }
-export interface LightSource { x: number; y: number; radius: number; flicker: boolean; color: string; }
-export interface StatusEffect { type: 'burn' | 'freeze' | 'paralysis'; duration: number; power: number; }
-
-export interface EnemyEntity extends CombatEntity { 
-  targetId?: string; detectionRange: number; race: string; xpValue: number; rank: 'Normal' | 'Elite' | 'Boss'; statusEffects: StatusEffect[]; 
-}
-
-export interface Particle extends Entity { life: number; maxLife: number; size: number; }
-export interface FloatingText extends Entity { text: string; life: number; color: string; }
-export interface Projectile extends Entity { damage: number; ownerId: string; life: number; color: string; }
-
-export interface FloorData { 
-  map: Tile[][]; enemies: EnemyEntity[]; resources: ResourceEntity[]; droppedItems: DroppedItem[]; biome: Biome; level: number; lights: LightSource[]; 
-  shopZones?: {x:number, y:number, w:number, h:number, type:'blacksmith'|'general'}[]; bossId?: string | null; entryPos?: {x:number, y:number}; 
-}
-
-export interface WorldLocation { id: string; name: string; type: 'Town' | 'Dungeon'; x: number; y: number; icon: string; color: string; biome: Biome; difficulty: number; }
-
-export interface PerkData { id: string; name: string; desc: string; rarity: 'Common' | 'Uncommon' | 'Rare' | 'Legendary'; icon: any; color: string; }
-
-export interface PlayerEntity extends CombatEntity { 
-  job: Job; gender: Gender; xp: number; nextLevelXp: number; gold: number; maxMp: number; mp: number; statPoints: number; 
-  attributes: Attributes; 
-  inventory: Item[]; 
-  equipment: { mainHand?: Item; offHand?: Item; helm?: Item; armor?: Item; boots?: Item; }; 
-  calculatedStats: { maxHp: number; maxMp: number; attack: number; defense: number; speed: number; maxStamina: number; staminaRegen: number; attackCooldown: number; };
-  perks: { id: string; level: number }[]; 
-  stamina: number; lastStaminaUse: number;
-}
-
-export interface GameState { 
-  dungeonLevel: number; currentBiome: Biome; map: Tile[][]; player: PlayerEntity; 
-  enemies: EnemyEntity[]; resources: ResourceEntity[]; droppedItems: DroppedItem[]; projectiles: Projectile[]; particles: Particle[]; floatingTexts: FloatingText[]; 
-  camera: { x: number; y: number }; gameTime: number; isPaused: boolean; 
-  levelUpOptions: PerkData[] | null; lights: LightSource[]; 
-  shopZones?: {x:number, y:number, w:number, h:number, type:'blacksmith'|'general'}[]; 
-  activeShop: 'blacksmith' | 'general' | null; activeBossId: string | null;
-  inWorldMap: boolean; worldPlayerPos: { x: number, y: number }; currentLocationId: string;
-}
-
-// ==========================================
-// FILE: src/constants.ts
-// ==========================================
-
 export const GAME_CONFIG = {
   TILE_SIZE: 32, MAP_WIDTH: 80, MAP_HEIGHT: 60, PLAYER_SPEED: 5, ENEMY_SPAWN_RATE: 0.02, BASE_DROP_RATE: 0.2,
   STAMINA_ATTACK_COST: 15, STAMINA_DASH_COST: 1, STAMINA_REGEN: 0.5, PROJECTILE_SPEED: 8, 
@@ -88,5 +11,26 @@ export const THEME = {
   }
 };
 
+export const RARITY_MULTIPLIERS = { Common: 1, Uncommon: 1.5, Rare: 2, Epic: 3, Legendary: 5 };
+export const ENCHANT_SLOTS = { Common: 0, Uncommon: 1, Rare: 2, Epic: 3, Legendary: 4 };
+
+export const ITEM_BASE_NAMES: Record<string, string[]> = {
+    Weapon: ['Sword', 'Axe', 'Spear', 'Dagger'],
+    Helm: ['Helmet', 'Cap', 'Coif'],
+    Armor: ['Plate', 'Tunic', 'Robe'],
+    Shield: ['Buckler', 'Shield', 'Greatshield'],
+    Boots: ['Boots', 'Greaves', 'Sandals'],
+    Material: ['Ore', 'Wood', 'Herb'],
+    Consumable: ['Potion', 'Food']
+};
+
+export const ICONS: Record<string, string> = {
+    Weapon: '⚔️', Helm: '🪖', Armor: '👕', Shield: '🛡️', Boots: '👢', Material: '📦', Consumable: '🧪'
+};
+
 export const ASSETS_SVG: Record<string, string> = {
-  Slime: `<svg viewBox="0 0 16 16" xmlns="
+  Slime: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" /><path d="M6 14h4v-1h3v-2h1v-5h-1v-1h-1v-1h-2v-1h-4v1h-2v1h-1v1h-1v5h1v2h3z" fill="#4caf50" /><path d="M7 8h1v2h-1zM11 8h-1v2h1z" fill="#000" /></svg>`,
+  Ghost: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M5 2h6v1h2v2h1v8l-2-1-2 1-2 1-2 1-2 1-1-8h1v-2h1z" fill="#e0e0e0" /><path d="M6 5h1v2h-1zM9 5h1v2h-1z" fill="#000" /></svg>`,
+  Demon: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M3 4l2-2v2h6v-2l2 2v2h1v6h-2v2h-8v-2h-2v-6h1z" fill="#d32f2f" /><path d="M5 7h2v1h2v-1h2v2h-6z" fill="#000" /><path d="M4 2l1 2h-2zM12 2l-1 2h2z" fill="#fff" /></svg>`,
+  Dragon: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M2 8l4-4h4l4 4v4l-2 2h-8l-2-2z" fill="#4a148c" /><path d="M5 9h2v1h-2zM9 9h2v1h-2z" fill="#ffeb3b" /></svg>`
+};
