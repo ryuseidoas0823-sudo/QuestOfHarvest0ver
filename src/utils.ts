@@ -2,17 +2,14 @@ import { GAME_CONFIG, THEME, RARITY_MULTIPLIERS, ITEM_BASE_NAMES, ICONS } from '
 import { JOB_DATA, ENEMY_TYPES } from './data';
 import { Item, Rarity, EquipmentType, WeaponStyle, WeaponClass, PlayerEntity, Job, Gender, EnemyEntity, FloorData, Tile, Biome, Entity, GameState } from './types';
 
-// SVG変換
 export const svgToUrl = (s: string) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(s.trim());
 
-// 矩形衝突判定
 export const checkCollision = (rect1: Entity, rect2: Entity) => 
   rect1.x < rect2.x + rect2.width && 
   rect1.x + rect1.width > rect2.x && 
   rect1.y < rect2.y + rect2.height && 
   rect1.y + rect1.height > rect2.y;
 
-// マップ衝突解決
 export const resolveMapCollision = (entity: Entity, dx: number, dy: number, map: Tile[][]): {x: number, y: number} => {
   const T = GAME_CONFIG.TILE_SIZE;
   const nextX = entity.x + dx;
@@ -41,7 +38,6 @@ export const resolveMapCollision = (entity: Entity, dx: number, dy: number, map:
   return { x: nextX, y: nextY };
 };
 
-// ランダムなアイテム生成
 export const generateRandomItem = (level: number, forceRarity?: Rarity): Item => {
   const rarities: Rarity[] = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'];
   let rarityIndex = 0;
@@ -65,6 +61,7 @@ export const generateRandomItem = (level: number, forceRarity?: Rarity): Item =>
   let weaponClass: WeaponClass | undefined;
   
   if (type === 'Weapon') {
+      // 型安全なアクセス：WeaponStyleとしてキーを取得
       const wTypes = Object.keys(ITEM_BASE_NAMES.Weapon) as WeaponStyle[];
       const wType = wTypes[Math.floor(Math.random() * wTypes.length)];
       const names = ITEM_BASE_NAMES.Weapon[wType] || ['Weapon'];
@@ -99,7 +96,6 @@ export const generateRandomItem = (level: number, forceRarity?: Rarity): Item =>
   };
 };
 
-// プレイヤーステータスの再計算
 export const updatePlayerStats = (player: PlayerEntity): PlayerEntity => {
   const base = JOB_DATA[player.job].attributes;
   let addAtk = 0, addDef = 0, addSpd = 0, addHp = 0;
