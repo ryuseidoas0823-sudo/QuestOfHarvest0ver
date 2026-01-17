@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Quest of Harvest</title>
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -34,19 +33,9 @@
       }
     </script>
     <style>
-      /* カスタムフォントや追加のスタイルがあればここに */
-      body {
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      }
-      /* ピクセルアート用のスタイル */
-      .pixel-art {
-        image-rendering: pixelated;
-      }
-      /* 強めのテキストシャドウ */
-      .text-shadow-strong {
-        text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
-      }
-      /* 背景の霧アニメーション */
+      body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #000; margin: 0; padding: 0; }
+      .pixel-art { image-rendering: pixelated; }
+      .text-shadow-strong { text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
       @keyframes mist {
         0% { background-position: 0% 50%; }
         50% { background-position: 100% 50%; }
@@ -59,7 +48,7 @@
       }
     </style>
   </head>
-  <body style="margin: 0; padding: 0; background-color: #000;">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
