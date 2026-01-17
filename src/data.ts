@@ -1,5 +1,6 @@
 import { Job, Attributes, EnemyEntity, PerkData } from './types';
 
+// エラー修正：Attributesの型定義変更(luck追加)に合わせてデータを更新
 export const JOB_DATA: Record<Job, { attributes: Attributes, color: string }> = {
   Warrior: {
     attributes: { strength: 8, dexterity: 4, intelligence: 2, vitality: 8, endurance: 6, luck: 2 },
@@ -19,6 +20,7 @@ export const JOB_DATA: Record<Job, { attributes: Attributes, color: string }> = 
   }
 };
 
+// エラー修正：PerkDataの型定義変更(description追加)に合わせてデータを更新
 export const PERK_DEFINITIONS: PerkData[] = [
   { id: 'berserker', name: 'Berserker', description: 'Increases attack damage.', level: 1, maxLevel: 5 },
   { id: 'stone_skin', name: 'Stone Skin', description: 'Increases defense.', level: 1, maxLevel: 5 },
