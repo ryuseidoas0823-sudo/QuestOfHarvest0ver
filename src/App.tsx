@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Zap, Heart, Activity, Monitor, Droplets, Wind, Hammer, Coins, Shield, Clock, Star, Book, Skull } from 'lucide-react';
+import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft, AlertTriangle, Sword, Zap, Heart, Activity, Monitor, ArrowDownCircle, Droplets, Wind, Hammer, Coins, Shield, Clock, Star, Book, Skull } from 'lucide-react';
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken, Auth } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore';
@@ -306,6 +306,7 @@ const createPlayer = (job: Job, gender: Gender): PlayerEntity => {
   };
 };
 
+// ... existing code (generateEnemy, generateFloor, checkCollision, resolveMapCollision) ...
 const generateEnemy = (x: number, y: number, level: number): EnemyEntity => {
   const type = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)];
   const rankRoll = Math.random();
@@ -832,7 +833,7 @@ const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setResoluti
           </div>
         )}
       </div>
-      <div className="absolute bottom-8 text-xs text-slate-500 font-mono tracking-wider opacity-60">WASD: MOVE • SHIFT: DASH • SPACE: ATTACK • F: ACTION</div>
+      <div className="absolute bottom-8 text-xs text-slate-500 font-mono tracking-wider opacity-60">WASD: MOVE • SHIFT: DASH • SPACE: ATTACK • Q: POTION • F: ACTION</div>
     </div>
   );
 };
@@ -1112,6 +1113,7 @@ export default function App() {
           if (e.key.toLowerCase() === 'i') setActiveMenu(prev => prev === 'inventory' ? 'none' : 'inventory');
           if (e.key.toLowerCase() === 'c') setActiveMenu(prev => prev === 'stats' ? 'none' : 'stats');
           if (e.key.toLowerCase() === 'f') interactAction();
+          if (e.key.toLowerCase() === 'q') usePotion();
       }
       input.current.keys[e.key.toLowerCase()] = true;
       if (e.key === 'Escape') setActiveMenu('none');
@@ -1153,10 +1155,38 @@ export default function App() {
       
       let starterWeapon = generateRandomItem(1);
       if (starterWeapon) {
-          if (job === 'Swordsman') { starterWeapon.name = "訓練用の剣"; starterWeapon.weaponClass = 'Sword'; starterWeapon.icon = ICONS.Weapon.OneHanded; }
-          else if (job === 'Warrior') { starterWeapon.name = "錆びた斧"; starterWeapon.weaponClass = 'Axe'; starterWeapon.icon = ICONS.Weapon.TwoHanded; }
-          else if (job === 'Archer') { starterWeapon.name = "練習用の弓"; starterWeapon.weaponClass = 'Bow'; starterWeapon.icon = ICONS.Weapon.Bow; }
-          else if (job === 'Mage') { starterWeapon.name = "古い杖"; starterWeapon.weaponClass = 'Staff'; starterWeapon.icon = ICONS.Weapon.Staff; }
+          starterWeapon.type = 'Weapon'; // Force Weapon type
+          starterWeapon.stats = { attack: 5, defense: 0, speed: 0, maxHp: 0 }; // Basic stats
+
+          if (job === 'Swordsman') { 
+              starterWeapon.name = "訓練用の剣"; 
+              starterWeapon.weaponClass = 'Sword'; 
+              starterWeapon.subType = 'OneHanded'; 
+              starterWeapon.icon = ICONS.Weapon.OneHanded; 
+          }
+          else if (job === 'Warrior') { 
+              starterWeapon.name = "錆びた斧"; 
+              starterWeapon.weaponClass = 'Axe'; 
+              starterWeapon.subType = 'TwoHanded'; 
+              starterWeapon.icon = ICONS.Weapon.TwoHanded; 
+              starterWeapon.stats.attack = 8;
+              starterWeapon.stats.speed = -1;
+          }
+          else if (job === 'Archer') { 
+              starterWeapon.name = "練習用の弓"; 
+              starterWeapon.weaponClass = 'Bow'; 
+              starterWeapon.subType = 'TwoHanded'; 
+              starterWeapon.icon = ICONS.Weapon.Bow; 
+              starterWeapon.stats.attack = 4;
+              starterWeapon.stats.speed = 1;
+          }
+          else if (job === 'Mage') { 
+              starterWeapon.name = "古い杖"; 
+              starterWeapon.weaponClass = 'Staff'; 
+              starterWeapon.subType = 'TwoHanded'; 
+              starterWeapon.icon = ICONS.Weapon.Staff; 
+              starterWeapon.stats.attack = 3;
+          }
           player.inventory.push(starterWeapon);
       }
     }
@@ -1252,16 +1282,7 @@ export default function App() {
       const p = gameState.current.player;
       const torchIndex = p.inventory.findIndex(i => i.name === "松明");
       if (torchIndex === -1) {
-          const potionIndex = p.inventory.findIndex(i => i.name === "ポーション");
-          if (potionIndex !== -1) {
-              const potion = p.inventory[potionIndex];
-              if (potion.count && potion.count > 1) potion.count--; else p.inventory.splice(potionIndex, 1);
-              p.hp = Math.min(p.maxHp, p.hp + 50);
-              setMessage("ポーションを使用しました (+50 HP)");
-              setTimeout(() => setMessage(null), 1500);
-              return;
-          }
-          setMessage("使用できるアイテムがありません");
+          setMessage("松明を持っていません");
           setTimeout(() => setMessage(null), 1500);
           return;
       }
@@ -1278,6 +1299,28 @@ export default function App() {
       });
       setMessage("松明を設置しました");
       setTimeout(() => setMessage(null), 1500);
+  };
+
+  const usePotion = () => {
+      if (!gameState.current || gameState.current.isPaused) return;
+      const p = gameState.current.player;
+      const potionIndex = p.inventory.findIndex(i => i.name === "ポーション");
+      
+      if (potionIndex === -1) {
+          setMessage("ポーションを持っていません！");
+          setTimeout(() => setMessage(null), 1500);
+          return;
+      }
+
+      const potion = p.inventory[potionIndex];
+      if (potion.count && potion.count > 1) potion.count--; else p.inventory.splice(potionIndex, 1);
+      
+      const healAmount = Math.floor(p.maxHp * 0.3);
+      p.hp = Math.min(p.maxHp, p.hp + healAmount);
+      
+      setMessage(`ポーションを使用しました (+${healAmount} HP)`);
+      setTimeout(() => setMessage(null), 1500);
+      setUiState({...p});
   };
 
   const handleShopBuy = (itemKey: string) => {
