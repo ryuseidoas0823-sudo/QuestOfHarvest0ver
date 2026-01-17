@@ -3,7 +3,7 @@ import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft,
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken, Auth } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore';
-import { ASSETS_SVG, svgToUrl } from './assets';
+import { ASSETS_SVG, svgToUrl } from './assets.ts';
 
 /**
  * ############################################################################
@@ -867,40 +867,16 @@ export default function App() {
     setScreen('game');
   };
 
-  // Switch Location Function
-  const switchLocation = (newLocationId: string) => {
+  const switchChunk = (dx: number, dy: number) => {
     if (!gameState.current) return;
     const state = gameState.current;
-
-    // Save current state if needed (simplified for now)
-    if (state.locationId === 'world') {
-      state.lastWorldPos = { x: state.player.x, y: state.player.y };
-    }
-
-    // Generate new map
-    const newChunk = getMapData(newLocationId);
-    state.map = newChunk.map;
-    state.enemies = newChunk.enemies;
-    state.droppedItems = newChunk.droppedItems;
-    state.currentBiome = newChunk.biome;
-    state.locationId = newChunk.locationId;
-    state.projectiles = [];
-
-    // Set Player Position
-    if (newLocationId === 'world' && state.lastWorldPos) {
-       state.player.x = state.lastWorldPos.x;
-       state.player.y = state.lastWorldPos.y + 32; // Offset slightly to avoid instant re-entry
-    } else {
-       // Default entrance position (e.g., center bottom for town)
-       state.player.x = (newChunk.map[0].length * 32) / 2;
-       state.player.y = (newChunk.map.length * 32) - 64;
-    }
-
+    state.savedChunks[`${state.worldX},${state.worldY}`] = { map: state.map, enemies: state.enemies, droppedItems: state.droppedItems, biome: state.currentBiome };
+    state.worldX += dx; state.worldY += dy;
+    const nextChunk = state.savedChunks[`${state.worldX},${state.worldY}`] || generateChunk(state.worldX, state.worldY);
+    state.map = nextChunk.map; state.enemies = nextChunk.enemies; state.droppedItems = nextChunk.droppedItems; state.currentBiome = nextChunk.biome; state.projectiles = [];
     setWorldInfo({x: state.worldX, y: state.worldY, biome: state.currentBiome});
-    setMessage(`${BIOME_NAMES[state.currentBiome] || state.currentBiome} に移動しました`); 
-    setTimeout(() => setMessage(null), 2000);
+    setMessage(`エリア移動：${BIOME_NAMES[state.currentBiome] || state.currentBiome}`); setTimeout(() => setMessage(null), 2000);
   };
-
 
   // --- Game Loop ---
   const gameLoop = () => {
