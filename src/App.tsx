@@ -3,7 +3,7 @@ import { Save, Play, ShoppingBag, X, User, Compass, Loader, Settings, ArrowLeft,
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, User as FirebaseUser, signInWithCustomToken, Auth } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore';
-import { ASSETS_SVG, svgToUrl } from './assets.js';
+import { ASSETS_SVG, svgToUrl } from './assets';
 
 /**
  * ############################################################################
