@@ -611,6 +611,20 @@ const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Rec
     }
   }
 
+  // Shop Zones Rendering (Visual indicators)
+  if (state.dungeonLevel === 0 && state.shopZones) {
+      state.shopZones.forEach(z => {
+          ctx.fillStyle = 'rgba(255, 255, 0, 0.2)'; 
+          ctx.fillRect(z.x, z.y, z.w, z.h);
+          ctx.font = 'bold 14px Arial';
+          ctx.fillStyle = '#fff';
+          ctx.textAlign = 'center';
+          ctx.fillText(z.type === 'general' ? 'General Store' : 'Blacksmith', z.x + z.w/2, z.y + z.h/2);
+          ctx.font = '24px Arial';
+          ctx.fillText(z.type === 'general' ? '🎒' : '🔨', z.x + z.w/2, z.y + z.h/2 - 20);
+      });
+  }
+
   // Layer 2: Entities
   state.droppedItems.forEach(drop => {
     const bob = Math.sin(state.gameTime / 10) * 5 + drop.bounceOffset;
@@ -1131,8 +1145,15 @@ export default function App() {
       }
     }
     const floorData = generateFloor(dungeonLevel);
-    player.x = (GAME_CONFIG.MAP_WIDTH * GAME_CONFIG.TILE_SIZE) / 2;
-    player.y = (GAME_CONFIG.MAP_HEIGHT * GAME_CONFIG.TILE_SIZE) / 2;
+    
+    // Spawn fix for Town (Level 0) - Spawn below dungeon entrance to avoid instant travel
+    if (dungeonLevel === 0) {
+        player.x = (GAME_CONFIG.MAP_WIDTH * GAME_CONFIG.TILE_SIZE) / 2;
+        player.y = (GAME_CONFIG.MAP_HEIGHT * GAME_CONFIG.TILE_SIZE) / 2 + 64; 
+    } else {
+        player.x = (GAME_CONFIG.MAP_WIDTH * GAME_CONFIG.TILE_SIZE) / 2;
+        player.y = (GAME_CONFIG.MAP_HEIGHT * GAME_CONFIG.TILE_SIZE) / 2;
+    }
 
     gameState.current = {
       dungeonLevel,
@@ -1148,7 +1169,7 @@ export default function App() {
       lights: floorData.lights,
       shopZones: floorData.shopZones,
       activeShop: null,
-      activeBossId: floorData.bossId || null // Phase 5: Initialize boss
+      activeBossId: floorData.bossId || null 
     };
     setDungeonLevel(dungeonLevel);
     setScreen('game');
@@ -1166,14 +1187,14 @@ export default function App() {
     state.droppedItems = floorData.droppedItems;
     state.lights = floorData.lights; 
     state.shopZones = floorData.shopZones;
-    state.activeBossId = floorData.bossId || null; // Phase 5: Update boss
+    state.activeBossId = floorData.bossId || null; 
     state.projectiles = [];
     state.particles = [];
-    setActiveBossData(null); // Reset boss HUD data
+    setActiveBossData(null); 
     
     if (newLevel === 0) {
       state.player.x = (GAME_CONFIG.MAP_WIDTH * GAME_CONFIG.TILE_SIZE) / 2;
-      state.player.y = (GAME_CONFIG.MAP_HEIGHT * GAME_CONFIG.TILE_SIZE) / 2;
+      state.player.y = (GAME_CONFIG.MAP_HEIGHT * GAME_CONFIG.TILE_SIZE) / 2 + 64; // Offset spawn in town
       setMessage("街に戻りました。");
     } else {
       let px, py;
@@ -1743,7 +1764,7 @@ export default function App() {
           {activeMenu === 'inventory' && uiState && <InventoryMenu uiState={uiState} onEquip={handleEquip} onUnequip={handleUnequip} onClose={() => setActiveMenu('none')} />}
         </div>
       )}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest: Roguelike Edition v5.0 (Boss)</div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest: Roguelike Edition v5.1 (Town Fixed)</div>
     </div>
   );
 }
