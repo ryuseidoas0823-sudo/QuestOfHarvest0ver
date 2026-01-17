@@ -1,162 +1,146 @@
 import React from 'react';
-import { ShoppingBag, Hammer, Coins, X, Compass, Skull, User, Settings } from 'lucide-react';
-import { Item, PERK_DEFINITIONS, GAME_CONFIG, ASSETS_SVG } from '../types'; // Adjust based on your structure
-import { svgToUrl } from '../utils';
+import { PlayerEntity, Item } from '../types';
+import { PERK_DEFINITIONS } from '../data';
+import { GAME_CONFIG } from '../constants';
 
-// ※注意: 実際のファイル構造に合わせて import { ... } from '../types'; や '../utils' を確認してください
-// 今回の出力では、App.tsxと同じディレクトリ構造を想定しつつ、標準的な imports を記述します
+interface GameHUDProps {
+  uiState: PlayerEntity;
+  dungeonLevel: number;
+  toggleMenu: (menu: 'inventory' | 'shop' | 'status') => void;
+  activeShop: any;
+}
 
-export const ShopMenu = ({ type, player, onClose, onBuy, onCraft }: any) => {
-    return (
-        <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-50 p-8">
-            <div className="bg-slate-800 border-2 border-slate-600 rounded-xl p-8 w-full max-w-2xl shadow-2xl relative">
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white"><X size={24}/></button>
-                <h2 className="text-3xl font-bold text-yellow-500 mb-6 flex items-center gap-3">
-                    {type === 'general' ? <ShoppingBag size={32}/> : <Hammer size={32}/>}
-                    {type === 'general' ? 'General Store' : 'Blacksmith Forge'}
-                </h2>
-                {type === 'general' ? (
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-slate-700 p-4 rounded flex justify-between items-center">
-                            <div className="flex items-center gap-3"><div className="text-2xl">🔥</div><div><div className="font-bold text-white">松明 (Torch)</div><div className="text-xs text-slate-400">暗闇を照らす</div></div></div>
-                            <button onClick={() => onBuy('torch')} className="bg-yellow-600 hover:bg-yellow-500 px-4 py-2 rounded text-white font-bold flex items-center gap-1">50 <span className="text-xs">G</span></button>
-                        </div>
-                        <div className="bg-slate-700 p-4 rounded flex justify-between items-center">
-                            <div className="flex items-center gap-3"><div className="text-2xl">🧪</div><div><div className="font-bold text-white">ポーション</div><div className="text-xs text-slate-400">HP 50回復</div></div></div>
-                            <button onClick={() => onBuy('potion')} className="bg-yellow-600 hover:bg-yellow-500 px-4 py-2 rounded text-white font-bold flex items-center gap-1">100 <span className="text-xs">G</span></button>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        <p className="text-slate-400 mb-4">素材とゴールドを使って、新しい装備を作成します。</p>
-                        <div className="bg-slate-700 p-4 rounded flex justify-between items-center">
-                            <div><div className="font-bold text-white text-lg">ランダム装備作成</div><div className="text-xs text-slate-400">必要: 木材x2, 石x2, 200G</div></div>
-                            <button onClick={onCraft} className="bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded text-white font-bold uppercase tracking-wider">CRAFT</button>
-                        </div>
-                    </div>
-                )}
-                <div className="mt-8 pt-4 border-t border-slate-600 flex justify-between text-slate-300">
-                    <div className="flex items-center gap-2"><Coins size={16} className="text-yellow-500"/> {player.gold} G</div>
-                    <div className="flex gap-4">
-                        <span className="flex items-center gap-1">🪵 {player.inventory.find((i:Item)=>i.name==='木材')?.count || 0}</span>
-                        <span className="flex items-center gap-1">🪨 {player.inventory.find((i:Item)=>i.name==='石')?.count || 0}</span>
-                        <span className="flex items-center gap-1">⛏️ {player.inventory.find((i:Item)=>i.name==='鉱石')?.count || 0}</span>
-                    </div>
-                </div>
-            </div>
+export const GameHUD: React.FC<GameHUDProps> = ({ uiState, dungeonLevel, toggleMenu, activeShop }) => {
+  return (
+    <div className="absolute inset-0 pointer-events-none">
+      <div className="absolute top-2 left-2 flex gap-4 p-2 bg-black/50 rounded pointer-events-auto text-white">
+        <div className="flex flex-col">
+          <div className="text-xl font-bold">{uiState.job} Lv.{uiState.level}</div>
+          <div className="text-sm text-gray-300">Floor B{dungeonLevel}</div>
         </div>
-    );
+        
+        <div className="flex flex-col w-48 gap-1">
+          <div className="relative h-4 bg-gray-700 rounded overflow-hidden">
+            <div 
+              className="absolute top-0 left-0 h-full bg-red-600 transition-all duration-300"
+              style={{ width: `${(uiState.hp / uiState.calculatedStats.maxHp) * 100}%` }}
+            />
+            <span className="absolute inset-0 flex items-center justify-center text-xs font-bold shadow-black drop-shadow-md">
+              HP {Math.floor(uiState.hp)}/{uiState.calculatedStats.maxHp}
+            </span>
+          </div>
+
+          <div className="relative h-4 bg-gray-700 rounded overflow-hidden">
+             <div 
+               className="absolute top-0 left-0 h-full bg-blue-600 transition-all duration-300"
+               style={{ width: `${(uiState.mp / uiState.calculatedStats.maxMp) * 100}%` }}
+             />
+             <span className="absolute inset-0 flex items-center justify-center text-xs font-bold shadow-black drop-shadow-md">
+               MP {Math.floor(uiState.mp)}/{uiState.calculatedStats.maxMp}
+             </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="absolute bottom-4 right-4 flex gap-2 pointer-events-auto">
+        <button onClick={() => toggleMenu('inventory')} className="px-4 py-2 bg-gray-800 text-white border border-gray-600 rounded hover:bg-gray-700">
+          Inventory (I)
+        </button>
+        {activeShop && (
+          <button onClick={() => toggleMenu('shop')} className="px-4 py-2 bg-yellow-800 text-white border border-yellow-600 rounded hover:bg-yellow-700">
+            Shop
+          </button>
+        )}
+      </div>
+
+      {/* Debug Info */}
+      <div className="absolute top-2 right-2 text-xs text-gray-500 font-mono">
+         SPEED: {uiState.calculatedStats.speed.toFixed(1)} / TILE: {GAME_CONFIG.TILE_SIZE}
+      </div>
+    </div>
+  );
 };
 
-export const GameHUD = ({ uiState, dungeonLevel, toggleMenu, activeShop, bossData }: any) => {
-  // App.tsx から渡される PERK_DEFINITIONS を使用するか、importする必要がありますが
-  // ここでは props で受け取るか、data.ts から import してください。
-  // 今回は簡易的にアイコン表示のみとします。
-  
+interface InventoryMenuProps {
+  uiState: PlayerEntity;
+  onClose: () => void;
+  onEquip: (item: Item) => void;
+  onUnequip: (slot: string) => void;
+}
+
+export const InventoryMenu: React.FC<InventoryMenuProps> = ({ uiState, onClose, onEquip, onUnequip }) => {
   return (
-  <>
-    {bossData && !bossData.dead && (
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 w-[600px] z-50 pointer-events-none">
-          <div className="flex justify-between text-red-500 font-bold mb-1 items-center">
-              <span className="flex items-center gap-2 text-xl filter drop-shadow-md"><Skull size={24}/> {bossData.race}</span>
-              <span className="text-sm">{bossData.hp}/{bossData.maxHp}</span>
-          </div>
-          <div className="h-6 bg-slate-900/80 border-2 border-red-900 rounded overflow-hidden relative shadow-[0_0_20px_rgba(220,38,38,0.5)]">
-              <div className="h-full bg-gradient-to-r from-red-900 via-red-600 to-red-500 transition-all duration-300" style={{ width: `${(bossData.hp/bossData.maxHp)*100}%` }}></div>
-          </div>
-      </div>
-    )}
-
-    <div className="absolute top-4 right-20 flex gap-4 text-white pointer-events-none">
-       <div className="bg-slate-900/80 px-4 py-2 rounded border border-slate-700 flex items-center gap-2"><Compass size={16} className="text-yellow-500" /><span className="font-mono font-bold text-lg">{dungeonLevel === 0 ? "Town" : `Floor B${dungeonLevel}`}</span></div>
-    </div>
-    
-    <div className="absolute top-4 left-4 flex gap-4 pointer-events-none">
-      <div className="bg-slate-900/90 border border-slate-700 p-3 rounded text-white w-64 shadow-lg pointer-events-auto">
-        <div className="flex justify-between items-center mb-2"><span className="font-bold text-yellow-500">{uiState.job} Lv.{uiState.level}</span><span className="text-xs text-slate-400">GOLD: {uiState.gold}</span></div>
-        <div className="mb-2 space-y-1 text-xs text-slate-300">
-           <div className="flex justify-between"><span>ATK: {uiState.attack}</span><span>DEF: {uiState.defense}</span></div>
-           <div className="flex justify-between"><span>SPD: {uiState.speed.toFixed(1)}</span></div>
-        </div>
-        <div className="mb-1">
-          <div className="flex justify-between text-xs mb-0.5"><span className="text-green-400">ST</span><span>{Math.floor(uiState.stamina)}/{uiState.calculatedStats.maxStamina}</span></div>
-          <div className="h-1 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-green-500 transition-all duration-75" style={{ width: `${(uiState.stamina/uiState.calculatedStats.maxStamina)*100}%` }}></div></div>
-        </div>
-        <div className="mb-1">
-          <div className="flex justify-between text-xs mb-0.5"><span>HP</span><span>{uiState.hp}/{uiState.maxHp}</span></div>
-          <div className="h-2 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-red-600 transition-all duration-300" style={{ width: `${(uiState.hp/uiState.maxHp)*100}%` }}></div></div>
-        </div>
-         <div>
-          <div className="flex justify-between text-xs mb-0.5"><span>XP</span><span>{uiState.xp}/{uiState.nextLevelXp}</span></div>
-          <div className="h-1 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${(uiState.xp/uiState.nextLevelXp)*100}%` }}></div></div>
-        </div>
-        <div className="mt-2 pt-2 border-t border-slate-700 flex flex-wrap gap-1">
-          {uiState.perks.map((p: any) => (
-             <div key={p.id} className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center border border-slate-600 text-slate-300 relative" title={`Lv.${p.level}`}>
-             {p.level > 1 && <span className="absolute -top-1 -right-1 text-[8px] bg-black text-white px-0.5 rounded border border-slate-500">{p.level}</span>}
-             </div>
-          ))}
-        </div>
-      </div>
-    </div>
-    
-    {activeShop && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-yellow-500/80 text-black px-4 py-2 rounded-full animate-bounce font-bold border-2 border-white pointer-events-none">
-            PRESS F TO SHOP
-        </div>
-    )}
-    
-    <div className="absolute top-4 right-4 flex gap-2 pointer-events-auto">
-      <button onClick={() => toggleMenu('inventory')} className="p-2 bg-slate-800 text-white rounded hover:bg-slate-700 border border-slate-600 relative"><ShoppingBag size={20} />{uiState?.inventory.length ? <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span> : null}</button>
-      <button onClick={() => toggleMenu('status')} className="p-2 bg-slate-800 text-white rounded hover:bg-slate-700 border border-slate-600"><Settings size={20} /></button>
-    </div>
-  </>
-)};
-
-export const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: any) => (
-  <div className="bg-slate-900 border border-slate-600 rounded-lg w-full max-w-4xl h-[600px] flex text-white overflow-hidden shadow-2xl">
-    <div className="w-1/3 bg-slate-800/50 p-6 border-r border-slate-700 flex flex-col gap-4">
-      <h3 className="text-xl font-bold text-yellow-500 mb-2 border-b border-slate-700 pb-2">装備</h3>
-      {[{ slot: 'mainHand', label: '右手', icon: '⚔️' }, { slot: 'offHand', label: '左手', icon: '🛡️' }, { slot: 'helm', label: '頭', icon: '🪖' }, { slot: 'armor', label: '体', icon: '🛡️' }, { slot: 'boots', label: '足', icon: '👢' }].map((s) => {
-        const item = uiState.equipment[s.slot];
-        const imgSrc = item && item.icon.startsWith('svg:') ? svgToUrl(ASSETS_SVG[item.icon.split(':')[1]]) : null;
-        
-        return (
-          <div key={s.slot} className="flex items-center gap-3 p-2 bg-slate-800 rounded border border-slate-700 relative group">
-            <div className="w-10 h-10 bg-slate-900 flex items-center justify-center text-2xl border border-slate-600 rounded">{imgSrc ? <img src={imgSrc} className="w-8 h-8" /> : (item ? item.icon : s.icon)}</div>
-            <div className="flex-1">
-              <div className="text-xs text-slate-400 uppercase">{s.label}</div>
-              <div className={`font-bold text-sm ${item ? '' : 'text-slate-600'}`} style={{ color: item?.color }}>{item ? item.name : 'なし'}</div>
-              {item && (
-                <div className="text-[10px] text-slate-300 grid grid-cols-2 gap-x-1 mt-0.5">
-                  {item.stats.attack > 0 && <span>攻+{item.stats.attack}</span>}
-                  {item.stats.defense > 0 && <span>防+{item.stats.defense}</span>}
-                </div>
-              )}
-            </div>
-            {item && (<button onClick={() => onUnequip(s.slot)} className="absolute right-2 top-2 p-1 hover:bg-red-900 rounded text-slate-400 hover:text-red-200"><X size={14} /></button>)}
-          </div>
-        );
-      })}
-    </div>
-    <div className="flex-1 p-6 overflow-y-auto bg-slate-900">
-      <div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold text-white">持ち物 ({uiState.inventory.length})</h3><button onClick={onClose} className="p-1 hover:bg-slate-700 rounded"><X /></button></div>
-      <div className="grid grid-cols-2 gap-3">
-        {uiState.inventory.map((item: any) => {
-          const imgSrc = item.icon.startsWith('svg:') ? svgToUrl(ASSETS_SVG[item.icon.split(':')[1]]) : null;
-          return (
-          <div key={item.id} onClick={() => onEquip(item)} className="flex gap-3 p-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-yellow-500 rounded cursor-pointer transition-colors group">
-            <div className="w-12 h-12 bg-slate-900 flex items-center justify-center text-2xl border border-slate-600 rounded shrink-0 relative">
-                {imgSrc ? <img src={imgSrc} className="w-8 h-8" /> : item.icon}
-                {item.count && item.count > 1 && <span className="absolute bottom-0 right-0 bg-black/80 text-white text-[10px] px-1 rounded">{item.count}</span>}
+    <div className="bg-gray-900 border-2 border-gray-600 p-6 rounded-lg shadow-xl w-[800px] max-h-[80vh] flex gap-6 pointer-events-auto text-white">
+      {/* Equipment Slots */}
+      <div className="w-1/3 flex flex-col gap-4">
+        <h2 className="text-xl font-bold border-b border-gray-700 pb-2">Equipment</h2>
+        {(['mainHand', 'offHand', 'helm', 'armor', 'boots'] as const).map(slot => (
+          <div key={slot} className="flex items-center gap-2 bg-gray-800 p-2 rounded border border-gray-700">
+            <div className="w-10 h-10 bg-black flex items-center justify-center text-2xl">
+              {uiState.equipment[slot]?.icon || '🛡️'}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="font-bold truncate" style={{ color: item.color }}>{item.name}</div>
-              <div className="text-xs text-slate-400">{item.type}</div>
+              <div className="text-sm font-bold truncate">
+                {uiState.equipment[slot]?.name || 'Empty'}
+              </div>
+              <div className="text-xs text-gray-400 capitalize">{slot}</div>
             </div>
+            {uiState.equipment[slot] && (
+              <button 
+                onClick={() => onUnequip(slot)}
+                className="text-xs px-2 py-1 bg-red-900 hover:bg-red-700 rounded"
+              >
+                Unequip
+              </button>
+            )}
           </div>
-        )})}
+        ))}
+
+        <div className="mt-4">
+           <h3 className="font-bold text-gray-400 mb-2">Perks</h3>
+           <div className="text-xs space-y-1">
+             {uiState.perks.map(p => {
+               const def = PERK_DEFINITIONS.find(d => d.id === p.id);
+               return <div key={p.id} className="flex justify-between"><span>{def?.name || p.id}</span><span>Lv.{p.level}</span></div>
+             })}
+           </div>
+        </div>
+      </div>
+
+      {/* Inventory Grid */}
+      <div className="flex-1 flex flex-col">
+        <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+          <h2 className="text-xl font-bold">Inventory</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕ Close</button>
+        </div>
+        
+        <div className="grid grid-cols-5 gap-2 overflow-y-auto pr-2 custom-scrollbar">
+          {uiState.inventory.map((item, idx) => (
+            <div 
+              key={item.id + idx}
+              onClick={() => onEquip(item)}
+              className="aspect-square bg-gray-800 border border-gray-600 hover:border-white cursor-pointer rounded flex flex-col items-center justify-center relative group"
+              style={{ borderColor: item.color }}
+            >
+              <span className="text-2xl">{item.icon}</span>
+              <div className="absolute inset-0 bg-black/80 hidden group-hover:flex items-center justify-center text-xs text-center p-1">
+                {item.name}
+              </div>
+            </div>
+          ))}
+          {Array(25 - uiState.inventory.length).fill(null).map((_, i) => (
+             <div key={`empty-${i}`} className="aspect-square bg-black/20 border border-gray-800 rounded"/>
+          ))}
+        </div>
+        
+        <div className="mt-4 p-2 bg-gray-800 rounded text-sm">
+           <div className="flex justify-between"><span>Gold:</span> <span className="text-yellow-400">{uiState.gold} G</span></div>
+           <div className="flex justify-between"><span>ATK:</span> <span>{uiState.calculatedStats.attack}</span></div>
+           <div className="flex justify-between"><span>DEF:</span> <span>{uiState.calculatedStats.defense}</span></div>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
+
+export const ShopMenu: React.FC = () => <div>Shop (Not Implemented)</div>;
