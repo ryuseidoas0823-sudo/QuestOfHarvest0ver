@@ -258,25 +258,38 @@ export const generateOverworld = (): ChunkData => {
   }
 
   // 6. ポータルとPOI配置
-  // 陸地リストを再取得
+  // 陸地リストを再取得 (確実に歩ける場所だけ)
   const landTiles: {x: number, y: number}[] = [];
   for(let y=0; y<height; y++) for(let x=0; x<width; x++) {
-      if(!map[y][x].solid && map[y][x].type !== 'water') landTiles.push({x, y});
+      if(!map[y][x].solid && map[y][x].type !== 'water' && map[y][x].type !== 'rock') {
+          landTiles.push({x, y});
+      }
   }
 
+  // 万が一陸地がない場合のフォールバック
   if (landTiles.length === 0) {
-      // フォールバック: 全部海になってしまった場合（稀）
-      map[32][32].type = 'grass'; map[32][32].solid = false;
-      landTiles.push({x:32, y:32});
+      const centerX = Math.floor(width/2);
+      const centerY = Math.floor(height/2);
+      map[centerY][centerX].type = 'grass'; 
+      map[centerY][centerX].solid = false;
+      landTiles.push({x:centerX, y:centerY});
+      // 周囲も安全地帯にする
+      for(let dy=-1; dy<=1; dy++) for(let dx=-1; dx<=1; dx++) {
+          map[centerY+dy][centerX+dx].type = 'grass';
+          map[centerY+dy][centerX+dx].solid = false;
+      }
   }
 
   const getRandomLand = () => landTiles[Math.floor(Math.random() * landTiles.length)];
 
-  // 街 (中央に近い陸地を探す)
-  let townPos = {x: width/2, y: height/2};
+  // 街 (中央に最も近い陸地を探す)
+  let townPos = landTiles[0];
   let minDist = Infinity;
+  const centerX = width/2;
+  const centerY = height/2;
+  
   for(const t of landTiles) {
-      const d = (t.x - width/2)**2 + (t.y - height/2)**2;
+      const d = (t.x - centerX)**2 + (t.y - centerY)**2;
       if(d < minDist) {
           minDist = d;
           townPos = t;
@@ -288,18 +301,21 @@ export const generateOverworld = (): ChunkData => {
       map[y][x].type = icon;
       map[y][x].solid = false;
       map[y][x].teleportTo = to;
-      // 周囲をクリアに
+      // 周囲をクリアに (プレイヤーがスタックしないように)
       for(let dy=-1; dy<=1; dy++) for(let dx=-1; dx<=1; dx++) {
           if(isValid(x+dx, y+dy)) {
-              map[y+dy][x+dx].solid = false;
-              if(map[y+dy][x+dx].type === 'water' || map[y+dy][x+dx].type === 'rock') map[y+dy][x+dx].type = 'grass';
+              const target = map[y+dy][x+dx];
+              if(target.solid) {
+                  target.solid = false;
+                  if(target.type === 'water' || target.type === 'rock') target.type = 'grass';
+              }
           }
       }
   };
 
   setPortal(townPos.x, townPos.y, 'town_start', 'town_entrance');
 
-  // ダンジョン
+  // ダンジョン (ランダムな陸地に配置)
   const dForest = getRandomLand(); setPortal(dForest.x, dForest.y, 'dungeon_forest', 'dungeon_entrance');
   const dSnow = getRandomLand(); setPortal(dSnow.x, dSnow.y, 'dungeon_snow', 'dungeon_entrance');
   const dDesert = getRandomLand(); setPortal(dDesert.x, dDesert.y, 'dungeon_desert', 'dungeon_entrance');
@@ -321,7 +337,6 @@ export const generateOverworld = (): ChunkData => {
       else if(t === 'dirt') biome = 'Wasteland';
 
       // 敵生成 (既存ロジック利用)
-      // バイオームごとの敵種別設定
       let allowedTypes: string[] = ['Slime', 'Bandit'];
       if (biome === 'Snow') allowedTypes = ['Wolf', 'Ghost', 'White Bear'];
       if (biome === 'Desert') allowedTypes = ['Scorpion', 'Bandit', 'Giant Ant'];
@@ -331,6 +346,13 @@ export const generateOverworld = (): ChunkData => {
       enemies.push(generateEnemy(pos.x * tileSize, pos.y * tileSize, 1, allowedTypes));
   }
 
+  // プレイヤーの初期スポーン位置として街の位置を返すため、locationId 以外の情報も返せるように拡張するか、
+  // あるいは固定位置 (例: マップ中央) を街にする戦略をとるのが一般的だが、
+  // 今回は App.tsx 側で「街のポータル」を探してそこにスポーンさせるロジックに変更するか、
+  // generateOverworld が特別なプロパティを持つようにする。
+  // ここではシンプルに、生成されたマップデータ内に「スタート地点」情報を含めるハックを使うか、
+  // App.tsx で「town_entrance」タイプのタイルを探すようにする。
+  
   return { map, enemies, droppedItems: [], biome: 'WorldMap', locationId: 'world' };
 };
 
