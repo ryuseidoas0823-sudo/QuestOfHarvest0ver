@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Sword, Heart, Zap, Activity } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { Job, Gender } from '../types';
-import { JOB_DATA } from '../data'; // インポート元を修正
+import { JOB_DATA } from '../data';
 
 interface JobSelectScreenProps {
   onBack: () => void;
@@ -29,7 +29,7 @@ export const JobSelectScreen = ({ onBack, onSelect, loadedAssets }: JobSelectScr
           <div className="flex items-center gap-2 mb-6"><span className={`px-3 py-1 rounded text-xs font-bold bg-slate-800 border ${selectedGender === 'Male' ? 'border-blue-500 text-blue-400' : 'border-pink-500 text-pink-400'}`}>{selectedGender === 'Male' ? 'MALE' : 'FEMALE'}</span></div>
           <p className="text-center text-slate-400 text-sm leading-relaxed max-w-xs mb-8">{jobInfo.desc}</p>
           <div className="w-full space-y-3 max-w-xs">
-            {[{ label: 'STR', icon: Sword, val: jobInfo.attributes.strength, max: 20, col: 'bg-red-500' }, { label: 'VIT', icon: Heart, val: jobInfo.attributes.vitality, max: 20, col: 'bg-green-500' }, { label: 'INT', icon: Zap, val: jobInfo.attributes.intelligence, max: 20, col: 'bg-purple-500' }, { label: 'DEX', icon: Activity, val: jobInfo.attributes.dexterity, max: 20, col: 'bg-yellow-500' }].map(s => (
+            {[{ label: 'STR', val: jobInfo.attributes.strength, max: 20, col: 'bg-red-500' }, { label: 'VIT', val: jobInfo.attributes.vitality, max: 20, col: 'bg-green-500' }, { label: 'INT', val: jobInfo.attributes.intelligence, max: 20, col: 'bg-purple-500' }, { label: 'DEX', val: jobInfo.attributes.dexterity, max: 20, col: 'bg-yellow-500' }].map(s => (
               <div key={s.label} className="flex items-center gap-3 text-xs font-bold"><div className="w-8 text-slate-500 flex justify-end">{s.label}</div><div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden"><div className={`h-full ${s.col}`} style={{ width: `${(s.val / s.max) * 100}%` }}></div></div><div className="w-4 text-right text-slate-300">{s.val}</div></div>
             ))}
           </div>
