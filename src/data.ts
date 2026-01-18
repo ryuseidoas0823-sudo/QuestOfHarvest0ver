@@ -1,5 +1,4 @@
 import { Biome, Job, Attributes, EquipmentType, WeaponStyle, Rarity } from './types';
-import { THEME } from './config';
 
 export const BIOME_NAMES: Record<Biome, string> = { 
   WorldMap: 'ワールドマップ',
