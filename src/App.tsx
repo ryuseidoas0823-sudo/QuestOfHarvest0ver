@@ -5,7 +5,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 import { auth, db, isConfigValid, appId, GAME_CONFIG } from './config';
 import { GameState, PlayerEntity, Job, Gender, MenuType, ResolutionMode, Biome, Item, Attributes, ChunkData } from './types';
-import { ASSETS_SVG, svgToUrl } fromQ './assets';
+import { ASSETS_SVG, svgToUrl } from './assets';
 import { createPlayer, generateRandomItem, generateWorldMap, getMapData, updatePlayerStats, generateEnemy, getStarterItem } from './gameLogic';
 import { resolveMapCollision, checkCollision } from './utils';
 import { renderGame } from './renderer';
