@@ -35,4 +35,10 @@ export const ENEMY_TYPES = [
 export const RARITY_MULTIPLIERS: Record<Rarity, number> = { Common: 1.0, Uncommon: 1.2, Rare: 1.5, Epic: 2.0, Legendary: 3.0 };
 export const ENCHANT_SLOTS: Record<Rarity, number> = { Common: 0, Uncommon: 1, Rare: 2, Epic: 3, Legendary: 5 };
 export const ITEM_BASE_NAMES: Record<EquipmentType, any> = { Weapon: { OneHanded: '剣', TwoHanded: '大剣', DualWield: '双剣' }, Helm: '兜', Armor: '板金鎧', Shield: '盾', Boots: '具足' };
-export const ICONS: Record<EquipmentType, any> = { Weapon: { OneHanded: '⚔️', TwoHanded: '🗡️', DualWield: '⚔️' }, Helm: '🪖', Armor: '🛡️', Shield: '🛡️', Boots: '👢' };
+export const ICONS: Record<EquipmentType, any> = { 
+  Weapon: { OneHanded: '⚔️', TwoHanded: '🗡️', DualWield: '⚔️' }, 
+  Helm: '🪖', 
+  Armor: '🧥', 
+  Shield: '🛡️', 
+  Boots: '👢' 
+};
