@@ -2,7 +2,6 @@ import { Job, Gender, PlayerEntity, EnemyEntity, ChunkData, Tile, TileType, Item
 import { JOB_DATA, ENEMY_TYPES, RARITY_MULTIPLIERS, ENCHANT_SLOTS, ITEM_BASE_NAMES, ICONS } from './data';
 import { THEME, GAME_CONFIG } from './config';
 
-// generateRandomItem をここに移動
 export const generateRandomItem = (level: number, rankBonus: number = 0): Item | null => {
   let roll = Math.random() * 100 - rankBonus * 5;
   let rarity: Rarity = roll < 1 ? 'Legendary' : roll < 5 ? 'Epic' : roll < 15 ? 'Rare' : roll < 40 ? 'Uncommon' : 'Common';
