@@ -260,18 +260,22 @@ export const generateOverworld = (): ChunkData => {
       map[y][x].teleportTo = to;
       
       // 周囲を整地（安全地帯確保）
-      for(let dy=-2; dy<=2; dy++) for(let dx=-2; dx<=2; dx++) {
+      // プレイヤーが移動した瞬間に障害物に引っかからないように、
+      // ポータル周辺、特に下側（南）を確実に平地にする
+      for(let dy=-3; dy<=3; dy++) for(let dx=-3; dx<=3; dx++) {
           if(isValid(x+dx, y+dy)) {
               const target = map[y+dy][x+dx];
               target.solid = false;
-              if (target.type === 'water' || target.type === 'rock' || target.type === 'wall' || target.type === 'tree') {
+              // 障害物になりうるタイルを平地に
+              if (target.type === 'water' || target.type === 'rock' || target.type === 'wall' || target.type === 'tree' || target.type === 'dirt') {
                   target.type = 'grass';
               }
           }
       }
-      // プレイヤーがスポーンする可能性のある場所（下側）を確実に空ける
+      // 特にプレイヤーがスポーンする場所（下側）を重点的に確保
       if(isValid(x, y+1)) { map[y+1][x].solid = false; map[y+1][x].type = 'grass'; }
-      if(isValid(x, y+2)) { map[y+2][x].solid = false; map[y+2][x].type = 'grass'; } // 前回 +64px に変更したので2マス下も空ける
+      if(isValid(x, y+2)) { map[y+2][x].solid = false; map[y+2][x].type = 'grass'; }
+      if(isValid(x, y+3)) { map[y+3][x].solid = false; map[y+3][x].type = 'grass'; }
   };
 
   // 1. はじまりの街
