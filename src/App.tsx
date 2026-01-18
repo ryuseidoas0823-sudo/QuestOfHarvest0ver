@@ -137,8 +137,9 @@ export default function App() {
     } else {
       player = createPlayer(job, gender); updatePlayerStats(player);
       const chunk = generateWorldMap();
-      player.x = (chunk.map[0].length * 32) / 2;
-      player.y = (chunk.map.length * 32) / 2;
+      // 修正: ハードコードされた 32 を GAME_CONFIG.TILE_SIZE に置き換え
+      player.x = (chunk.map[0].length * GAME_CONFIG.TILE_SIZE) / 2;
+      player.y = (chunk.map.length * GAME_CONFIG.TILE_SIZE) / 2;
       
       const starterWeapon = getStarterItem(job);
       player.inventory.push(starterWeapon);
@@ -291,8 +292,8 @@ export default function App() {
       state.enemies = state.enemies.filter(e => !e.dead); state.droppedItems = state.droppedItems.filter(d => !d.dead);
       state.floatingTexts.forEach(t => { t.y -= 0.5; t.life--; }); state.floatingTexts = state.floatingTexts.filter(t => t.life > 0);
     }
-    // assets 引数を削除
-    renderGame(ctx, state);
+    // 修正: loadedAssets を渡す
+    renderGame(ctx, state, loadedAssets);
     if (state.gameTime % 10 === 0) setUiState({...state.player});
     reqRef.current = requestAnimationFrame(gameLoop);
   };
