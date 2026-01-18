@@ -123,6 +123,10 @@ export const generateEnemy = (x: number, y: number, level: number, allowedTypes?
 
 // --- Map Generators ---
 
+/**
+ * 自然な地形のオーバーワールドを生成する関数
+ * - 海、大陸（平地）、山脈、湖、バイオーム（雪原、砂漠、森、荒野）を生成
+ */
 export const generateOverworld = (): ChunkData => {
   const width = 80;
   const height = 80;
@@ -138,12 +142,12 @@ export const generateOverworld = (): ChunkData => {
   // 2. 大陸形成 (セルオートマトン + ランダムウォーク)
   // 核となる陸地を複数配置
   let landCells: {x: number, y: number}[] = [];
-  const seeds = 12; // 大陸・島の核の数
+  const seeds = 15; // 大陸・島の核の数
   for(let i=0; i<seeds; i++) {
       let cx = Math.floor(Math.random() * (width - 10)) + 5;
       let cy = Math.floor(Math.random() * (height - 10)) + 5;
       // ランダムウォークで広げる
-      const size = Math.floor(Math.random() * 200) + 100;
+      const size = Math.floor(Math.random() * 200) + 150;
       for(let j=0; j<size; j++) {
           if(isValid(cx, cy)) {
               map[cy][cx].type = 'grass';
@@ -158,7 +162,7 @@ export const generateOverworld = (): ChunkData => {
   }
 
   // スムージング (陸地を自然な形に整える)
-  for(let iter=0; iter<4; iter++) {
+  for(let iter=0; iter<5; iter++) {
       const nextMap = map.map(row => row.map(t => t.type));
       for(let y=1; y<height-1; y++) {
           for(let x=1; x<width-1; x++) {
@@ -180,42 +184,38 @@ export const generateOverworld = (): ChunkData => {
       }
   }
 
-  // 3. 山・山脈 (Perlinノイズ的なシミュレーションは重いので、帯状に配置)
-  // 陸地の上にランダムに山脈ラインを引く
-  const mountains = 6;
+  // 3. 山・山脈 (帯状に配置)
+  const mountains = 5;
   for(let i=0; i<mountains; i++) {
       let mx = Math.floor(Math.random() * width);
       let my = Math.floor(Math.random() * height);
-      // 陸地スタートのみ
       if(map[my][mx].type === 'water') continue;
       
-      let length = Math.floor(Math.random() * 20) + 10;
+      let length = Math.floor(Math.random() * 15) + 8;
       let dx = Math.random() > 0.5 ? 1 : -1;
       let dy = Math.random() > 0.5 ? 1 : -1;
-      if(Math.random() > 0.5) dx = 0; else dy = 0; // 縦か横、あるいは斜めに伸びる
+      if(Math.random() > 0.5) dx = 0; else dy = 0;
 
       for(let j=0; j<length; j++) {
           if(isValid(mx, my) && map[my][mx].type !== 'water') {
-              // 中心は高山(rock, solid)
               map[my][mx].type = 'rock';
               map[my][mx].solid = true;
               
-              // 周囲は低山(dirt, non-solid) または丘
+              // 周囲は低山(dirt)
               for(let ny=my-1; ny<=my+1; ny++) {
                   for(let nx=mx-1; nx<=mx+1; nx++) {
                       if(isValid(nx, ny) && map[ny][nx].type === 'grass' && Math.random() > 0.3) {
-                          map[ny][nx].type = 'dirt'; // 低山/丘扱い
+                          map[ny][nx].type = 'dirt'; // 丘陵扱い
                       }
                   }
               }
           }
-          mx += dx + (Math.random() > 0.8 ? (Math.random()>0.5?1:-1) : 0); // たまにふらつく
+          mx += dx + (Math.random() > 0.8 ? (Math.random()>0.5?1:-1) : 0);
           my += dy + (Math.random() > 0.8 ? (Math.random()>0.5?1:-1) : 0);
       }
   }
 
   // 4. 川・湖
-  // 湖
   for(let i=0; i<3; i++) {
       let lx = Math.floor(Math.random() * width);
       let ly = Math.floor(Math.random() * height);
@@ -238,27 +238,26 @@ export const generateOverworld = (): ChunkData => {
           if(map[y][x].type === 'water' || map[y][x].type === 'rock') continue;
           
           // 北部: 雪原
-          if(y < 15) {
+          if(y < 12) {
               map[y][x].type = 'snow';
           }
           // 南部: 砂漠
-          else if(y > height - 15) {
+          else if(y > height - 12) {
               map[y][x].type = 'sand';
           }
-          // ランダムに森 (tree)
-          else if(map[y][x].type === 'grass' && Math.random() < 0.2) {
+          // ランダムに森
+          else if(map[y][x].type === 'grass' && Math.random() < 0.25) {
               map[y][x].type = 'tree';
               map[y][x].solid = false; // 森は通行可
           }
-          // 荒野 (西部など特定のエリア)
+          // 荒野 (西部)
           else if(x < 15 && map[y][x].type === 'grass') {
-              if(Math.random() < 0.7) map[y][x].type = 'dirt'; // 荒野
+              if(Math.random() < 0.7) map[y][x].type = 'dirt';
           }
       }
   }
 
-  // 6. ポータルとPOI配置
-  // 陸地リストを再取得 (確実に歩ける場所だけ)
+  // 6. 陸地リスト再取得 (通行可能な場所のみ)
   const landTiles: {x: number, y: number}[] = [];
   for(let y=0; y<height; y++) for(let x=0; x<width; x++) {
       if(!map[y][x].solid && map[y][x].type !== 'water' && map[y][x].type !== 'rock') {
@@ -266,48 +265,54 @@ export const generateOverworld = (): ChunkData => {
       }
   }
 
-  // 万が一陸地がない場合のフォールバック
+  // フォールバック
   if (landTiles.length === 0) {
-      const centerX = Math.floor(width/2);
-      const centerY = Math.floor(height/2);
-      map[centerY][centerX].type = 'grass'; 
-      map[centerY][centerX].solid = false;
-      landTiles.push({x:centerX, y:centerY});
-      // 周囲も安全地帯にする
-      for(let dy=-1; dy<=1; dy++) for(let dx=-1; dx<=1; dx++) {
-          map[centerY+dy][centerX+dx].type = 'grass';
-          map[centerY+dy][centerX+dx].solid = false;
-      }
+      const cx = Math.floor(width/2);
+      const cy = Math.floor(height/2);
+      map[cy][cx].type = 'grass'; map[cy][cx].solid = false;
+      landTiles.push({x:cx, y:cy});
   }
 
   const getRandomLand = () => landTiles[Math.floor(Math.random() * landTiles.length)];
 
-  // 街 (中央に最も近い陸地を探す)
+  // 7. 街の配置 (大陸の平地 = Grass で、かつ中央に近い場所を優先)
   let townPos = landTiles[0];
-  let minDist = Infinity;
+  let minScore = Infinity;
   const centerX = width/2;
   const centerY = height/2;
   
   for(const t of landTiles) {
-      const d = (t.x - centerX)**2 + (t.y - centerY)**2;
-      if(d < minDist) {
-          minDist = d;
+      const tile = map[t.y][t.x];
+      if (tile.type !== 'grass') continue; // 平地限定
+
+      // 中央からの距離
+      const dist = Math.sqrt((t.x - centerX)**2 + (t.y - centerY)**2);
+      // 海からの距離（簡易的に周囲の海タイルの有無で判定）
+      let seaCount = 0;
+      for(let dy=-2; dy<=2; dy++) for(let dx=-2; dx<=2; dx++) {
+          if(!isValid(t.x+dx, t.y+dy) || map[t.y+dy][t.x+dx].type === 'water') seaCount++;
+      }
+      
+      // 中央に近く、かつ海から少し離れている場所を優先
+      const score = dist + (seaCount * 5); 
+
+      if(score < minScore) {
+          minScore = score;
           townPos = t;
       }
   }
   
-  // ポータル設置ヘルパー
   const setPortal = (x: number, y: number, to: string, icon: TileType) => {
       map[y][x].type = icon;
       map[y][x].solid = false;
       map[y][x].teleportTo = to;
-      // 周囲をクリアに (プレイヤーがスタックしないように)
+      // 周囲をクリアに
       for(let dy=-1; dy<=1; dy++) for(let dx=-1; dx<=1; dx++) {
           if(isValid(x+dx, y+dy)) {
               const target = map[y+dy][x+dx];
-              if(target.solid) {
+              if(target.solid || target.type === 'tree') {
                   target.solid = false;
-                  if(target.type === 'water' || target.type === 'rock') target.type = 'grass';
+                  if(target.type === 'water' || target.type === 'rock' || target.type === 'tree') target.type = 'grass';
               }
           }
       }
@@ -315,7 +320,7 @@ export const generateOverworld = (): ChunkData => {
 
   setPortal(townPos.x, townPos.y, 'town_start', 'town_entrance');
 
-  // ダンジョン (ランダムな陸地に配置)
+  // ダンジョン
   const dForest = getRandomLand(); setPortal(dForest.x, dForest.y, 'dungeon_forest', 'dungeon_entrance');
   const dSnow = getRandomLand(); setPortal(dSnow.x, dSnow.y, 'dungeon_snow', 'dungeon_entrance');
   const dDesert = getRandomLand(); setPortal(dDesert.x, dDesert.y, 'dungeon_desert', 'dungeon_entrance');
@@ -323,11 +328,10 @@ export const generateOverworld = (): ChunkData => {
 
   // 敵の配置
   const enemies: EnemyEntity[] = [];
-  const enemyCount = 60;
+  const enemyCount = 50;
   for(let i=0; i<enemyCount; i++) {
       const pos = getRandomLand();
-      // 街の近くは除外
-      if(Math.abs(pos.x - townPos.x) < 10 && Math.abs(pos.y - townPos.y) < 10) continue;
+      if(Math.abs(pos.x - townPos.x) < 15 && Math.abs(pos.y - townPos.y) < 15) continue; // 街周辺は安全
       
       let biome: any = 'Plains';
       const t = map[pos.y][pos.x].type;
@@ -336,7 +340,6 @@ export const generateOverworld = (): ChunkData => {
       else if(t === 'tree') biome = 'Forest';
       else if(t === 'dirt') biome = 'Wasteland';
 
-      // 敵生成 (既存ロジック利用)
       let allowedTypes: string[] = ['Slime', 'Bandit'];
       if (biome === 'Snow') allowedTypes = ['Wolf', 'Ghost', 'White Bear'];
       if (biome === 'Desert') allowedTypes = ['Scorpion', 'Bandit', 'Giant Ant'];
@@ -346,13 +349,6 @@ export const generateOverworld = (): ChunkData => {
       enemies.push(generateEnemy(pos.x * tileSize, pos.y * tileSize, 1, allowedTypes));
   }
 
-  // プレイヤーの初期スポーン位置として街の位置を返すため、locationId 以外の情報も返せるように拡張するか、
-  // あるいは固定位置 (例: マップ中央) を街にする戦略をとるのが一般的だが、
-  // 今回は App.tsx 側で「街のポータル」を探してそこにスポーンさせるロジックに変更するか、
-  // generateOverworld が特別なプロパティを持つようにする。
-  // ここではシンプルに、生成されたマップデータ内に「スタート地点」情報を含めるハックを使うか、
-  // App.tsx で「town_entrance」タイプのタイルを探すようにする。
-  
   return { map, enemies, droppedItems: [], biome: 'WorldMap', locationId: 'world' };
 };
 
