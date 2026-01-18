@@ -306,13 +306,14 @@ export const generateOverworld = (): ChunkData => {
       map[y][x].type = icon;
       map[y][x].solid = false;
       map[y][x].teleportTo = to;
-      // 周囲をクリアに
-      for(let dy=-1; dy<=1; dy++) for(let dx=-1; dx<=1; dx++) {
+      // 周囲をクリアに（街の周りは確実に歩けるようにする）
+      for(let dy=-2; dy<=2; dy++) for(let dx=-2; dx<=2; dx++) {
           if(isValid(x+dx, y+dy)) {
               const target = map[y+dy][x+dx];
-              if(target.solid || target.type === 'tree') {
-                  target.solid = false;
-                  if(target.type === 'water' || target.type === 'rock' || target.type === 'tree') target.type = 'grass';
+              target.solid = false;
+              // 水や山なら平地にする
+              if(target.type === 'water' || target.type === 'rock' || target.type === 'tree' || target.type === 'wall') {
+                  target.type = 'grass';
               }
           }
       }
@@ -341,7 +342,7 @@ export const generateOverworld = (): ChunkData => {
       else if(t === 'dirt') biome = 'Wasteland';
 
       let allowedTypes: string[] = ['Slime', 'Bandit'];
-      if (biome === 'Snow') allowedTypes = ['Wolf', 'Ghost', 'White Bear'];
+      if (biome === 'Snow') allowedTypes = ['Wolf', 'Ghost', 'Bat']; // White Bear removed from data.ts
       if (biome === 'Desert') allowedTypes = ['Scorpion', 'Bandit', 'Giant Ant'];
       if (biome === 'Forest') allowedTypes = ['Spider', 'Wolf', 'Boar', 'Grizzly'];
       if (biome === 'Wasteland') allowedTypes = ['Zombie', 'Ghoul', 'Dragonewt'];
@@ -358,16 +359,21 @@ export const generateTownMap = (id: string): ChunkData => {
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
     let type: TileType = 'floor';
     let solid = false;
+    // 壁
     if (x===0 || x===width-1 || y===0 || y===height-1) { type='wall'; solid=true; }
+    
+    // 出口
     if (y===height-1 && Math.abs(x - width/2) < 2) { type='portal_out'; solid=false; }
+    
     return { x: x * tileSize, y: y * tileSize, type, solid, teleportTo: type === 'portal_out' ? 'world' : undefined };
   }));
 
+  // 障害物などを配置（例：噴水や建物）
   for(let y=5; y<10; y++) for(let x=5; x<12; x++) { map[y][x].type='wall'; map[y][x].solid=true; }
-  map[9][8].type='floor'; map[9][8].solid=false;
+  map[9][8].type='floor'; map[9][8].solid=false; // ドア
 
   for(let y=5; y<10; y++) for(let x=28; x<35; x++) { map[y][x].type='wall'; map[y][x].solid=true; }
-  map[9][31].type='floor'; map[9][31].solid=false;
+  map[9][31].type='floor'; map[9][31].solid=false; // ドア
 
   return { map, enemies: [], droppedItems: [], biome: 'Town', locationId: id };
 };
@@ -394,6 +400,9 @@ export const generateDungeonMap = (id: string, level: number, theme: Biome): Chu
   map[height-2][midX].type='portal_out'; 
   map[height-2][midX].solid=false; 
   map[height-2][midX].teleportTo='world';
+  // 出口周りを確実に空ける
+  map[height-2][midX-1].solid=false; map[height-2][midX-1].type=floorType;
+  map[height-2][midX+1].solid=false; map[height-2][midX+1].type=floorType;
   map[height-3][midX].solid=false; map[height-3][midX].type=floorType;
 
   const enemies: EnemyEntity[] = [];
