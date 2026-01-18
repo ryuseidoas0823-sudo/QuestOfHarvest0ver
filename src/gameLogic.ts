@@ -1,10 +1,10 @@
 import { Job, Gender, PlayerEntity, EnemyEntity, ChunkData, Tile, TileType, Item, Rarity, EquipmentType, WeaponStyle, Entity } from './types';
 import { JOB_DATA, ENEMY_TYPES, RARITY_MULTIPLIERS, ENCHANT_SLOTS, ITEM_BASE_NAMES, ICONS } from './data';
 import { THEME, GAME_CONFIG } from './config';
-import { checkCollision, resolveMapCollision } from './utils';
+import { resolveMapCollision, checkCollision } from './utils'; // 正しくインポート
 
-// Re-export utils for App.tsx consumption
-export { checkCollision, resolveMapCollision };
+// Utils を再エクスポートする代わりに、App.tsx で直接 utils からインポートするように変更します。
+// ここでは gameLogic 固有の処理のみをエクスポートします。
 
 export const generateRandomItem = (level: number, rankBonus: number = 0): Item | null => {
   let roll = Math.random() * 100 - rankBonus * 5;
