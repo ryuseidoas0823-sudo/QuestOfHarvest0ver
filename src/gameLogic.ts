@@ -124,230 +124,162 @@ export const generateEnemy = (x: number, y: number, level: number, allowedTypes?
 // --- Map Generators ---
 
 /**
- * 自然な地形のオーバーワールドを生成する関数
- * - 海、大陸（平地）、山脈、湖、バイオーム（雪原、砂漠、森、荒野）を生成
+ * 地球の世界地図をモチーフにした固定ワールドマップを生成
+ * - マップサイズ: 160x100
+ * - 大陸: ユーラシア、アフリカ、北米、南米、オーストラリア、日本列島
  */
 export const generateOverworld = (): ChunkData => {
-  const width = 80;
-  const height = 80;
+  const width = 160;
+  const height = 100;
   const tileSize = GAME_CONFIG.TILE_SIZE;
   
-  // 1. 全体を海で初期化 (solid: true)
+  // 1. 全体を海で初期化
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
     return { x: x * tileSize, y: y * tileSize, type: 'water', solid: true, teleportTo: undefined };
   }));
 
-  const isValid = (x: number, y: number) => x >= 1 && x < width - 1 && y >= 1 && y < height - 1;
+  const isValid = (x: number, y: number) => x >= 0 && x < width && y >= 0 && y < height;
 
-  // 2. 大陸形成 (セルオートマトン + ランダムウォーク)
-  // 核となる陸地を複数配置
-  let landCells: {x: number, y: number}[] = [];
-  const seeds = 15; // 大陸・島の核の数
-  for(let i=0; i<seeds; i++) {
-      let cx = Math.floor(Math.random() * (width - 10)) + 5;
-      let cy = Math.floor(Math.random() * (height - 10)) + 5;
-      // ランダムウォークで広げる
-      const size = Math.floor(Math.random() * 200) + 150;
-      for(let j=0; j<size; j++) {
-          if(isValid(cx, cy)) {
-              map[cy][cx].type = 'grass';
-              map[cy][cx].solid = false;
-              landCells.push({x: cx, y: cy});
-          }
-          const dir = Math.floor(Math.random() * 4);
-          if(dir===0) cx++; else if(dir===1) cx--; else if(dir===2) cy++; else cy--;
-          cx = Math.max(2, Math.min(width-3, cx));
-          cy = Math.max(2, Math.min(height-3, cy));
-      }
-  }
-
-  // スムージング (陸地を自然な形に整える)
-  for(let iter=0; iter<5; iter++) {
-      const nextMap = map.map(row => row.map(t => t.type));
-      for(let y=1; y<height-1; y++) {
-          for(let x=1; x<width-1; x++) {
-              let landCount = 0;
-              for(let dy=-1; dy<=1; dy++) {
-                  for(let dx=-1; dx<=1; dx++) {
-                      if(map[y+dy][x+dx].type !== 'water') landCount++;
+  // 描画ヘルパー: 円形で陸地を描く
+  const drawLand = (cx: number, cy: number, rx: number, ry: number, type: TileType = 'grass') => {
+      for (let y = cy - ry; y <= cy + ry; y++) {
+          for (let x = cx - rx; x <= cx + rx; x++) {
+              if (!isValid(x, y)) continue;
+              if (Math.pow((x - cx) / rx, 2) + Math.pow((y - cy) / ry, 2) <= 1) {
+                  // ランダムにノイズを加えて海岸線を自然に
+                  if (Math.random() > 0.1) {
+                    map[y][x].type = type;
+                    map[y][x].solid = false;
                   }
-              }
-              if(map[y][x].type === 'water' && landCount >= 5) nextMap[y][x] = 'grass';
-              if(map[y][x].type !== 'water' && landCount <= 3) nextMap[y][x] = 'water';
-          }
-      }
-      for(let y=0; y<height; y++) {
-          for(let x=0; x<width; x++) {
-              map[y][x].type = nextMap[y][x] as TileType;
-              map[y][x].solid = map[y][x].type === 'water';
-          }
-      }
-  }
-
-  // 3. 山・山脈 (帯状に配置)
-  const mountains = 5;
-  for(let i=0; i<mountains; i++) {
-      let mx = Math.floor(Math.random() * width);
-      let my = Math.floor(Math.random() * height);
-      if(map[my][mx].type === 'water') continue;
-      
-      let length = Math.floor(Math.random() * 15) + 8;
-      let dx = Math.random() > 0.5 ? 1 : -1;
-      let dy = Math.random() > 0.5 ? 1 : -1;
-      if(Math.random() > 0.5) dx = 0; else dy = 0;
-
-      for(let j=0; j<length; j++) {
-          if(isValid(mx, my) && map[my][mx].type !== 'water') {
-              map[my][mx].type = 'rock';
-              map[my][mx].solid = true;
-              
-              // 周囲は低山(dirt)
-              for(let ny=my-1; ny<=my+1; ny++) {
-                  for(let nx=mx-1; nx<=mx+1; nx++) {
-                      if(isValid(nx, ny) && map[ny][nx].type === 'grass' && Math.random() > 0.3) {
-                          map[ny][nx].type = 'dirt'; // 丘陵扱い
-                      }
-                  }
-              }
-          }
-          mx += dx + (Math.random() > 0.8 ? (Math.random()>0.5?1:-1) : 0);
-          my += dy + (Math.random() > 0.8 ? (Math.random()>0.5?1:-1) : 0);
-      }
-  }
-
-  // 4. 川・湖
-  for(let i=0; i<3; i++) {
-      let lx = Math.floor(Math.random() * width);
-      let ly = Math.floor(Math.random() * height);
-      if(map[ly][lx].type === 'grass') {
-          map[ly][lx].type = 'water';
-          map[ly][lx].solid = true;
-          // 少し広げる
-          for(let dy=-1; dy<=1; dy++) for(let dx=-1; dx<=1; dx++) {
-              if(isValid(lx+dx, ly+dy) && map[ly+dy][lx+dx].type !== 'rock') {
-                  map[ly+dy][lx+dx].type = 'water';
-                  map[ly+dy][lx+dx].solid = true;
-              }
-          }
-      }
-  }
-
-  // 5. バイオーム (緯度による変化)
-  for(let y=0; y<height; y++) {
-      for(let x=0; x<width; x++) {
-          if(map[y][x].type === 'water' || map[y][x].type === 'rock') continue;
-          
-          // 北部: 雪原
-          if(y < 12) {
-              map[y][x].type = 'snow';
-          }
-          // 南部: 砂漠
-          else if(y > height - 12) {
-              map[y][x].type = 'sand';
-          }
-          // ランダムに森
-          else if(map[y][x].type === 'grass' && Math.random() < 0.25) {
-              map[y][x].type = 'tree';
-              map[y][x].solid = false; // 森は通行可
-          }
-          // 荒野 (西部)
-          else if(x < 15 && map[y][x].type === 'grass') {
-              if(Math.random() < 0.7) map[y][x].type = 'dirt';
-          }
-      }
-  }
-
-  // 6. 陸地リスト再取得 (通行可能な場所のみ)
-  const landTiles: {x: number, y: number}[] = [];
-  for(let y=0; y<height; y++) for(let x=0; x<width; x++) {
-      if(!map[y][x].solid && map[y][x].type !== 'water' && map[y][x].type !== 'rock') {
-          landTiles.push({x, y});
-      }
-  }
-
-  // フォールバック
-  if (landTiles.length === 0) {
-      const cx = Math.floor(width/2);
-      const cy = Math.floor(height/2);
-      map[cy][cx].type = 'grass'; map[cy][cx].solid = false;
-      landTiles.push({x:cx, y:cy});
-  }
-
-  const getRandomLand = () => landTiles[Math.floor(Math.random() * landTiles.length)];
-
-  // 7. 街の配置 (大陸の平地 = Grass で、かつ中央に近い場所を優先)
-  let townPos = landTiles[0];
-  let minScore = Infinity;
-  const centerX = width/2;
-  const centerY = height/2;
-  
-  for(const t of landTiles) {
-      const tile = map[t.y][t.x];
-      if (tile.type !== 'grass') continue; // 平地限定
-
-      // 中央からの距離
-      const dist = Math.sqrt((t.x - centerX)**2 + (t.y - centerY)**2);
-      // 海からの距離（簡易的に周囲の海タイルの有無で判定）
-      let seaCount = 0;
-      for(let dy=-2; dy<=2; dy++) for(let dx=-2; dx<=2; dx++) {
-          if(!isValid(t.x+dx, t.y+dy) || map[t.y+dy][t.x+dx].type === 'water') seaCount++;
-      }
-      
-      // 中央に近く、かつ海から少し離れている場所を優先
-      const score = dist + (seaCount * 5); 
-
-      if(score < minScore) {
-          minScore = score;
-          townPos = t;
-      }
-  }
-  
-  const setPortal = (x: number, y: number, to: string, icon: TileType) => {
-      map[y][x].type = icon;
-      map[y][x].solid = false;
-      map[y][x].teleportTo = to;
-      // 周囲をクリアに（街の周りは確実に歩けるようにする）
-      for(let dy=-2; dy<=2; dy++) for(let dx=-2; dx<=2; dx++) {
-          if(isValid(x+dx, y+dy)) {
-              const target = map[y+dy][x+dx];
-              target.solid = false;
-              // 水や山なら平地にする
-              if(target.type === 'water' || target.type === 'rock' || target.type === 'tree' || target.type === 'wall') {
-                  target.type = 'grass';
               }
           }
       }
   };
 
+  // --- 大陸配置 (座標は大まかなグリッド) ---
+
+  // 1. ユーラシア大陸 (右側上部)
+  drawLand(100, 30, 35, 20, 'grass'); // メイン
+  drawLand(75, 25, 15, 15, 'grass');  // ヨーロッパ方面
+  drawLand(120, 25, 20, 15, 'snow');  // シベリア（雪）
+  
+  // 2. アフリカ大陸 (ユーラシアの下)
+  drawLand(85, 65, 18, 20, 'sand');   // サハラ（砂漠）
+  drawLand(90, 80, 15, 15, 'grass');  // 南部（サバンナ）
+
+  // 3. 北アメリカ (左側上部)
+  drawLand(35, 25, 25, 15, 'grass');  // メイン
+  drawLand(25, 20, 15, 12, 'snow');   // アラスカ・カナダ（雪）
+  drawLand(30, 35, 15, 10, 'dirt');   // 西部（荒野）
+
+  // 4. 南アメリカ (北米の下)
+  drawLand(40, 70, 15, 20, 'tree');   // アマゾン（森）
+  drawLand(38, 85, 10, 10, 'rock');   // アンデス（山）
+
+  // 5. オーストラリア (右下)
+  drawLand(135, 80, 12, 10, 'dirt');  // 荒野
+
+  // 6. 日本列島 (ユーラシアの東) - スタート地点
+  // 細長い島を並べる
+  const drawIsland = (x: number, y: number, w: number, h: number) => {
+      for(let dy=0; dy<h; dy++) for(let dx=0; dx<w; dx++) {
+          if(isValid(x+dx, y+dy)) {
+              map[y+dy][x+dx].type = 'grass';
+              map[y+dy][x+dx].solid = false;
+          }
+      }
+  };
+  drawIsland(145, 30, 2, 4); // 北海道風
+  drawIsland(143, 35, 3, 6); // 本州風
+  drawIsland(141, 40, 2, 3); // 九州風
+
+  // --- 地形調整 & 自然生成 ---
+
+  // 山脈配置
+  const addMountains = (cx: number, cy: number, length: number) => {
+      for(let i=0; i<length; i++) {
+          if(isValid(cx+i, cy)) { map[cy][cx+i].type = 'rock'; map[cy][cx+i].solid = true; }
+          if(isValid(cx+i, cy+1)) { map[cy+1][cx+i].type = 'rock'; map[cy+1][cx+i].solid = true; }
+      }
+  };
+  addMountains(100, 40, 20); // ヒマラヤ風
+  addMountains(25, 25, 5);   // ロッキー風
+  addMountains(35, 70, 5);   // アンデス風
+
+  // 森や砂漠のランダム配置（大陸のベースカラーに上書き）
+  for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+          if (map[y][x].solid) continue; // 海や山はスキップ
+
+          const t = map[y][x].type;
+          
+          // 緯度によるバイオーム補正
+          if (y < 15) { map[y][x].type = 'snow'; } // 北極圏
+          else if (y > 85) { /* 南極圏（今回は陸地なし） */ }
+          
+          // ランダム生成要素
+          if (t === 'grass' && Math.random() < 0.15) { map[y][x].type = 'tree'; map[y][x].solid = false; }
+          if (t === 'sand' && Math.random() < 0.1) { map[y][x].type = 'dirt'; } // 砂漠の岩場
+      }
+  }
+
+  // --- ポータル & 重要な場所の配置 (固定座標) ---
+
+  const setPortal = (x: number, y: number, to: string, icon: TileType) => {
+      if (!isValid(x, y)) return;
+      map[y][x].type = icon;
+      map[y][x].solid = false;
+      map[y][x].teleportTo = to;
+      // 周囲を整地
+      for(let dy=-2; dy<=2; dy++) for(let dx=-2; dx<=2; dx++) {
+          if(isValid(x+dx, y+dy)) {
+              const target = map[y+dy][x+dx];
+              target.solid = false;
+              if (target.type === 'water' || target.type === 'rock' || target.type === 'wall') target.type = 'grass';
+          }
+      }
+  };
+
+  // 1. はじまりの街 (日本列島: 本州風の場所)
+  const townPos = { x: 144, y: 38 };
   setPortal(townPos.x, townPos.y, 'town_start', 'town_entrance');
 
-  // ダンジョン
-  const dForest = getRandomLand(); setPortal(dForest.x, dForest.y, 'dungeon_forest', 'dungeon_entrance');
-  const dSnow = getRandomLand(); setPortal(dSnow.x, dSnow.y, 'dungeon_snow', 'dungeon_entrance');
-  const dDesert = getRandomLand(); setPortal(dDesert.x, dDesert.y, 'dungeon_desert', 'dungeon_entrance');
-  const dWasteland = getRandomLand(); setPortal(dWasteland.x, dWasteland.y, 'dungeon_wasteland', 'dungeon_entrance');
+  // 2. 雪のダンジョン (シベリア)
+  setPortal(125, 20, 'dungeon_snow', 'dungeon_entrance');
 
-  // 敵の配置
+  // 3. 砂漠のダンジョン (サハラ)
+  setPortal(85, 65, 'dungeon_desert', 'dungeon_entrance');
+
+  // 4. 森のダンジョン (アマゾン)
+  setPortal(40, 75, 'dungeon_forest', 'dungeon_entrance');
+
+  // 5. 荒野のダンジョン (オーストラリア)
+  setPortal(135, 80, 'dungeon_wasteland', 'dungeon_entrance');
+
+  // --- 敵の配置 ---
   const enemies: EnemyEntity[] = [];
-  const enemyCount = 50;
+  const enemyCount = 80;
+  // 陸地セルをリストアップ
+  const landTiles: {x: number, y: number, type: TileType}[] = [];
+  for(let y=0; y<height; y++) for(let x=0; x<width; x++) {
+      if(!map[y][x].solid) landTiles.push({x, y, type: map[y][x].type});
+  }
+
   for(let i=0; i<enemyCount; i++) {
-      const pos = getRandomLand();
-      if(Math.abs(pos.x - townPos.x) < 15 && Math.abs(pos.y - townPos.y) < 15) continue; // 街周辺は安全
+      const tile = landTiles[Math.floor(Math.random() * landTiles.length)];
+      // 街周辺は安全に
+      if(Math.abs(tile.x - townPos.x) < 10 && Math.abs(tile.y - townPos.y) < 10) continue;
+
+      let allowedTypes: string[] = ['Slime'];
+      const t = tile.type;
       
-      let biome: any = 'Plains';
-      const t = map[pos.y][pos.x].type;
-      if(t === 'snow') biome = 'Snow';
-      else if(t === 'sand') biome = 'Desert';
-      else if(t === 'tree') biome = 'Forest';
-      else if(t === 'dirt') biome = 'Wasteland';
+      if (t === 'snow') allowedTypes = ['Wolf', 'Ghost', 'Bat'];
+      else if (t === 'sand') allowedTypes = ['Scorpion', 'Bandit', 'Giant Ant'];
+      else if (t === 'tree') allowedTypes = ['Spider', 'Wolf', 'Boar', 'Grizzly'];
+      else if (t === 'dirt') allowedTypes = ['Zombie', 'Ghoul', 'Dragonewt'];
+      else allowedTypes = ['Slime', 'Bandit', 'Goblin']; // Grass
 
-      let allowedTypes: string[] = ['Slime', 'Bandit'];
-      if (biome === 'Snow') allowedTypes = ['Wolf', 'Ghost', 'Bat']; // White Bear removed from data.ts
-      if (biome === 'Desert') allowedTypes = ['Scorpion', 'Bandit', 'Giant Ant'];
-      if (biome === 'Forest') allowedTypes = ['Spider', 'Wolf', 'Boar', 'Grizzly'];
-      if (biome === 'Wasteland') allowedTypes = ['Zombie', 'Ghoul', 'Dragonewt'];
-
-      enemies.push(generateEnemy(pos.x * tileSize, pos.y * tileSize, 1, allowedTypes));
+      enemies.push(generateEnemy(tile.x * tileSize, tile.y * tileSize, 1, allowedTypes));
   }
 
   return { map, enemies, droppedItems: [], biome: 'WorldMap', locationId: 'world' };
