@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Loader, Save, ShoppingBag, User, Settings, Monitor } from 'lucide-react';
+import { Loader, Save, User, Monitor, AlertTriangle, X } from 'lucide-react';
 import { onAuthStateChanged, signInAnonymously, signInWithCustomToken, User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
@@ -7,7 +7,7 @@ import { auth, db, isConfigValid, appId, GAME_CONFIG } from './config';
 import { GameState, PlayerEntity, Job, Gender, MenuType, ResolutionMode, Biome, Item, Attributes } from './types';
 import { ASSETS_SVG, svgToUrl } from './assets';
 import { createPlayer, generateRandomItem, generateWorldMap, getMapData, updatePlayerStats, generateEnemy } from './gameLogic';
-import { resolveMapCollision, checkCollision } from './utils'; // Correct import from utils
+import { resolveMapCollision, checkCollision } from './utils';
 import { renderGame } from './renderer';
 import { BIOME_NAMES } from './data';
 
@@ -124,22 +124,20 @@ export default function App() {
   };
 
   const startGame = (job: Job, gender: Gender = 'Male', load = false) => {
-    let player: PlayerEntity, worldX = 0, worldY = 0, savedChunks = {}, locationId = 'world', map;
+    let player: PlayerEntity, worldX = 0, worldY = 0, savedChunks = {}, locationId = 'world';
     if (load && saveData) {
       player = { ...saveData.player }; worldX = saveData.worldX; worldY = saveData.worldY; savedChunks = saveData.savedChunks || {}; updatePlayerStats(player);
       if (!saveData.locationId) {
         locationId = 'world';
-        const chunk = generateWorldMap();
-        map = chunk.map;
+        generateWorldMap(); // チャンク生成のみ実行（map変数は削除）
       } else {
-         const chunk = getMapData(saveData.locationId);
-         map = chunk.map;
+         getMapData(saveData.locationId);
          locationId = saveData.locationId;
       }
     } else {
       player = createPlayer(job, gender); updatePlayerStats(player);
       const chunk = generateWorldMap();
-      map = chunk.map;
+      // map = chunk.map; // 削除: map変数は不要
       player.x = (chunk.map[0].length * 32) / 2;
       player.y = (chunk.map.length * 32) / 2;
       
