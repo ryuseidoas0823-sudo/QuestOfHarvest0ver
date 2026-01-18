@@ -149,10 +149,15 @@ export const generateEnemy = (x: number, y: number, level: number, allowedTypes?
 
 // --- Map Generators ---
 
+/**
+ * 固定シードを使用した決定論的なワールドマップ生成
+ * サイズを4倍 (320x200) に拡大し、各大陸をスケールアップ
+ */
 export const generateOverworld = (): ChunkData => {
   const rng = new SeededRandom(20240923); 
-  const width = 160;
-  const height = 100;
+  // マップサイズを4倍に拡大 (面積比)
+  const width = 320;
+  const height = 200;
   const tileSize = GAME_CONFIG.TILE_SIZE;
   
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
@@ -166,7 +171,7 @@ export const generateOverworld = (): ChunkData => {
           for (let x = cx - rx; x <= cx + rx; x++) {
               if (!isValid(x, y)) continue;
               if (Math.pow((x - cx) / rx, 2) + Math.pow((y - cy) / ry, 2) <= 1) {
-                  if (rng.chance(0.9)) {
+                  if (rng.chance(0.92)) {
                     map[y][x].type = type;
                     map[y][x].solid = false;
                   }
@@ -175,20 +180,20 @@ export const generateOverworld = (): ChunkData => {
       }
   };
 
-  // 大陸配置
-  drawLand(100, 30, 35, 20, 'grass'); // ユーラシア
-  drawLand(75, 25, 15, 15, 'grass'); 
-  drawLand(120, 25, 20, 15, 'snow'); // シベリア
-  drawLand(85, 65, 18, 20, 'sand'); // アフリカ
-  drawLand(90, 80, 15, 15, 'grass'); 
-  drawLand(35, 25, 25, 15, 'grass'); // 北米
-  drawLand(25, 20, 15, 12, 'snow'); 
-  drawLand(30, 35, 15, 10, 'dirt'); 
-  drawLand(40, 70, 15, 20, 'tree'); // 南米
-  drawLand(38, 85, 10, 10, 'rock'); 
-  drawLand(135, 80, 12, 10, 'dirt'); // オーストラリア
+  // 大陸配置 (320x200のスケールに合わせて座標を倍増)
+  drawLand(200, 60, 80, 50, 'grass'); // ユーラシア
+  drawLand(150, 50, 30, 30, 'grass'); // ヨーロッパ方面
+  drawLand(240, 50, 45, 35, 'snow');  // シベリア
+  drawLand(170, 130, 40, 45, 'sand');  // アフリカ
+  drawLand(180, 160, 35, 30, 'grass'); // サバンナ
+  drawLand(70, 50, 50, 35, 'grass');  // 北米
+  drawLand(50, 40, 35, 25, 'snow');   // カナダ・アラスカ
+  drawLand(60, 75, 30, 20, 'dirt');   // 西部
+  drawLand(80, 145, 35, 45, 'tree');  // 南米
+  drawLand(75, 175, 25, 20, 'rock');  // アンデス
+  drawLand(270, 165, 30, 25, 'dirt');  // オーストラリア
 
-  // 日本列島
+  // 日本列島 (東端)
   const drawIsland = (x: number, y: number, w: number, h: number) => {
       for(let dy=0; dy<h; dy++) for(let dx=0; dx<w; dx++) {
           if(isValid(x+dx, y+dy)) {
@@ -197,28 +202,29 @@ export const generateOverworld = (): ChunkData => {
           }
       }
   };
-  drawIsland(145, 30, 2, 4); 
-  drawIsland(143, 35, 3, 12); 
-  drawIsland(141, 40, 2, 3); 
+  drawIsland(290, 60, 4, 8);   // 北海道風
+  drawIsland(286, 75, 6, 24);  // 本州風
+  drawIsland(282, 90, 4, 6);   // 九州風
 
-  // 山脈
+  // 山脈 (スケールアップ)
   const addMountains = (cx: number, cy: number, length: number) => {
       for(let i=0; i<length; i++) {
           if(isValid(cx+i, cy)) { map[cy][cx+i].type = 'rock'; map[cy][cx+i].solid = true; }
           if(isValid(cx+i, cy+1)) { map[cy+1][cx+i].type = 'rock'; map[cy+1][cx+i].solid = true; }
+          if(isValid(cx+i, cy-1)) { map[cy-1][cx+i].type = 'rock'; map[cy-1][cx+i].solid = true; }
       }
   };
-  addMountains(100, 40, 20); 
-  addMountains(25, 25, 5);   
-  addMountains(35, 70, 5);   
+  addMountains(180, 80, 40); // ヒマラヤ
+  addMountains(50, 50, 15);  // ロッキー
+  addMountains(75, 140, 15); // アンデス
 
   for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
           if (map[y][x].solid) continue;
           const t = map[y][x].type;
-          if (y < 15) { map[y][x].type = 'snow'; } 
-          if (t === 'grass' && rng.chance(0.15)) { map[y][x].type = 'tree'; map[y][x].solid = false; }
-          if (t === 'sand' && rng.chance(0.1)) { map[y][x].type = 'dirt'; }
+          if (y < 25) { map[y][x].type = 'snow'; } // 北極圏拡大
+          if (t === 'grass' && rng.chance(0.18)) { map[y][x].type = 'tree'; map[y][x].solid = false; }
+          if (t === 'sand' && rng.chance(0.12)) { map[y][x].type = 'dirt'; }
       }
   }
 
@@ -227,7 +233,7 @@ export const generateOverworld = (): ChunkData => {
       map[y][x].type = icon;
       map[y][x].solid = false;
       map[y][x].teleportTo = to;
-      for(let dy=-3; dy<=3; dy++) for(let dx=-3; dx<=3; dx++) {
+      for(let dy=-4; dy<=4; dy++) for(let dx=-4; dx<=4; dx++) {
           if(isValid(x+dx, y+dy)) {
               const target = map[y+dy][x+dx];
               target.solid = false;
@@ -239,17 +245,18 @@ export const generateOverworld = (): ChunkData => {
       }
   };
 
-  // はじまりの街 (大陸内に配置)
-  const townPos = { x: 105, y: 30 };
+  // はじまりの街 (大陸内: ユーラシア大陸の中心平原地帯)
+  const townPos = { x: 210, y: 60 };
   setPortal(townPos.x, townPos.y, 'town_start', 'town_entrance');
 
-  setPortal(125, 20, 'dungeon_snow', 'dungeon_entrance');
-  setPortal(85, 65, 'dungeon_desert', 'dungeon_entrance');
-  setPortal(40, 75, 'dungeon_forest', 'dungeon_entrance');
-  setPortal(135, 80, 'dungeon_wasteland', 'dungeon_entrance');
+  // ダンジョン配置 (スケールに合わせて調整)
+  setPortal(250, 45, 'dungeon_snow', 'dungeon_entrance');
+  setPortal(170, 130, 'dungeon_desert', 'dungeon_entrance');
+  setPortal(80, 150, 'dungeon_forest', 'dungeon_entrance');
+  setPortal(270, 160, 'dungeon_wasteland', 'dungeon_entrance');
 
   const enemies: EnemyEntity[] = [];
-  const enemyCount = 80;
+  const enemyCount = 250; // 広くなったので敵の数も増加
   const landTiles: {x: number, y: number, type: TileType}[] = [];
   for(let y=0; y<height; y++) for(let x=0; x<width; x++) {
       if(!map[y][x].solid) landTiles.push({x, y, type: map[y][x].type});
@@ -258,7 +265,7 @@ export const generateOverworld = (): ChunkData => {
   for(let i=0; i<enemyCount; i++) {
       if (landTiles.length === 0) break;
       const tile = rng.pick(landTiles); 
-      if(Math.abs(tile.x - townPos.x) < 10 && Math.abs(tile.y - townPos.y) < 10) continue;
+      if(Math.abs(tile.x - townPos.x) < 20 && Math.abs(tile.y - townPos.y) < 20) continue; // 街周辺の安全圏も拡大
       let allowedTypes: string[] = ['Slime'];
       const t = tile.type;
       if (t === 'snow') allowedTypes = ['Wolf', 'Ghost', 'Bat'];
@@ -367,7 +374,6 @@ export const generateTownMap = (id: string): ChunkData => {
   placeBuilding(centerX - 12, centerY + 4, 10, 7, 'inn');
 
   // 民家と村人
-  const houseCoords = [{x: 8, y: centerY + 8}, {x: width - 18, y: 8}, {x: width - 18, y: centerY + 8}];
   houseCoords.forEach((coord, idx) => {
       placeBuilding(coord.x, coord.y, 7, 6, 'house');
       addNPC(coord.x + 3, coord.y + 3, `Villager_${idx}`, '#6366f1');
