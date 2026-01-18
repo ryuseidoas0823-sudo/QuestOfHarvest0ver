@@ -122,7 +122,10 @@ export const createPlayer = (job: Job, gender: Gender): PlayerEntity => {
   const player: PlayerEntity = {
     id: 'player', type: 'player', x: 0, y: 0, width: 24, height: 24, visualWidth: 32, visualHeight: 56, color: THEME.colors.player, job, gender, shape: 'humanoid',
     hp: 100, maxHp: 100, mp: 50, maxMp: 50, attack: 10, defense: 5, speed: 4, level: 1, xp: 0, nextLevelXp: 100, gold: 0, statPoints: 0, attributes: { ...baseAttrs },
-    dead: false, lastAttackTime: 0, attackCooldown: 400, direction: 1, inventory: [], equipment: {}, calculatedStats: { maxHp: 100, maxMp: 50, attack: 10, defense: 5, speed: 4 }
+    dead: false, lastAttackTime: 0, attackCooldown: 400, direction: 1, inventory: [], equipment: {}, calculatedStats: { maxHp: 100, maxMp: 50, attack: 10, defense: 5, speed: 4 },
+    // アニメーション用プロパティ
+    // @ts-ignore
+    animFrame: 0, isMoving: false
   };
   
   // 初期武器を生成して装備
@@ -159,7 +162,9 @@ export const generateEnemy = (x: number, y: number, level: number, allowedTypes?
     attack: Math.max(1, Math.floor((type.atk || 5) * scale)), 
     defense: Math.floor(level * 1.5), 
     speed: type.spd || 2,
-    level, direction: 1, dead: false, lastAttackTime: 0, attackCooldown: 1000 + Math.random() * 500, detectionRange: 350, xpValue: Math.floor((type.xp || 10) * scale * (rank === 'Boss' ? 5 : rank === 'Elite' ? 2 : 1))
+    level, direction: 1, dead: false, lastAttackTime: 0, attackCooldown: 1000 + Math.random() * 500, detectionRange: 350, xpValue: Math.floor((type.xp || 10) * scale * (rank === 'Boss' ? 5 : rank === 'Elite' ? 2 : 1)),
+    // @ts-ignore
+    animFrame: 0, isMoving: false
   };
 };
 
@@ -326,7 +331,9 @@ export const generateTownMap = (id: string): ChunkData => {
           color, shape: 'humanoid',
           hp: 999, maxHp: 999, attack: 0, defense: 999, speed: 0, 
           level: 1, direction: 1, dead: false, lastAttackTime: 0, attackCooldown: 999999,
-          detectionRange: 0, xpValue: 0, vx: 0, vy: 0
+          detectionRange: 0, xpValue: 0, vx: 0, vy: 0,
+          // @ts-ignore
+          animFrame: 0, isMoving: false
       };
       // @ts-ignore
       npc.isNPC = true;
