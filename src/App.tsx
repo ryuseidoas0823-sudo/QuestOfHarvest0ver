@@ -6,7 +6,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, isConfigValid, appId, GAME_CONFIG } from './config';
 import { GameState, PlayerEntity, Job, Gender, MenuType, ResolutionMode, Biome, Item, Attributes } from './types';
 import { ASSETS_SVG, svgToUrl } from './assets';
-import { createPlayer, generateRandomItem, generateWorldMap, getMapData, updatePlayerStats, generateEnemy } from './gameLogic';
+import { createPlayer, generateRandomItem, generateWorldMap, getMapData, updatePlayerStats, generateEnemy, getStarterItem } from './gameLogic';
 import { resolveMapCollision, checkCollision } from './utils';
 import { renderGame } from './renderer';
 import { BIOME_NAMES } from './data';
@@ -69,7 +69,6 @@ export default function App() {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token); else await signInAnonymously(auth);
       } catch (e: any) {
         console.warn("Firebase Auth Failed:", e.message);
-        // エラーコード: auth/configuration-not-found はコンソールでの設定漏れ
         if (e.code === 'auth/configuration-not-found' || e.code === 'auth/admin-restricted-operation') {
            console.info("Authentication設定を確認してください（匿名認証が無効の可能性があります）");
         }
@@ -141,8 +140,9 @@ export default function App() {
       player.x = (chunk.map[0].length * 32) / 2;
       player.y = (chunk.map.length * 32) / 2;
       
-      const starterSword = generateRandomItem(1); 
-      if(starterSword) { starterSword.name = "錆びた剣"; starterSword.type = 'Weapon'; starterSword.subType = 'OneHanded'; player.inventory.push(starterSword); }
+      // ランダム生成ではなく、職業専用の初期装備を配布
+      const starterWeapon = getStarterItem(job);
+      player.inventory.push(starterWeapon);
     }
     
     const chunk = getMapData(locationId);
