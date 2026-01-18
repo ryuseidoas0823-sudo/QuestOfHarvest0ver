@@ -183,6 +183,8 @@ export default function App() {
       await new Promise(r => setTimeout(r, 100));
       
       setLoadingProgress(85); // 主要ダンジョン生成（近場のもの）
+      // 雪のダンジョンなどを事前に生成してキャッシュ
+      savedChunks['dungeon_snow'] = generateDungeonMap('dungeon_snow', 1, 'Snow');
       // 必要に応じて他のマップもここで事前生成できるが、今回は代表的なものだけ
     }
     
