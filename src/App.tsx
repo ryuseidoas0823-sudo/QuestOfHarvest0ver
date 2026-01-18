@@ -139,18 +139,22 @@ export default function App() {
       const chunk = generateWorldMap();
       
       // 修正: 街への入口を探してそこにスポーンさせる
+      // デフォルトは中央（安全策）
       let spawnX = (chunk.map[0].length * GAME_CONFIG.TILE_SIZE) / 2;
       let spawnY = (chunk.map.length * GAME_CONFIG.TILE_SIZE) / 2;
       
-      // マップ内を探索して 'town_entrance' を探す
+      // マップ内を探索して 'town_entrance' (街の入口) を探す
+      let found = false;
       for(let y=0; y<chunk.map.length; y++) {
           for(let x=0; x<chunk.map[0].length; x++) {
               if(chunk.map[y][x].type === 'town_entrance') {
                   spawnX = x * GAME_CONFIG.TILE_SIZE;
                   spawnY = y * GAME_CONFIG.TILE_SIZE;
+                  found = true;
                   break;
               }
           }
+          if(found) break;
       }
 
       player.x = spawnX;
