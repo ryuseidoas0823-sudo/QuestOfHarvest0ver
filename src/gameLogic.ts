@@ -290,10 +290,6 @@ export const generateOverworld = (): ChunkData => {
 };
 
 export const generateTownMap = (id: string): ChunkData => {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = (hash << 5) - hash + id.charCodeAt(i);
-  const rng = new SeededRandom(Math.abs(hash));
-
   const width = 60; const height = 50; 
   const tileSize = 32;
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
