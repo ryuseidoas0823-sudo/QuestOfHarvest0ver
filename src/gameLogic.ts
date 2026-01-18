@@ -124,77 +124,211 @@ export const generateEnemy = (x: number, y: number, level: number, allowedTypes?
 // --- Map Generators ---
 
 export const generateOverworld = (): ChunkData => {
-  const width = 64;
-  const height = 64;
+  const width = 80;
+  const height = 80;
   const tileSize = GAME_CONFIG.TILE_SIZE;
   
+  // 1. 全体を海で初期化 (solid: true)
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
-    let type: TileType = 'grass';
-    let biome: Biome = 'Plains';
-    let solid = false;
-    let teleportTo: string | undefined;
-
-    if (y < 20) { biome = 'Snow'; type = 'snow'; }
-    else if (y > 44) { biome = 'Desert'; type = 'sand'; }
-    else if (x < 20) { biome = 'Wasteland'; type = 'dirt'; }
-    else if (x > 44) { biome = 'Forest'; type = 'grass'; } 
-    
-    if (Math.random() < 0.05) {
-       solid = true;
-       if (biome === 'Wasteland' || biome === 'Desert') type = 'rock';
-       else type = 'tree'; 
-       if (type === 'tree') solid = true;
-    }
-    
-    if (x === 0 || x === width - 1 || y === 0 || y === height - 1) {
-      type = 'wall';
-      solid = true;
-    }
-
-    return { x: x * tileSize, y: y * tileSize, type, solid, teleportTo };
+    return { x: x * tileSize, y: y * tileSize, type: 'water', solid: true, teleportTo: undefined };
   }));
 
-  const placePortal = (tx: number, ty: number, dest: string, tileType: TileType) => {
-    map[ty][tx].type = tileType;
-    map[ty][tx].solid = false;
-    map[ty][tx].teleportTo = dest;
-    for(let dy=-1; dy<=1; dy++){
-        for(let dx=-1; dx<=1; dx++){
-            if(map[ty+dy]?.[tx+dx]) map[ty+dy][tx+dx].solid = false;
-        }
-    }
+  const isValid = (x: number, y: number) => x >= 1 && x < width - 1 && y >= 1 && y < height - 1;
+
+  // 2. 大陸形成 (セルオートマトン + ランダムウォーク)
+  // 核となる陸地を複数配置
+  let landCells: {x: number, y: number}[] = [];
+  const seeds = 12; // 大陸・島の核の数
+  for(let i=0; i<seeds; i++) {
+      let cx = Math.floor(Math.random() * (width - 10)) + 5;
+      let cy = Math.floor(Math.random() * (height - 10)) + 5;
+      // ランダムウォークで広げる
+      const size = Math.floor(Math.random() * 200) + 100;
+      for(let j=0; j<size; j++) {
+          if(isValid(cx, cy)) {
+              map[cy][cx].type = 'grass';
+              map[cy][cx].solid = false;
+              landCells.push({x: cx, y: cy});
+          }
+          const dir = Math.floor(Math.random() * 4);
+          if(dir===0) cx++; else if(dir===1) cx--; else if(dir===2) cy++; else cy--;
+          cx = Math.max(2, Math.min(width-3, cx));
+          cy = Math.max(2, Math.min(height-3, cy));
+      }
+  }
+
+  // スムージング (陸地を自然な形に整える)
+  for(let iter=0; iter<4; iter++) {
+      const nextMap = map.map(row => row.map(t => t.type));
+      for(let y=1; y<height-1; y++) {
+          for(let x=1; x<width-1; x++) {
+              let landCount = 0;
+              for(let dy=-1; dy<=1; dy++) {
+                  for(let dx=-1; dx<=1; dx++) {
+                      if(map[y+dy][x+dx].type !== 'water') landCount++;
+                  }
+              }
+              if(map[y][x].type === 'water' && landCount >= 5) nextMap[y][x] = 'grass';
+              if(map[y][x].type !== 'water' && landCount <= 3) nextMap[y][x] = 'water';
+          }
+      }
+      for(let y=0; y<height; y++) {
+          for(let x=0; x<width; x++) {
+              map[y][x].type = nextMap[y][x] as TileType;
+              map[y][x].solid = map[y][x].type === 'water';
+          }
+      }
+  }
+
+  // 3. 山・山脈 (Perlinノイズ的なシミュレーションは重いので、帯状に配置)
+  // 陸地の上にランダムに山脈ラインを引く
+  const mountains = 6;
+  for(let i=0; i<mountains; i++) {
+      let mx = Math.floor(Math.random() * width);
+      let my = Math.floor(Math.random() * height);
+      // 陸地スタートのみ
+      if(map[my][mx].type === 'water') continue;
+      
+      let length = Math.floor(Math.random() * 20) + 10;
+      let dx = Math.random() > 0.5 ? 1 : -1;
+      let dy = Math.random() > 0.5 ? 1 : -1;
+      if(Math.random() > 0.5) dx = 0; else dy = 0; // 縦か横、あるいは斜めに伸びる
+
+      for(let j=0; j<length; j++) {
+          if(isValid(mx, my) && map[my][mx].type !== 'water') {
+              // 中心は高山(rock, solid)
+              map[my][mx].type = 'rock';
+              map[my][mx].solid = true;
+              
+              // 周囲は低山(dirt, non-solid) または丘
+              for(let ny=my-1; ny<=my+1; ny++) {
+                  for(let nx=mx-1; nx<=mx+1; nx++) {
+                      if(isValid(nx, ny) && map[ny][nx].type === 'grass' && Math.random() > 0.3) {
+                          map[ny][nx].type = 'dirt'; // 低山/丘扱い
+                      }
+                  }
+              }
+          }
+          mx += dx + (Math.random() > 0.8 ? (Math.random()>0.5?1:-1) : 0); // たまにふらつく
+          my += dy + (Math.random() > 0.8 ? (Math.random()>0.5?1:-1) : 0);
+      }
+  }
+
+  // 4. 川・湖
+  // 湖
+  for(let i=0; i<3; i++) {
+      let lx = Math.floor(Math.random() * width);
+      let ly = Math.floor(Math.random() * height);
+      if(map[ly][lx].type === 'grass') {
+          map[ly][lx].type = 'water';
+          map[ly][lx].solid = true;
+          // 少し広げる
+          for(let dy=-1; dy<=1; dy++) for(let dx=-1; dx<=1; dx++) {
+              if(isValid(lx+dx, ly+dy) && map[ly+dy][lx+dx].type !== 'rock') {
+                  map[ly+dy][lx+dx].type = 'water';
+                  map[ly+dy][lx+dx].solid = true;
+              }
+          }
+      }
+  }
+
+  // 5. バイオーム (緯度による変化)
+  for(let y=0; y<height; y++) {
+      for(let x=0; x<width; x++) {
+          if(map[y][x].type === 'water' || map[y][x].type === 'rock') continue;
+          
+          // 北部: 雪原
+          if(y < 15) {
+              map[y][x].type = 'snow';
+          }
+          // 南部: 砂漠
+          else if(y > height - 15) {
+              map[y][x].type = 'sand';
+          }
+          // ランダムに森 (tree)
+          else if(map[y][x].type === 'grass' && Math.random() < 0.2) {
+              map[y][x].type = 'tree';
+              map[y][x].solid = false; // 森は通行可
+          }
+          // 荒野 (西部など特定のエリア)
+          else if(x < 15 && map[y][x].type === 'grass') {
+              if(Math.random() < 0.7) map[y][x].type = 'dirt'; // 荒野
+          }
+      }
+  }
+
+  // 6. ポータルとPOI配置
+  // 陸地リストを再取得
+  const landTiles: {x: number, y: number}[] = [];
+  for(let y=0; y<height; y++) for(let x=0; x<width; x++) {
+      if(!map[y][x].solid && map[y][x].type !== 'water') landTiles.push({x, y});
+  }
+
+  if (landTiles.length === 0) {
+      // フォールバック: 全部海になってしまった場合（稀）
+      map[32][32].type = 'grass'; map[32][32].solid = false;
+      landTiles.push({x:32, y:32});
+  }
+
+  const getRandomLand = () => landTiles[Math.floor(Math.random() * landTiles.length)];
+
+  // 街 (中央に近い陸地を探す)
+  let townPos = {x: width/2, y: height/2};
+  let minDist = Infinity;
+  for(const t of landTiles) {
+      const d = (t.x - width/2)**2 + (t.y - height/2)**2;
+      if(d < minDist) {
+          minDist = d;
+          townPos = t;
+      }
+  }
+  
+  // ポータル設置ヘルパー
+  const setPortal = (x: number, y: number, to: string, icon: TileType) => {
+      map[y][x].type = icon;
+      map[y][x].solid = false;
+      map[y][x].teleportTo = to;
+      // 周囲をクリアに
+      for(let dy=-1; dy<=1; dy++) for(let dx=-1; dx<=1; dx++) {
+          if(isValid(x+dx, y+dy)) {
+              map[y+dy][x+dx].solid = false;
+              if(map[y+dy][x+dx].type === 'water' || map[y+dy][x+dx].type === 'rock') map[y+dy][x+dx].type = 'grass';
+          }
+      }
   };
 
-  placePortal(32, 32, 'town_start', 'town_entrance');
-  placePortal(32, 5, 'dungeon_snow', 'dungeon_entrance');
-  placePortal(32, 58, 'dungeon_desert', 'dungeon_entrance');
-  placePortal(5, 32, 'dungeon_wasteland', 'dungeon_entrance');
-  placePortal(58, 32, 'dungeon_forest', 'dungeon_entrance');
+  setPortal(townPos.x, townPos.y, 'town_start', 'town_entrance');
 
+  // ダンジョン
+  const dForest = getRandomLand(); setPortal(dForest.x, dForest.y, 'dungeon_forest', 'dungeon_entrance');
+  const dSnow = getRandomLand(); setPortal(dSnow.x, dSnow.y, 'dungeon_snow', 'dungeon_entrance');
+  const dDesert = getRandomLand(); setPortal(dDesert.x, dDesert.y, 'dungeon_desert', 'dungeon_entrance');
+  const dWasteland = getRandomLand(); setPortal(dWasteland.x, dWasteland.y, 'dungeon_wasteland', 'dungeon_entrance');
+
+  // 敵の配置
   const enemies: EnemyEntity[] = [];
-  const safeZoneRadius = 15;
-  const centerX = 32, centerY = 32;
+  const enemyCount = 60;
+  for(let i=0; i<enemyCount; i++) {
+      const pos = getRandomLand();
+      // 街の近くは除外
+      if(Math.abs(pos.x - townPos.x) < 10 && Math.abs(pos.y - townPos.y) < 10) continue;
+      
+      let biome: any = 'Plains';
+      const t = map[pos.y][pos.x].type;
+      if(t === 'snow') biome = 'Snow';
+      else if(t === 'sand') biome = 'Desert';
+      else if(t === 'tree') biome = 'Forest';
+      else if(t === 'dirt') biome = 'Wasteland';
 
-  for (let i = 0; i < 40; i++) {
-    const tx = Math.floor(Math.random() * width);
-    const ty = Math.floor(Math.random() * height);
-    
-    const dist = Math.sqrt((tx - centerX)**2 + (ty - centerY)**2);
-    if (dist < safeZoneRadius || map[ty][tx].solid) continue;
+      // 敵生成 (既存ロジック利用)
+      // バイオームごとの敵種別設定
+      let allowedTypes: string[] = ['Slime', 'Bandit'];
+      if (biome === 'Snow') allowedTypes = ['Wolf', 'Ghost', 'White Bear'];
+      if (biome === 'Desert') allowedTypes = ['Scorpion', 'Bandit', 'Giant Ant'];
+      if (biome === 'Forest') allowedTypes = ['Spider', 'Wolf', 'Boar', 'Grizzly'];
+      if (biome === 'Wasteland') allowedTypes = ['Zombie', 'Ghoul', 'Dragonewt'];
 
-    let biome: Biome = 'Plains';
-    if (ty < 20) biome = 'Snow';
-    else if (ty > 44) biome = 'Desert';
-    else if (tx < 20) biome = 'Wasteland';
-    else if (tx > 44) biome = 'Forest';
-
-    let allowedTypes: string[] = ['Slime', 'Bandit'];
-    if (biome === 'Snow') allowedTypes = ['Wolf', 'Ghost', 'White Bear'];
-    if (biome === 'Desert') allowedTypes = ['Scorpion', 'Bandit', 'Giant Ant'];
-    if (biome === 'Forest') allowedTypes = ['Spider', 'Wolf', 'Boar', 'Grizzly'];
-    if (biome === 'Wasteland') allowedTypes = ['Zombie', 'Ghoul', 'Dragonewt'];
-
-    enemies.push(generateEnemy(tx * tileSize, ty * tileSize, 1, allowedTypes));
+      enemies.push(generateEnemy(pos.x * tileSize, pos.y * tileSize, 1, allowedTypes));
   }
 
   return { map, enemies, droppedItems: [], biome: 'WorldMap', locationId: 'world' };
