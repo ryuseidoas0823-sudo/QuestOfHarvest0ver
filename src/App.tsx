@@ -69,8 +69,9 @@ export default function App() {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token); else await signInAnonymously(auth);
       } catch (e: any) {
         console.warn("Firebase Auth Failed:", e.message);
-        if (e.code === 'auth/configuration-not-found') {
-            console.info("NOTE: Firebase Authenticationで「匿名」プロバイダが有効になっていない可能性があります。");
+        // エラーコード: auth/configuration-not-found はコンソールでの設定漏れ
+        if (e.code === 'auth/configuration-not-found' || e.code === 'auth/admin-restricted-operation') {
+           console.info("Authentication設定を確認してください（匿名認証が無効の可能性があります）");
         }
         setLoadingMessage("オフラインモードで起動します...");
         setTimeout(() => setScreen('title'), 1500);
@@ -129,7 +130,7 @@ export default function App() {
       player = { ...saveData.player }; worldX = saveData.worldX; worldY = saveData.worldY; savedChunks = saveData.savedChunks || {}; updatePlayerStats(player);
       if (!saveData.locationId) {
         locationId = 'world';
-        generateWorldMap(); // チャンク生成のみ実行（map変数は削除）
+        generateWorldMap();
       } else {
          getMapData(saveData.locationId);
          locationId = saveData.locationId;
@@ -137,7 +138,6 @@ export default function App() {
     } else {
       player = createPlayer(job, gender); updatePlayerStats(player);
       const chunk = generateWorldMap();
-      // map = chunk.map; // 削除: map変数は不要
       player.x = (chunk.map[0].length * 32) / 2;
       player.y = (chunk.map.length * 32) / 2;
       
