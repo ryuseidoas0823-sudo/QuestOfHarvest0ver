@@ -238,6 +238,8 @@ export const generateOverworld = (): ChunkData => {
               if (target.type === 'water' || target.type === 'rock' || target.type === 'wall') target.type = 'grass';
           }
       }
+      // プレイヤーがスポーンする可能性のある場所（下側）を確実に空ける
+      if(isValid(x, y+1)) { map[y+1][x].solid = false; map[y+1][x].type = 'grass'; }
   };
 
   // 1. はじまりの街 (日本列島: 本州風の場所)
