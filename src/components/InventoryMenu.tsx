@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import { PlayerEntity, Item, EquipmentType } from '../types';
+import { PlayerEntity, Item } from '../types';
 
 interface InventoryMenuProps {
   uiState: PlayerEntity;
@@ -13,8 +13,6 @@ export const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: Inventor
     <div className="w-1/3 bg-slate-800/50 p-6 border-r border-slate-700 flex flex-col gap-4">
       <h3 className="text-xl font-bold text-yellow-500 mb-2 border-b border-slate-700 pb-2">装備</h3>
       {[{ slot: 'mainHand', label: '右手', icon: '⚔️' }, { slot: 'offHand', label: '左手', icon: '🛡️' }, { slot: 'helm', label: '頭', icon: '🪖' }, { slot: 'armor', label: '体', icon: '🛡️' }, { slot: 'boots', label: '足', icon: '👢' }].map((s) => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const equipmentType: EquipmentType | string = s.icon; // Dummy usage to avoid unused var warning if needed, or remove EquipmentType from imports if not strictly used in types here.
         const item = uiState.equipment[s.slot as keyof PlayerEntity['equipment']];
         return (
           <div key={s.slot} className="flex items-center gap-3 p-2 bg-slate-800 rounded border border-slate-700 relative group">
