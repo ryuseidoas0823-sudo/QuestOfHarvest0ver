@@ -6,7 +6,6 @@ export const getStarterItem = (job: Job): Item => {
   const id = crypto.randomUUID();
   const level = 1;
   const rarity: Rarity = 'Common';
-  const color = '#9ca3af'; // gray
   const stats = { attack: 3, defense: 0, speed: 0, maxHp: 0 };
   
   let name = '錆びた剣';
@@ -102,7 +101,6 @@ export const createPlayer = (job: Job, gender: Gender): PlayerEntity => {
 };
 
 export const generateEnemy = (x: number, y: number, level: number, allowedTypes?: string[]): EnemyEntity => {
-  // バイオームなどに基づいて出現する敵をフィルタリング
   const candidates = allowedTypes 
     ? ENEMY_TYPES.filter(e => allowedTypes.includes(e.name))
     : ENEMY_TYPES;
@@ -116,7 +114,7 @@ export const generateEnemy = (x: number, y: number, level: number, allowedTypes?
   return {
     id: `enemy_${crypto.randomUUID()}`, type: 'enemy', race: type.name, rank, x, y, width: type.w * (rank === 'Boss' ? 1.5 : 1), height: type.h * (rank === 'Boss' ? 1.5 : 1),
     visualWidth: type.vw! * (rank === 'Boss' ? 1.5 : 1), visualHeight: type.vh! * (rank === 'Boss' ? 1.5 : 1), 
-    color, // ここで修正：color変数を正しく使用
+    color, 
     shape: type.shape as any,
     hp: Math.floor(type.hp * scale), maxHp: Math.floor(type.hp * scale), attack: Math.floor(type.atk * scale), defense: Math.floor(level * 2), speed: type.spd,
     level, direction: 1, dead: false, lastAttackTime: 0, attackCooldown: 1000 + Math.random() * 500, detectionRange: 350, xpValue: Math.floor(type.xp * scale * (rank === 'Boss' ? 5 : rank === 'Elite' ? 2 : 1))
@@ -136,13 +134,11 @@ export const generateOverworld = (): ChunkData => {
     let solid = false;
     let teleportTo: string | undefined;
 
-    // バイオームの決定
     if (y < 20) { biome = 'Snow'; type = 'snow'; }
     else if (y > 44) { biome = 'Desert'; type = 'sand'; }
     else if (x < 20) { biome = 'Wasteland'; type = 'dirt'; }
     else if (x > 44) { biome = 'Forest'; type = 'grass'; } 
     
-    // 自然生成物
     if (Math.random() < 0.05) {
        solid = true;
        if (biome === 'Wasteland' || biome === 'Desert') type = 'rock';
@@ -150,7 +146,6 @@ export const generateOverworld = (): ChunkData => {
        if (type === 'tree') solid = true;
     }
     
-    // 外壁
     if (x === 0 || x === width - 1 || y === 0 || y === height - 1) {
       type = 'wall';
       solid = true;
