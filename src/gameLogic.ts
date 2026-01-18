@@ -230,12 +230,15 @@ export const generateOverworld = (): ChunkData => {
       map[y][x].type = icon;
       map[y][x].solid = false;
       map[y][x].teleportTo = to;
-      // 周囲を整地
+      // 周囲を整地（障害物になりうるものを取り除く）
       for(let dy=-2; dy<=2; dy++) for(let dx=-2; dx<=2; dx++) {
           if(isValid(x+dx, y+dy)) {
               const target = map[y+dy][x+dx];
               target.solid = false;
-              if (target.type === 'water' || target.type === 'rock' || target.type === 'wall') target.type = 'grass';
+              // 水、山、壁、木などを平地に変える
+              if (target.type === 'water' || target.type === 'rock' || target.type === 'wall' || target.type === 'tree') {
+                  target.type = 'grass';
+              }
           }
       }
       // プレイヤーがスポーンする可能性のある場所（下側）を確実に空ける
