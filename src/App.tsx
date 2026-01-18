@@ -263,13 +263,17 @@ export default function App() {
     state.locationId = newChunk.locationId;
     state.projectiles = []; // 弾幕はリセット
     state.lastTeleportTime = state.gameTime; // テレポート時刻を記録
+    
+    // 入力をリセット（移動しっぱなしでの即時再移動を防ぐ）
+    input.current.keys = {};
+    input.current.mouse.down = false;
 
     // プレイヤー位置の調整
     if (newLocationId === 'world' && state.lastWorldPos) {
        // ワールドマップに戻る場合、前回の位置（街の入り口の前）に戻す
-       // ポータルの真上ではなく、少しずらすことで即時再突入を防ぐ
+       // ポータルの真上ではなく、大きくずらすことで即時再突入を防ぐ (+40)
        state.player.x = state.lastWorldPos.x;
-       state.player.y = state.lastWorldPos.y + 10; 
+       state.player.y = state.lastWorldPos.y + 40; 
     } else {
        // ダンジョンや街に入ったときは、決まった入り口（通常は下側中央）に出現
        // ダンジョン/街のマップ生成ロジックに合わせて調整
