@@ -1,5 +1,6 @@
 name = "quest-of-harvest"
 pages_build_output_dir = "dist"
+compatibility_date = "2024-09-23"
 
 # 将来的にCloudflare D1（データベース）などを使う場合はここに設定を追加します
 # [[d1_databases]]
