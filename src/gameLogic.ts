@@ -1,6 +1,10 @@
-import { Job, Gender, PlayerEntity, EnemyEntity, ChunkData, Tile, TileType, Item, Rarity, EquipmentType, WeaponStyle } from './types';
+import { Job, Gender, PlayerEntity, EnemyEntity, ChunkData, Tile, TileType, Item, Rarity, EquipmentType, WeaponStyle, Entity } from './types';
 import { JOB_DATA, ENEMY_TYPES, RARITY_MULTIPLIERS, ENCHANT_SLOTS, ITEM_BASE_NAMES, ICONS } from './data';
 import { THEME, GAME_CONFIG } from './config';
+import { checkCollision, resolveMapCollision } from './utils';
+
+// Re-export utils for App.tsx consumption
+export { checkCollision, resolveMapCollision };
 
 export const generateRandomItem = (level: number, rankBonus: number = 0): Item | null => {
   let roll = Math.random() * 100 - rankBonus * 5;
@@ -64,50 +68,53 @@ export const generateEnemy = (x: number, y: number, level: number): EnemyEntity 
   if (rankRoll < 0.05) { rank = 'Boss'; scale *= 3; color = '#ff0000'; } else if (rankRoll < 0.2) { rank = 'Elite'; scale *= 1.5; color = '#ffeb3b'; }
   return {
     id: `enemy_${crypto.randomUUID()}`, type: 'enemy', race: type.name, rank, x, y, width: type.w * (rank === 'Boss' ? 1.5 : 1), height: type.h * (rank === 'Boss' ? 1.5 : 1),
-    visualWidth: type.vw! * (rank === 'Boss' ? 1.5 : 1), visualHeight: type.vh! * (rank === 'Boss' ? 1.5 : 1), color, shape: type.shape as ShapeType,
+    visualWidth: type.vw! * (rank === 'Boss' ? 1.5 : 1), visualHeight: type.vh! * (rank === 'Boss' ? 1.5 : 1), color, shape: type.shape as any,
     hp: Math.floor(type.hp * scale), maxHp: Math.floor(type.hp * scale), attack: Math.floor(type.atk * scale), defense: Math.floor(level * 2), speed: type.spd,
     level, direction: 1, dead: false, lastAttackTime: 0, attackCooldown: 1000 + Math.random() * 500, detectionRange: 350, xpValue: Math.floor(type.xp * scale * (rank === 'Boss' ? 5 : rank === 'Elite' ? 2 : 1))
   };
 };
 
-export const generateWorldMap = (): ChunkData => {
-  const width = GAME_CONFIG.MAP_WIDTH * 2; // World is bigger
-  const height = GAME_CONFIG.MAP_HEIGHT * 2;
+const getBiome = (wx: number, wy: number): any => {
+  if (wx === 0 && wy === 0) return 'Town';
+  if (wy < -1) return 'Snow';
+  if (wy > 1) return 'Desert';
+  if (Math.abs(wx) > 2) return 'Wasteland';
+  return 'Plains';
+};
+
+export const generateChunk = (wx: number, wy: number): ChunkData => {
+  const biome = getBiome(wx, wy);
+  const width = GAME_CONFIG.MAP_WIDTH;
+  const height = GAME_CONFIG.MAP_HEIGHT;
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
-    // Simple Perlin-like noise simulation for biomes
-    const noise = Math.sin(x/15) + Math.sin(y/10) + Math.random() * 0.2;
-    let type: TileType = 'grass';
-    if (noise > 1.2) type = 'rock';
-    else if (noise > 0.8) type = 'dirt';
-    else if (noise < -1.0) type = 'water';
-    else if (noise < -0.5) type = 'sand';
-    
-    // Borders
-    if (x===0 || x===width-1 || y===0 || y===height-1) { type = 'wall'; }
-    
-    return { x: x * GAME_CONFIG.TILE_SIZE, y: y * GAME_CONFIG.TILE_SIZE, type, solid: type === 'wall' || type === 'water' || type === 'rock' };
-  }));
-
-  // Place Locations
-  // 1. Starter Town (Center-ish)
-  const townX = Math.floor(width / 2);
-  const townY = Math.floor(height / 2);
-  // Clear area around town
-  for(let dy=-2; dy<=2; dy++) for(let dx=-2; dx<=2; dx++) {
-     if(map[townY+dy]?.[townX+dx]) { map[townY+dy][townX+dx].type='grass'; map[townY+dy][townX+dx].solid=false; }
+      let type: TileType = 'grass';
+      if (biome === 'Snow') type = 'snow'; else if (biome === 'Desert') type = 'sand'; else if (biome === 'Wasteland') type = 'dirt'; else if (biome === 'Town') type = 'floor';
+      if (biome !== 'Town' && Math.random() < 0.05) type = Math.random() > 0.5 ? 'dirt' : 'rock';
+      return { x: x * GAME_CONFIG.TILE_SIZE, y: y * GAME_CONFIG.TILE_SIZE, type, solid: false };
+    })
+  );
+  
+  if (biome === 'Town') {
+     for(let y=0; y<height; y++) {
+      for(let x=0; x<width; x++) {
+        if (x===0 || x===width-1 || y===0 || y===height-1) {
+          if (!((x === 0 || x === width-1) && Math.abs(y - height/2) < 3) && !((y === 0 || y === height-1) && Math.abs(x - width/2) < 3)) { 
+            map[y][x].type = 'wall'; map[y][x].solid = true; 
+          }
+        }
+      }
+    }
   }
-  map[townY][townX] = { x: townX * GAME_CONFIG.TILE_SIZE, y: townY * GAME_CONFIG.TILE_SIZE, type: 'town_entrance', solid: false, teleportTo: 'town_start' };
 
-  // 2. Dungeon (Randomly placed away from center)
-  let dungeonX, dungeonY, dist;
-  do {
-    dungeonX = Math.floor(Math.random() * (width - 4)) + 2;
-    dungeonY = Math.floor(Math.random() * (height - 4)) + 2;
-    dist = Math.sqrt((dungeonX - townX)**2 + (dungeonY - townY)**2);
-  } while (dist < 20 || map[dungeonY][dungeonX].solid);
-  map[dungeonY][dungeonX] = { x: dungeonX * GAME_CONFIG.TILE_SIZE, y: dungeonY * GAME_CONFIG.TILE_SIZE, type: 'dungeon_entrance', solid: false, teleportTo: 'dungeon_1' };
+  if (wx === 1 && wy === 0) {
+      map[10][10] = { x: 10 * GAME_CONFIG.TILE_SIZE, y: 10 * GAME_CONFIG.TILE_SIZE, type: 'dungeon_entrance', solid: false, teleportTo: 'dungeon_1' };
+  }
 
-  return { map, enemies: [], droppedItems: [], biome: 'WorldMap', locationId: 'world' };
+  return { map, enemies: [], droppedItems: [], biome, locationId: `world_${wx}_${wy}` };
+};
+
+export const generateWorldMap = (): ChunkData => {
+    return generateChunk(0, 0);
 };
 
 export const generateTownMap = (id: string): ChunkData => {
@@ -115,14 +122,11 @@ export const generateTownMap = (id: string): ChunkData => {
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
     let type: TileType = 'floor';
     let solid = false;
-    // Walls around town
     if (x===0 || x===width-1 || y===0 || y===height-1) { type='wall'; solid=true; }
-    // Exit (South)
     if (y===height-1 && Math.abs(x - width/2) < 2) { type='portal_out'; solid=false; }
     return { x: x * 32, y: y * 32, type, solid, teleportTo: type === 'portal_out' ? 'world' : undefined };
   }));
 
-  // Add some buildings/decorations (simplified)
   map[5][5].type = 'wall'; map[5][5].solid = true; 
   map[5][6].type = 'wall'; map[5][6].solid = true;
 
@@ -138,11 +142,9 @@ export const generateDungeonMap = (id: string, level: number): ChunkData => {
      return { x: x*32, y: y*32, type, solid: type === 'wall' || type === 'rock', teleportTo: undefined };
   }));
 
-  // Exit (North)
   const midX = Math.floor(width/2);
-  map[0][midX].type='portal_out'; map[0][midX].solid=false; map[0][midX].teleportTo='world'; // Back to world for now
+  map[0][midX].type='portal_out'; map[0][midX].solid=false; map[0][midX].teleportTo='world';
 
-  // Enemies
   const enemies: EnemyEntity[] = [];
   for(let i=0; i<10; i++) {
      let ex, ey;
@@ -154,10 +156,10 @@ export const generateDungeonMap = (id: string, level: number): ChunkData => {
 };
 
 export const getMapData = (locationId: string): ChunkData => {
-  if (locationId === 'world') return generateWorldMap();
+  if (locationId === 'world') return generateChunk(0, 0); 
   if (locationId === 'town_start') return generateTownMap('town_start');
   if (locationId.startsWith('dungeon_')) return generateDungeonMap(locationId, 1);
-  return generateWorldMap();
+  return generateChunk(0, 0);
 };
 
 export const updatePlayerStats = (player: PlayerEntity) => {
