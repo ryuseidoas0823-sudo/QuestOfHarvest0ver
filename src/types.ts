@@ -54,7 +54,7 @@ export interface Entity {
   visualHeight?: number;
   color: string;
   direction: number; // 0: right, 1: down, 2: left, 3: up
-  dead: false; // 常にfalse (dead check用)
+  dead: boolean; // Changed from 'false' to 'boolean' to allow true assignment
 }
 
 export interface PlayerEntity extends Entity {
@@ -115,6 +115,8 @@ export interface EnemyEntity extends Entity {
   vy?: number;
   xpValue: number;
 }
+
+export type CombatEntity = PlayerEntity | EnemyEntity;
 
 export type TileType = 'grass' | 'dirt' | 'rock' | 'water' | 'sand' | 'snow' | 'floor' | 'wall' | 'portal_in' | 'portal_out' | 'tree' | 'town_entrance' | 'dungeon_entrance';
 
