@@ -2,12 +2,11 @@ export const ASSETS_SVG = {
   Slime: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
-    <path d="M6 14h4v-1h3v-2h1v-5h-1v-1h-1v-1h-1v-1H5v1H4v1H3v1H2v5h1v2h3v1z" fill="#76ff03" />
+    <path d="M6 14h4v-1h3v-2h1v-5h-1v-1h-1v-1H5v1H4v1H3v1H2v5h1v2h3v1z" fill="#76ff03" />
     <path d="M5 8h2v2H5zm0 0h1v1h-1z" fill="#000" /><path d="M6 8h1v1H6z" fill="#fff" />
     <path d="M9 8h2v2H9zm0 0h1v1h-1z" fill="#000" /><path d="M10 8h1v1h-1z" fill="#fff" />
     <path d="M6 5h2v1H6zm-1 1h1v2H5z" fill="#ccff90" opacity="0.5" />
   </svg>`,
-  
   Bandit: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
@@ -19,7 +18,6 @@ export const ASSETS_SVG = {
     <path d="M11 9h3v1h-3z" fill="#cfd8dc" />
     <path d="M11 9h1v3h-1z" fill="#5d4037" />
   </svg>`,
-
   Zombie: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
@@ -31,7 +29,6 @@ export const ASSETS_SVG = {
     <path d="M5 13h2v3H5zm4 0h2v3H9z" fill="#3e2723" />
     <path d="M2 8h3v2H2zm9 0h3v2h-3z" fill="#81c784" />
   </svg>`,
-
   Insect: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M2 14h12v1H2z" fill="rgba(0,0,0,0.3)" />
@@ -42,7 +39,6 @@ export const ASSETS_SVG = {
     <path d="M4 12h1v2H4zm3 0h1v2H7zm4 0h1v2h-1z" fill="#000" />
     <path d="M13 7h2v-2h-2z" fill="#000" opacity="0.5" />
   </svg>`,
-
   Demon: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
@@ -54,7 +50,6 @@ export const ASSETS_SVG = {
     <path d="M13 7h1v5h-1z" fill="#000" />
     <path d="M5 13h2v3H5zm4 0h2v3H9z" fill="#3e2723" />
   </svg>`,
-
   Bat: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M6 14h4v1H6z" fill="rgba(0,0,0,0.3)" />
@@ -63,7 +58,6 @@ export const ASSETS_SVG = {
     <path d="M9 5h5v1h-2v1h-1v1h-1v1H9z" fill="#7b1fa2" />
     <path d="M7 7h1v1H7zm1 0h1v1H8z" fill="#fff" />
   </svg>`,
-
   Dragon: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M3 14h10v1H3z" fill="rgba(0,0,0,0.3)" />
@@ -75,7 +69,6 @@ export const ASSETS_SVG = {
     <path d="M5 13h2v3H5zm4 0h2v3H9z" fill="#004d40" />
     <path d="M4 10h-2v2h2z" fill="#004d40" />
   </svg>`,
-
   Beast: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M3 14h10v1H3z" fill="rgba(0,0,0,0.3)" />
@@ -85,7 +78,6 @@ export const ASSETS_SVG = {
     <path d="M2 8h1v1H2z" fill="#fff" />
     <path d="M4 12h2v4H4zm6 0h2v4h-2z" fill="#3e2723" />
   </svg>`,
-
   Wolf: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M3 14h10v1H3z" fill="rgba(0,0,0,0.3)" />
@@ -96,7 +88,6 @@ export const ASSETS_SVG = {
     <path d="M12 8h2v2h-2z" fill="#757575" />
     <path d="M4 12h2v4H4zm6 0h2v4h-2z" fill="#424242" />
   </svg>`,
-
   Ghost: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M5 14h6v1H5z" fill="rgba(0,0,0,0.1)" />
@@ -105,7 +96,6 @@ export const ASSETS_SVG = {
     <path d="M6 6h1v1H6zm3 0h1v1H9z" fill="#000" />
     <path d="M5 12h1v2H5zm2-1h2v2H7zm3 1h1v2h-1z" fill="#eceff1" opacity="0.8" />
   </svg>`,
-
   Swordsman_Male: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
@@ -119,7 +109,6 @@ export const ASSETS_SVG = {
     <path d="M11 8h3v1h-3z" fill="#5d4037" />
     <path d="M12 9h1v2h-1z" fill="#5d4037" />
   </svg>`,
-
   Swordsman_Female: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
@@ -133,7 +122,6 @@ export const ASSETS_SVG = {
     <path d="M11 8h3v1h-3z" fill="#5d4037" />
     <path d="M12 9h1v2h-1z" fill="#5d4037" />
   </svg>`,
-
   Warrior_Male: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M3 14h10v1H3z" fill="rgba(0,0,0,0.3)" />
@@ -147,7 +135,6 @@ export const ASSETS_SVG = {
     <path d="M13 4h2v4h-2z" fill="#757575" />
     <path d="M14 8h1v5h-1z" fill="#5d4037" />
   </svg>`,
-
   Warrior_Female: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M3 14h10v1H3z" fill="rgba(0,0,0,0.3)" />
@@ -161,7 +148,6 @@ export const ASSETS_SVG = {
     <path d="M13 5h2v3h-2z" fill="#90a4ae" />
     <path d="M14 8h1v5h-1z" fill="#5d4037" />
   </svg>`,
-
   Archer_Male: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
@@ -174,7 +160,6 @@ export const ASSETS_SVG = {
     <path d="M12 6h1v6h-1z" fill="#8d6e63" />
     <path d="M12 6h-1v1h1zm-1 5h1v1h-1z" fill="#8d6e63" />
   </svg>`,
-
   Archer_Female: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
@@ -187,7 +172,6 @@ export const ASSETS_SVG = {
     <path d="M12 6h1v6h-1z" fill="#8d6e63" />
     <path d="M12 6h-1v1h1zm-1 5h1v1h-1z" fill="#8d6e63" />
   </svg>`,
-
   Mage_Male: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
@@ -200,7 +184,6 @@ export const ASSETS_SVG = {
     <path d="M13 5h1v8h-1z" fill="#8d6e63" />
     <path d="M12 4h3v1h-3z" fill="#ffeb3b" />
   </svg>`,
-
   Mage_Female: `
   <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 14h8v1H4z" fill="rgba(0,0,0,0.3)" />
