@@ -6,7 +6,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, isConfigValid, appId, GAME_CONFIG } from './config';
 import { GameState, PlayerEntity, Job, Gender, MenuType, ResolutionMode, Biome, Item, Attributes, ChunkData } from './types';
 import { ASSETS_SVG, svgToUrl } from './assets';
-import { createPlayer, generateRandomItem, generateWorldMap, getMapData, updatePlayerStats, generateEnemy, getStarterItem } from './gameLogic';
+import { createPlayer, generateRandomItem, generateWorldMap, getMapData, updatePlayerStats, generateEnemy, getStarterItem, generateTownMap, generateDungeonMap } from './gameLogic';
 import { resolveMapCollision, checkCollision } from './utils';
 import { renderGame } from './renderer';
 import { BIOME_NAMES } from './data';
@@ -20,6 +20,7 @@ export default function App() {
   const [screen, setScreen] = useState<'auth' | 'title' | 'game' | 'job_select'>('auth');
   const [saveData, setSaveData] = useState<any>(null);
   const [loadingMessage, setLoadingMessage] = useState('クラウドに接続中...');
+  const [loadingProgress, setLoadingProgress] = useState(0); // ロード進捗率 (0-100)
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameState = useRef<GameState | null>(null);
   const reqRef = useRef<number>();
@@ -121,13 +122,21 @@ export default function App() {
     } catch (e) { setScreen('title'); }
   };
 
-  const startGame = (job: Job, gender: Gender = 'Male', load = false) => {
+  const startGame = async (job: Job, gender: Gender = 'Male', load = false) => {
+    // ロード演出開始
+    setLoadingProgress(10);
+    
+    // 少し待機してUI更新を待つ
+    await new Promise(r => setTimeout(r, 100));
+
     let player: PlayerEntity, worldX = 0, worldY = 0, savedChunks: Record<string, ChunkData> = {}, locationId = 'world';
     
     // 1. ワールドマップの生成（またはロード準備）
     // 重要: ここで生成した worldChunk は必ず savedChunks に保存する
+    setLoadingProgress(30); // ワールド生成開始
     const worldChunk = generateWorldMap();
-    
+    await new Promise(r => setTimeout(r, 200)); // 演出用ウェイト
+
     // ワールドマップ上のスポーン位置（街の入口）を特定
     let worldSpawnX = (worldChunk.map[0].length * GAME_CONFIG.TILE_SIZE) / 2;
     let worldSpawnY = (worldChunk.map.length * GAME_CONFIG.TILE_SIZE) / 2;
@@ -141,6 +150,8 @@ export default function App() {
             }
         }
     }
+    
+    setLoadingProgress(50); // ワールド生成完了
 
     if (load && saveData) {
       player = { ...saveData.player }; 
@@ -165,6 +176,14 @@ export default function App() {
       
       // ニューゲーム時、生成したワールドマップを保存リストに登録
       savedChunks['world'] = worldChunk;
+      
+      // 初期ダンジョンや街のデータをプリロードしてキャッシュに入れる
+      setLoadingProgress(70); // 街データ生成
+      savedChunks['town_start'] = generateTownMap('town_start');
+      await new Promise(r => setTimeout(r, 100));
+      
+      setLoadingProgress(85); // 主要ダンジョン生成（近場のもの）
+      // 必要に応じて他のマップもここで事前生成できるが、今回は代表的なものだけ
     }
     
     // 2. 現在のロケーションのマップを取得
@@ -175,6 +194,8 @@ export default function App() {
         currentChunk = getMapData(locationId);
     }
     
+    setLoadingProgress(95); // 最終準備
+
     // プレイヤーの配置調整
     if (!load) {
         if (locationId === 'town_start') {
@@ -193,7 +214,12 @@ export default function App() {
       projectiles: [], particles: [], floatingTexts: [], camera: { x: 0, y: 0 }, gameTime: 0, isPaused: false, wave: 1,
       lastWorldPos: { x: worldSpawnX, y: worldSpawnY + 32 }
     };
+    
+    setLoadingProgress(100);
+    await new Promise(r => setTimeout(r, 200)); // 100%を見せるための少しの待機
+    
     setScreen('game');
+    setLoadingProgress(0); // リセット
   };
 
   const switchLocation = (newLocationId: string) => {
@@ -434,6 +460,7 @@ export default function App() {
       canContinue={!!saveData} 
       resolution={resolution}
       setResolution={setResolution}
+      loadingProgress={loadingProgress}
     />
   );
   
