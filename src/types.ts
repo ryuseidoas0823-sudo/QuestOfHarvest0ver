@@ -206,6 +206,7 @@ export interface GameState {
   wave: number;
   locationId: string;
   lastWorldPos?: { x: number; y: number };
+  lastTeleportTime?: number; // Added property for teleport cooldown
 }
 
 export type MenuType = 'none' | 'inventory' | 'stats' | 'status';
