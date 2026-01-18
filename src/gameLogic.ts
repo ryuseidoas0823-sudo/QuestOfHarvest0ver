@@ -1,6 +1,51 @@
-import { Job, Gender, PlayerEntity, EnemyEntity, ChunkData, Tile, TileType } from './types';
-import { JOB_DATA, ENEMY_TYPES } from './data';
+import { Job, Gender, PlayerEntity, EnemyEntity, ChunkData, Tile, TileType, Item, Rarity, EquipmentType, WeaponStyle } from './types';
+import { JOB_DATA, ENEMY_TYPES, RARITY_MULTIPLIERS, ENCHANT_SLOTS, ITEM_BASE_NAMES, ICONS } from './data';
 import { THEME, GAME_CONFIG } from './config';
+
+// generateRandomItem をここに移動
+export const generateRandomItem = (level: number, rankBonus: number = 0): Item | null => {
+  let roll = Math.random() * 100 - rankBonus * 5;
+  let rarity: Rarity = roll < 1 ? 'Legendary' : roll < 5 ? 'Epic' : roll < 15 ? 'Rare' : roll < 40 ? 'Uncommon' : 'Common';
+  const types: EquipmentType[] = ['Weapon', 'Helm', 'Armor', 'Shield', 'Boots'];
+  const type = types[Math.floor(Math.random() * types.length)];
+  let subType: WeaponStyle | undefined;
+  if (type === 'Weapon') subType = (['OneHanded', 'TwoHanded', 'DualWield'] as WeaponStyle[])[Math.floor(Math.random() * 3)];
+
+  const mult = RARITY_MULTIPLIERS[rarity];
+  const baseVal = level * 2;
+  const stats = { attack: 0, defense: 0, speed: 0, maxHp: 0 };
+
+  if (type === 'Weapon') {
+    stats.attack = Math.floor(baseVal * 3 * mult);
+    if (subType === 'TwoHanded') stats.attack = Math.floor(stats.attack * 1.5);
+    if (subType === 'DualWield') { stats.attack = Math.floor(stats.attack * 0.8); stats.speed = 1; }
+  } else if (type === 'Armor') { stats.defense = Math.floor(baseVal * 2 * mult); stats.maxHp = Math.floor(baseVal * 5 * mult);
+  } else if (type === 'Helm') { stats.defense = Math.floor(baseVal * 1 * mult); stats.maxHp = Math.floor(baseVal * 2 * mult);
+  } else if (type === 'Shield') { stats.defense = Math.floor(baseVal * 2.5 * mult);
+  } else if (type === 'Boots') { stats.defense = Math.floor(baseVal * 0.5 * mult); stats.speed = Number((0.2 * mult).toFixed(1)); }
+
+  const enchantments: any[] = [];
+  const enchantCount = Math.floor(Math.random() * (ENCHANT_SLOTS[rarity] + 1));
+  for (let i = 0; i < enchantCount; i++) {
+    const eType = (['Attack', 'Defense', 'Speed', 'MaxHp'] as const)[Math.floor(Math.random() * 4)];
+    const strIdx = Math.floor(Math.random() * 3);
+    const strength = (['Weak', 'Medium', 'Strong'] as const)[strIdx];
+    let val = 0;
+    if (eType === 'Attack' || eType === 'Defense') val = Math.floor(level * (strIdx + 1));
+    else if (eType === 'MaxHp') val = Math.floor(level * 5 * (strIdx + 1));
+    else if (eType === 'Speed') val = Number((0.1 * (strIdx + 1)).toFixed(1));
+    const name = `${{Weak:'微かな',Medium:'普通の',Strong:'強力な'}[strength]}${{Attack:'攻撃',Defense:'防御',Speed:'敏捷',MaxHp:'体力'}[eType]}`;
+    enchantments.push({ type: eType, value: val, strength, name });
+    if (eType === 'Attack') stats.attack += val; else if (eType === 'Defense') stats.defense += val; else if (eType === 'MaxHp') stats.maxHp += val; else if (eType === 'Speed') stats.speed += val;
+  }
+  let name = rarity === 'Common' ? '' : `${rarity} `;
+  // @ts-ignore
+  if (type === 'Weapon') name += ITEM_BASE_NAMES[type][subType!]; else name += ITEM_BASE_NAMES[type];
+  // @ts-ignore
+  const icon = type === 'Weapon' ? ICONS.Weapon[subType!] : ICONS[type];
+  
+  return { id: crypto.randomUUID(), name, type, subType, rarity, level, stats, enchantments, icon, color: THEME.colors.rarity[rarity] };
+};
 
 export const createPlayer = (job: Job, gender: Gender): PlayerEntity => {
   const baseAttrs = JOB_DATA[job].attributes;
