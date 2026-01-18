@@ -3,13 +3,32 @@ import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 
 export const GAME_CONFIG = {
-  TILE_SIZE: 32, MAP_WIDTH: 50, MAP_HEIGHT: 40, PLAYER_SPEED: 5, ENEMY_SPAWN_RATE: 0.015, BASE_DROP_RATE: 0.2,
+  TILE_SIZE: 32,
+  MAP_WIDTH: 50,
+  MAP_HEIGHT: 40,
+  PLAYER_SPEED: 5,
+  ENEMY_SPAWN_RATE: 0.015,
+  BASE_DROP_RATE: 0.2,
 };
 
 export const THEME = {
   colors: {
-    ground: '#1a1a1a', grass: '#1e2b1e', wall: '#424242', water: '#1a237e', townFloor: '#5d4037', player: '#d4af37', enemy: '#8b0000', text: '#c0c0c0', highlight: '#ffd700',
-    rarity: { Common: '#ffffff', Uncommon: '#1eff00', Rare: '#0070dd', Epic: '#a335ee', Legendary: '#ff8000', }
+    ground: '#1a1a1a',
+    grass: '#1e2b1e',
+    wall: '#424242',
+    water: '#1a237e',
+    townFloor: '#5d4037',
+    player: '#d4af37',
+    enemy: '#8b0000',
+    text: '#c0c0c0',
+    highlight: '#ffd700',
+    rarity: {
+      Common: '#ffffff',
+      Uncommon: '#1eff00',
+      Rare: '#0070dd',
+      Epic: '#a335ee',
+      Legendary: '#ff8000',
+    }
   }
 };
 
