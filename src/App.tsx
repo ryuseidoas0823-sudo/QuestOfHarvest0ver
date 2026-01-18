@@ -5,7 +5,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 import { auth, db, isConfigValid, appId, GAME_CONFIG } from './config';
 import { GameState, PlayerEntity, Job, Gender, MenuType, ResolutionMode, Biome, Item, Attributes, ChunkData } from './types';
-import { ASSETS_SVG, svgToUrl } from './assets';
+import { ASSETS_SVG, svgToUrl } fromQ './assets';
 import { createPlayer, generateRandomItem, generateWorldMap, getMapData, updatePlayerStats, generateEnemy, getStarterItem } from './gameLogic';
 import { resolveMapCollision, checkCollision } from './utils';
 import { renderGame } from './renderer';
@@ -200,6 +200,9 @@ export default function App() {
     if (!gameState.current) return;
     const state = gameState.current;
 
+    // 移動クールダウン中なら何もしない（無限ループ防止）
+    if (state.lastTeleportTime && state.gameTime - state.lastTeleportTime < 60) return;
+
     // 1. 移動前の現在のマップ状態を保存する
     // これにより、敵の倒した状況やドロップアイテム、マップの変更が保持される
     // また、ワールドマップの場合はその地形データが保持され、再生成を防ぐ
@@ -231,15 +234,14 @@ export default function App() {
     state.currentBiome = newChunk.biome;
     state.locationId = newChunk.locationId;
     state.projectiles = []; // 弾幕はリセット
+    state.lastTeleportTime = state.gameTime; // テレポート時刻を記録
 
     // プレイヤー位置の調整
     if (newLocationId === 'world' && state.lastWorldPos) {
        // ワールドマップに戻る場合、前回の位置（街の入り口の前）に戻す
+       // ポータルの真上ではなく、少しずらすことで即時再突入を防ぐ
        state.player.x = state.lastWorldPos.x;
-       state.player.y = state.lastWorldPos.y; 
-       
-       // 万が一障害物に埋まっていても utils.ts の resolveMapCollision で押し出されるはずだが
-       // 念のため、周囲が安全かチェックするロジックを入れても良い（今回は省略）
+       state.player.y = state.lastWorldPos.y + 10; 
     } else {
        // ダンジョンや街に入ったときは、決まった入り口（通常は下側中央）に出現
        // ダンジョン/街のマップ生成ロジックに合わせて調整
@@ -273,13 +275,18 @@ export default function App() {
         const nextPos = resolveMapCollision(p, dx, dy, state.map);
         
         // ポータル判定
-        const tileX = Math.floor((nextPos.x + p.width/2) / 32);
-        const tileY = Math.floor((nextPos.y + p.height/2) / 32);
+        // プレイヤーの中心座標がポータルタイル上にあるかチェック
+        const centerX = nextPos.x + p.width / 2;
+        const centerY = nextPos.y + p.height / 2;
+        const tileX = Math.floor(centerX / 32);
+        const tileY = Math.floor(centerY / 32);
         const tile = state.map[tileY]?.[tileX];
         
         if (tile && tile.teleportTo) {
            switchLocation(tile.teleportTo);
-           return; // マップ切り替え時はループ中断
+           // マップ切り替えが発生した場合、これ以上の移動処理を中断し、
+           // 次のフレームで新しいマップでの描画を行うようにする
+           return; 
         }
 
         p.x = nextPos.x; p.y = nextPos.y;
