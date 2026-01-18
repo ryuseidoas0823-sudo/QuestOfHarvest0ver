@@ -3,15 +3,14 @@ import { Loader, Save, ShoppingBag, User, Settings, Monitor } from 'lucide-react
 import { onAuthStateChanged, signInAnonymously, signInWithCustomToken, User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-// Imports from other files
 import { auth, db, isConfigValid, appId, GAME_CONFIG } from './config';
 import { GameState, PlayerEntity, Job, Gender, MenuType, ResolutionMode, Biome, Item, Attributes } from './types';
 import { ASSETS_SVG, svgToUrl } from './assets';
-import { createPlayer, generateRandomItem, generateWorldMap, getMapData, updatePlayerStats, resolveMapCollision, checkCollision, generateEnemy } from './gameLogic';
+import { createPlayer, generateRandomItem, generateWorldMap, getMapData, updatePlayerStats, generateEnemy } from './gameLogic';
+import { resolveMapCollision, checkCollision } from './utils'; // Correct import from utils
 import { renderGame } from './renderer';
 import { BIOME_NAMES } from './data';
 
-// Component Imports
 import { TitleScreen } from './components/TitleScreen';
 import { JobSelectScreen } from './components/JobSelectScreen';
 import { GameHUD } from './components/GameHUD';
@@ -35,7 +34,6 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // --- Assets Loading ---
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const loadedAssets = useMemo(() => {
     const images: Record<string, HTMLImageElement> = {};
@@ -43,7 +41,6 @@ export default function App() {
     return images;
   }, []);
 
-  // --- Styles Injection ---
   useEffect(() => {
     const style = document.createElement('style');
     style.innerHTML = `
@@ -59,7 +56,6 @@ export default function App() {
     document.head.appendChild(style); return () => { document.head.removeChild(style); };
   }, []);
 
-  // --- Auth & Initial Load ---
   useEffect(() => {
     if (!auth) {
       console.warn("Auth not initialized. Starting in offline mode.");
@@ -84,7 +80,6 @@ export default function App() {
     return onAuthStateChanged(auth, (u) => { setUser(u); if (u) checkSaveData(u.uid); });
   }, []);
 
-  // --- Event Listeners & Resize Logic ---
   useEffect(() => {
     const handleResize = () => {
       if (resolution === 'auto') {
@@ -119,7 +114,6 @@ export default function App() {
     };
   }, [resolution]);
 
-  // --- Game Functions ---
   const checkSaveData = async (uid: string) => {
     if (!db) { setScreen('title'); return; }
     try {
@@ -130,14 +124,7 @@ export default function App() {
   };
 
   const startGame = (job: Job, gender: Gender = 'Male', load = false) => {
-    let player: PlayerEntity; 
-    let worldX = 0; 
-    let worldY = 0; 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    let savedChunks = {}; 
-    let locationId = 'world'; 
-    let map;
-
+    let player: PlayerEntity, worldX = 0, worldY = 0, savedChunks = {}, locationId = 'world', map;
     if (load && saveData) {
       player = { ...saveData.player }; worldX = saveData.worldX; worldY = saveData.worldY; savedChunks = saveData.savedChunks || {}; updatePlayerStats(player);
       if (!saveData.locationId) {
@@ -199,7 +186,6 @@ export default function App() {
   };
 
 
-  // --- Game Loop ---
   const gameLoop = () => {
     if (!gameState.current || !canvasRef.current) { reqRef.current = requestAnimationFrame(gameLoop); return; }
     const state = gameState.current; const ctx = canvasRef.current.getContext('2d'); if (!ctx) return;
