@@ -4,7 +4,7 @@ import { onAuthStateChanged, signInAnonymously, signInWithCustomToken, User as F
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 import { auth, db, isConfigValid, appId, GAME_CONFIG } from './config';
-import { GameState, PlayerEntity, Job, Gender, MenuType, ResolutionMode, Biome, Item, Attributes } from './types';
+import { GameState, PlayerEntity, Job, Gender, MenuType, ResolutionMode, Biome, Item, Attributes, ChunkData } from './types';
 import { ASSETS_SVG, svgToUrl } from './assets';
 import { createPlayer, generateRandomItem, generateWorldMap, getMapData, updatePlayerStats, generateEnemy, getStarterItem } from './gameLogic';
 import { resolveMapCollision, checkCollision } from './utils';
@@ -68,10 +68,8 @@ export default function App() {
         // @ts-ignore
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token); else await signInAnonymously(auth);
       } catch (e: any) {
-        console.warn("Firebase Auth Failed:", e.message);
-        if (e.code === 'auth/configuration-not-found' || e.code === 'auth/admin-restricted-operation') {
-           console.info("Authentication設定を確認してください（匿名認証が無効の可能性があります）");
-        }
+        // エラーログを抑制し、ユーザーにはオフラインモードであることを伝える
+        console.log("Offline Mode: Cloud features unavailable.", e.code);
         setLoadingMessage("オフラインモードで起動します...");
         setTimeout(() => setScreen('title'), 1500);
       }
@@ -124,15 +122,16 @@ export default function App() {
   };
 
   const startGame = (job: Job, gender: Gender = 'Male', load = false) => {
-    let player: PlayerEntity, worldX = 0, worldY = 0, savedChunks = {}, locationId = 'world';
+    let player: PlayerEntity, worldX = 0, worldY = 0, savedChunks: Record<string, ChunkData> = {}, locationId = 'world';
     
-    // ゲーム開始時はまずワールドマップを生成して、街の位置を把握する
-    // これにより「街から出たときに正しい位置に出る」ことができる
+    // 1. ワールドマップの生成（またはロード準備）
+    // 重要: ここで生成した worldChunk は必ず savedChunks に保存する
     const worldChunk = generateWorldMap();
+    
+    // ワールドマップ上のスポーン位置（街の入口）を特定
     let worldSpawnX = (worldChunk.map[0].length * GAME_CONFIG.TILE_SIZE) / 2;
     let worldSpawnY = (worldChunk.map.length * GAME_CONFIG.TILE_SIZE) / 2;
     
-    // 街の入口を探す
     for(let y=0; y<worldChunk.map.length; y++) {
         for(let x=0; x<worldChunk.map[0].length; x++) {
             if(worldChunk.map[y][x].type === 'town_entrance') {
@@ -144,29 +143,41 @@ export default function App() {
     }
 
     if (load && saveData) {
-      player = { ...saveData.player }; worldX = saveData.worldX; worldY = saveData.worldY; savedChunks = saveData.savedChunks || {}; updatePlayerStats(player);
-      if (!saveData.locationId) {
-        locationId = 'world';
-      } else {
-         locationId = saveData.locationId;
+      player = { ...saveData.player }; 
+      worldX = saveData.worldX; 
+      worldY = saveData.worldY; 
+      // ロード時は保存されたチャンクデータを使う
+      savedChunks = saveData.savedChunks || {};
+      
+      // もしセーブデータにworldが含まれていなければ（旧データなど）、新規生成したものを入れる
+      if (!savedChunks['world']) {
+          savedChunks['world'] = worldChunk;
       }
+      
+      updatePlayerStats(player);
+      locationId = saveData.locationId || 'world';
     } else {
-      player = createPlayer(job, gender); updatePlayerStats(player);
-      
-      // ニューゲーム：必ず「はじまりの街」の中からスタートする
-      locationId = 'town_start';
-      
+      player = createPlayer(job, gender); 
+      updatePlayerStats(player);
+      locationId = 'town_start'; // ニューゲームは街から
       const starterWeapon = getStarterItem(job);
       player.inventory.push(starterWeapon);
+      
+      // ニューゲーム時、生成したワールドマップを保存リストに登録
+      savedChunks['world'] = worldChunk;
     }
     
-    // 現在のマップデータを取得
-    let currentChunk = getMapData(locationId);
+    // 2. 現在のロケーションのマップを取得
+    let currentChunk: ChunkData;
+    if (savedChunks[locationId]) {
+        currentChunk = savedChunks[locationId];
+    } else {
+        currentChunk = getMapData(locationId);
+    }
     
-    // ニューゲームの場合、プレイヤー位置を街の中心（または安全な場所）に設定
+    // プレイヤーの配置調整
     if (!load) {
         if (locationId === 'town_start') {
-             // 街の中央付近
              player.x = (currentChunk.map[0].length * GAME_CONFIG.TILE_SIZE) / 2;
              player.y = (currentChunk.map.length * GAME_CONFIG.TILE_SIZE) / 2;
         } else {
@@ -176,9 +187,10 @@ export default function App() {
     }
 
     gameState.current = {
-      worldX, worldY, currentBiome: currentChunk.biome, savedChunks, map: currentChunk.map, player, enemies: currentChunk.enemies, droppedItems: currentChunk.droppedItems, locationId,
+      worldX, worldY, currentBiome: currentChunk.biome, 
+      savedChunks, // 修正されたsavedChunksをセット
+      map: currentChunk.map, player, enemies: currentChunk.enemies, droppedItems: currentChunk.droppedItems, locationId,
       projectiles: [], particles: [], floatingTexts: [], camera: { x: 0, y: 0 }, gameTime: 0, isPaused: false, wave: 1,
-      // 街から出たときの戻り位置をワールドマップ上の街の入口に設定
       lastWorldPos: { x: worldSpawnX, y: worldSpawnY + 32 }
     };
     setScreen('game');
@@ -188,23 +200,49 @@ export default function App() {
     if (!gameState.current) return;
     const state = gameState.current;
 
+    // 1. 移動前の現在のマップ状態を保存する
+    // これにより、敵の倒した状況やドロップアイテム、マップの変更が保持される
+    // また、ワールドマップの場合はその地形データが保持され、再生成を防ぐ
+    state.savedChunks[state.locationId] = {
+        map: state.map,
+        enemies: state.enemies,
+        droppedItems: state.droppedItems,
+        biome: state.currentBiome,
+        locationId: state.locationId
+    };
+
     if (state.locationId === 'world') {
       state.lastWorldPos = { x: state.player.x, y: state.player.y };
     }
 
-    const newChunk = getMapData(newLocationId);
+    // 2. 新しいマップの読み込み
+    // 既に保存されたチャンクがあればそれを使い、なければ新規生成する
+    let newChunk: ChunkData;
+    if (state.savedChunks[newLocationId]) {
+        newChunk = state.savedChunks[newLocationId];
+    } else {
+        newChunk = getMapData(newLocationId);
+    }
+
+    // ステート更新
     state.map = newChunk.map;
     state.enemies = newChunk.enemies;
     state.droppedItems = newChunk.droppedItems;
     state.currentBiome = newChunk.biome;
     state.locationId = newChunk.locationId;
-    state.projectiles = [];
+    state.projectiles = []; // 弾幕はリセット
 
+    // プレイヤー位置の調整
     if (newLocationId === 'world' && state.lastWorldPos) {
+       // ワールドマップに戻る場合、前回の位置（街の入り口の前）に戻す
        state.player.x = state.lastWorldPos.x;
        state.player.y = state.lastWorldPos.y; 
+       
+       // 万が一障害物に埋まっていても utils.ts の resolveMapCollision で押し出されるはずだが
+       // 念のため、周囲が安全かチェックするロジックを入れても良い（今回は省略）
     } else {
-       // ダンジョンや街に入ったときの位置（下側中央）
+       // ダンジョンや街に入ったときは、決まった入り口（通常は下側中央）に出現
+       // ダンジョン/街のマップ生成ロジックに合わせて調整
        state.player.x = (newChunk.map[0].length * 32) / 2;
        state.player.y = (newChunk.map.length * 32) - 64;
     }
@@ -214,6 +252,7 @@ export default function App() {
     setTimeout(() => setMessage(null), 2000);
   };
 
+  // ... (gameLoop and other functions remain largely the same, but ensuring references to state are correct)
 
   const gameLoop = () => {
     if (!gameState.current || !canvasRef.current) { reqRef.current = requestAnimationFrame(gameLoop); return; }
@@ -233,18 +272,20 @@ export default function App() {
       if (dx !== 0 || dy !== 0) {
         const nextPos = resolveMapCollision(p, dx, dy, state.map);
         
+        // ポータル判定
         const tileX = Math.floor((nextPos.x + p.width/2) / 32);
         const tileY = Math.floor((nextPos.y + p.height/2) / 32);
         const tile = state.map[tileY]?.[tileX];
         
         if (tile && tile.teleportTo) {
            switchLocation(tile.teleportTo);
-           return; 
+           return; // マップ切り替え時はループ中断
         }
 
         p.x = nextPos.x; p.y = nextPos.y;
       }
-
+      
+      // ... (Rest of game loop logic: Drops, Combat, Enemy AI, etc.) ...
       state.droppedItems.forEach(drop => {
         if (checkCollision(p, drop)) {
           drop.dead = true; p.inventory.push(drop.item);
@@ -305,8 +346,8 @@ export default function App() {
                p.hp = p.maxHp; 
                // @ts-ignore
                state.worldX = 0; state.worldY = 0;
-               // @ts-ignore
-               switchLocation('town_start'); // 修正: 死んだら街に戻る
+               switchLocation('town_start'); // 死んだら街に戻る
+               // switchLocation内で配置されるのでここでは設定不要だが、念の為
                p.x=(GAME_CONFIG.MAP_WIDTH*32)/2; p.y=(GAME_CONFIG.MAP_HEIGHT*32)/2; 
                setMessage("死んでしまった！街に戻ります。"); 
                setTimeout(() => setMessage(null), 3000); 
@@ -335,8 +376,14 @@ export default function App() {
     // @ts-ignore
     if (!gameState.current || !user || !db) return;
     setIsSaving(true);
+    // セーブ時、現在のマップ状態も最新のsavedChunksに反映
+    const state = gameState.current;
+    state.savedChunks[state.locationId] = {
+        map: state.map, enemies: state.enemies, droppedItems: state.droppedItems, biome: state.currentBiome, locationId: state.locationId
+    };
+    
     // @ts-ignore
-    const data = { player: gameState.current.player, worldX: gameState.current.worldX, worldY: gameState.current.worldY, savedChunks: gameState.current.savedChunks, wave: gameState.current.wave, locationId: gameState.current.locationId };
+    const data = { player: state.player, worldX: state.worldX, worldY: state.worldY, savedChunks: state.savedChunks, wave: state.wave, locationId: state.locationId };
     // @ts-ignore
     try { await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'saves', 'slot1'), data); setSaveData(data); setMessage("クラウドに保存しました！"); } catch(e) { console.error("Save failed", e); setMessage("保存に失敗しました！"); } finally { setIsSaving(false); setTimeout(() => setMessage(null), 2000); }
   };
@@ -448,7 +495,7 @@ export default function App() {
           {activeMenu === 'inventory' && uiState && <InventoryMenu uiState={uiState} onEquip={handleEquip} onUnequip={handleUnequip} onClose={() => setActiveMenu('none')} />}
         </div>
       )}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.8.0</div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none">Quest of Harvest v1.8.1</div>
     </div>
   );
 }
