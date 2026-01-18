@@ -19,6 +19,9 @@ export default function App() {
   const [screen, setScreen] = useState<'auth' | 'title' | 'game' | 'job_select'>('auth');
   const [saveData, setSaveData] = useState<any>(null);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [isMapLoading, setIsMapLoading] = useState(false);
+  const [loadingMapName, setLoadingMapName] = useState('');
+  
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameState = useRef<GameState | null>(null);
   const reqRef = useRef<number>();
@@ -37,17 +40,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!auth) {
-      setScreen('title');
-      return;
-    }
+    if (!auth) { setScreen('title'); return; }
     const initAuth = async () => {
       try {
         // @ts-ignore
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token); else await signInAnonymously(auth);
-      } catch (e) {
-        setScreen('title');
-      }
+      } catch (e) { setScreen('title'); }
     };
     initAuth();
     return onAuthStateChanged(auth, (u) => { if (u) checkSaveData(u.uid); else setScreen('title'); });
@@ -141,10 +139,36 @@ export default function App() {
   };
 
   const switchLocation = (newLocationId: string) => {
-    if (!gameState.current) return;
+    if (!gameState.current || isMapLoading) return;
     const state = gameState.current;
 
     if (state.lastTeleportTime && state.gameTime - state.lastTeleportTime < 60) return;
+
+    // ロード開始
+    setIsMapLoading(true);
+    setLoadingProgress(0);
+    
+    const newChunk = state.savedChunks[newLocationId] || getMapData(newLocationId);
+    setLoadingMapName(BIOME_NAMES[newChunk.biome] || 'エリア');
+
+    // ロード進行の演出
+    let currentProg = 0;
+    const loadTimer = setInterval(() => {
+      currentProg += 5 + Math.random() * 10;
+      if (currentProg >= 100) {
+        currentProg = 100;
+        clearInterval(loadTimer);
+        
+        // 実際のマップ切り替え処理
+        performActualSwitch(newLocationId, newChunk);
+      }
+      setLoadingProgress(Math.floor(currentProg));
+    }, 50);
+  };
+
+  const performActualSwitch = (newLocationId: string, newChunk: ChunkData) => {
+    const state = gameState.current;
+    if (!state) return;
 
     if (state.locationId === 'world') state.lastWorldPos = { x: state.player.x, y: state.player.y };
 
@@ -152,7 +176,6 @@ export default function App() {
         map: state.map, enemies: state.enemies, droppedItems: state.droppedItems, biome: state.currentBiome, locationId: state.locationId
     };
 
-    let newChunk = state.savedChunks[newLocationId] || getMapData(newLocationId);
     if (!state.savedChunks[newLocationId]) state.savedChunks[newLocationId] = newChunk;
 
     state.map = newChunk.map;
@@ -173,12 +196,21 @@ export default function App() {
     }
 
     setWorldInfo({x: state.worldX, y: state.worldY, biome: state.currentBiome});
-    setMessage(`${BIOME_NAMES[state.currentBiome] || state.currentBiome} に移動しました`); 
-    setTimeout(() => setMessage(null), 2000);
+    
+    // ロード終了
+    setTimeout(() => {
+      setIsMapLoading(false);
+      setLoadingProgress(0);
+      setMessage(`${BIOME_NAMES[state.currentBiome] || state.currentBiome} に到着しました`); 
+      setTimeout(() => setMessage(null), 2000);
+    }, 200);
   };
 
   const gameLoop = () => {
-    if (!gameState.current || !canvasRef.current) { reqRef.current = requestAnimationFrame(gameLoop); return; }
+    if (!gameState.current || !canvasRef.current || isMapLoading) { 
+      reqRef.current = requestAnimationFrame(gameLoop); 
+      return; 
+    }
     const state = gameState.current; const ctx = canvasRef.current.getContext('2d'); if (!ctx) return;
     
     if (!state.isPaused && activeMenu === 'none') {
@@ -189,12 +221,12 @@ export default function App() {
       if (input.current.keys['s'] || input.current.keys['arrowdown']) dy = spd;
       if (input.current.keys['a'] || input.current.keys['arrowleft']) dx = -spd;
       if (input.current.keys['d'] || input.current.keys['arrowright']) dx = spd;
+      
       if (dx > 0) p.direction = 0; if (dx < 0) p.direction = 2; if (dy > 0) p.direction = 1; if (dy < 0) p.direction = 3;
       if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; } 
 
       if (dx !== 0 || dy !== 0) {
         const nextPos = resolveMapCollision(p, dx, dy, state.map);
-        
         const feetX = nextPos.x + p.width / 2;
         const feetY = nextPos.y + p.height - 4; 
         const tileX = Math.floor(feetX / GAME_CONFIG.TILE_SIZE);
@@ -213,7 +245,7 @@ export default function App() {
     reqRef.current = requestAnimationFrame(gameLoop);
   };
 
-  useEffect(() => { if (screen === 'game') gameLoop(); return () => { if (reqRef.current) cancelAnimationFrame(reqRef.current); } }, [screen]);
+  useEffect(() => { if (screen === 'game') gameLoop(); return () => { if (reqRef.current) cancelAnimationFrame(reqRef.current); } }, [screen, isMapLoading]);
 
   if (!isConfigValid) return <div className="w-full h-screen bg-slate-900 text-white flex items-center justify-center">設定エラー</div>;
   if (screen === 'auth') return <div className="w-full h-screen bg-slate-900 text-white flex items-center justify-center">接続中...</div>;
@@ -223,8 +255,25 @@ export default function App() {
   return (
     <div className="w-full h-screen bg-black flex items-center justify-center overflow-hidden relative">
       <canvas ref={canvasRef} width={viewportSize.width} height={viewportSize.height} className="bg-black" />
+      
+      {/* Loading Overlay */}
+      {isMapLoading && (
+        <div className="absolute inset-0 bg-slate-900 flex flex-col items-center justify-center z-[100] transition-opacity duration-300">
+          <div className="text-white text-2xl font-bold mb-8 animate-pulse">{loadingMapName} へ移動中...</div>
+          <div className="w-64 h-4 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+            <div 
+              className="h-full bg-yellow-500 transition-all duration-100 ease-out shadow-[0_0_15px_rgba(234,179,8,0.5)]"
+              style={{ width: `${loadingProgress}%` }}
+            />
+          </div>
+          <div className="mt-4 text-yellow-500 font-mono text-xl">{loadingProgress}%</div>
+          <div className="mt-12 text-slate-400 text-sm italic">広大な世界を生成しています</div>
+        </div>
+      )}
+
       {uiState && <GameHUD uiState={uiState} worldInfo={worldInfo} toggleMenu={(m) => setActiveMenu(activeMenu === m ? 'none' : m)} />}
-      {message && <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-2 rounded-full border border-yellow-500/50">{message}</div>}
+      {message && <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-2 rounded-full border border-yellow-500/50 shadow-lg z-50">{message}</div>}
+      
       {activeMenu === 'inventory' && uiState && (
         <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50 p-8">
           <InventoryMenu uiState={uiState} onEquip={() => {}} onUnequip={() => {}} onClose={() => setActiveMenu('none')} />
