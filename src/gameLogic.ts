@@ -280,10 +280,6 @@ export const generateOverworld = (): ChunkData => {
 };
 
 export const generateTownMap = (id: string): ChunkData => {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = (hash << 5) - hash + id.charCodeAt(i);
-  const rng = new SeededRandom(Math.abs(hash));
-
   const width = 60; const height = 50; 
   const tileSize = 32;
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
@@ -374,6 +370,7 @@ export const generateTownMap = (id: string): ChunkData => {
   placeBuilding(centerX - 12, centerY + 4, 10, 7, 'inn');
 
   // 民家と村人
+  const houseCoords = [{x: 8, y: centerY + 8}, {x: width - 18, y: 8}, {x: width - 18, y: centerY + 8}];
   houseCoords.forEach((coord, idx) => {
       placeBuilding(coord.x, coord.y, 7, 6, 'house');
       addNPC(coord.x + 3, coord.y + 3, `Villager_${idx}`, '#6366f1');
