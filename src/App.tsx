@@ -5,11 +5,11 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 // Imports from other files
 import { app, auth, db, isConfigValid, appId, GAME_CONFIG } from './config';
-import { GameState, PlayerEntity, Job, Gender, MenuType, ResolutionMode, Biome, Item } from './types';
+import { GameState, PlayerEntity, Job, Gender, MenuType, ResolutionMode, Biome, Item, Attributes } from './types';
 import { ASSETS_SVG, svgToUrl } from './assets';
 import { createPlayer, generateRandomItem, generateWorldMap, getMapData, updatePlayerStats, resolveMapCollision, checkCollision, generateEnemy } from './gameLogic';
 import { renderGame } from './renderer';
-import { BIOME_NAMES } from './data'; // インポート元を修正
+import { BIOME_NAMES } from './data';
 
 // Component Imports
 import { TitleScreen } from './components/TitleScreen';
@@ -34,14 +34,12 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // --- Assets Loading ---
   const loadedAssets = useMemo(() => {
     const images: Record<string, HTMLImageElement> = {};
     Object.entries(ASSETS_SVG).forEach(([key, svg]) => { const img = new Image(); img.src = svgToUrl(svg); images[key] = img; });
     return images;
   }, []);
 
-  // --- Styles Injection ---
   useEffect(() => {
     const style = document.createElement('style');
     style.innerHTML = `
@@ -57,7 +55,6 @@ export default function App() {
     document.head.appendChild(style); return () => { document.head.removeChild(style); };
   }, []);
 
-  // --- Auth & Initial Load ---
   useEffect(() => {
     if (!auth) {
       console.warn("Auth not initialized. Starting in offline mode.");
@@ -82,7 +79,6 @@ export default function App() {
     return onAuthStateChanged(auth, (u) => { setUser(u); if (u) checkSaveData(u.uid); });
   }, []);
 
-  // --- Event Listeners & Resize Logic ---
   useEffect(() => {
     const handleResize = () => {
       if (resolution === 'auto') {
@@ -117,7 +113,6 @@ export default function App() {
     };
   }, [resolution]);
 
-  // --- Game Functions ---
   const checkSaveData = async (uid: string) => {
     if (!db) { setScreen('title'); return; }
     try {
@@ -224,7 +219,7 @@ export default function App() {
       state.droppedItems.forEach(drop => {
         if (checkCollision(p, drop)) {
           drop.dead = true; p.inventory.push(drop.item);
-          state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 20, width:0, height:0, color: drop.item.color, type: 'text', dead: false, text: drop.item.name, life: 60 });
+          gameState.current?.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 20, width:0, height:0, color: drop.item.color, type: 'text', dead: false, text: drop.item.name, life: 60 });
           setMessage(`拾った：${drop.item.name}`); setTimeout(() => setMessage(null), 2000);
         }
       });
@@ -236,14 +231,14 @@ export default function App() {
         state.enemies.forEach(e => {
           if (checkCollision(attackRect, e)) {
             const dmg = Math.max(1, Math.floor((p.attack - e.defense/2) * (0.9 + Math.random() * 0.2))); e.hp -= dmg;
-            state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#fff', type: 'text', dead: false, text: `-${dmg}`, life: 30 });
+            gameState.current?.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#fff', type: 'text', dead: false, text: `-${dmg}`, life: 30 });
             const angle = Math.atan2(e.y - p.y, e.x - p.x); e.x += Math.cos(angle) * 10; e.y += Math.sin(angle) * 10;
             if (e.hp <= 0) {
               e.dead = true; p.xp += e.xpValue; p.gold += Math.floor(Math.random() * 5) + 1;
-              state.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#ffd700', type: 'text', dead: false, text: `+${e.xpValue} XP`, life: 45 });
+              gameState.current?.floatingTexts.push({ id: crypto.randomUUID(), x: e.x + e.width/2, y: e.y, width:0, height:0, color: '#ffd700', type: 'text', dead: false, text: `+${e.xpValue} XP`, life: 45 });
               if (p.xp >= p.nextLevelXp) {
                 p.level++; p.xp -= p.nextLevelXp; p.nextLevelXp = Math.floor(p.nextLevelXp * 1.5); p.statPoints += 3; updatePlayerStats(p); p.hp = p.maxHp;
-                state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 40, width:0, height:0, color: '#00ff00', type: 'text', dead: false, text: "LEVEL UP!", life: 90 });
+                gameState.current?.floatingTexts.push({ id: crypto.randomUUID(), x: p.x, y: p.y - 40, width:0, height:0, color: '#00ff00', type: 'text', dead: false, text: "LEVEL UP!", life: 90 });
                 setMessage("レベルアップ！Cキーで能力値を割り振れます。");
               }
               const dropChance = GAME_CONFIG.BASE_DROP_RATE * (e.rank === 'Boss' ? 5 : e.rank === 'Elite' ? 2 : 1);
@@ -266,7 +261,7 @@ export default function App() {
           if (!state.map[Math.floor(nextY/32)]?.[Math.floor(nextX/32)]?.solid && dist > 30) { e.x = nextX; e.y = nextY; e.vx = Math.cos(angle) * e.speed; e.vy = Math.sin(angle) * e.speed; } else { e.vx=0; e.vy=0; }
           if (dist < 40 && now - e.lastAttackTime > e.attackCooldown) {
             e.lastAttackTime = now; const dmg = Math.max(1, Math.floor(e.attack - p.defense/2)); p.hp -= dmg;
-            state.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y, width:0, height:0, color: '#ff0000', type: 'text', dead: false, text: `-${dmg}`, life: 30 });
+            gameState.current?.floatingTexts.push({ id: crypto.randomUUID(), x: p.x + p.width/2, y: p.y, width:0, height:0, color: '#ff0000', type: 'text', dead: false, text: `-${dmg}`, life: 30 });
             if (p.hp <= 0) { 
                p.hp = p.maxHp; 
                switchLocation('world');
