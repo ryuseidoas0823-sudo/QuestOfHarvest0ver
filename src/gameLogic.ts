@@ -322,16 +322,6 @@ export const generateOverworld = (): ChunkData => {
   return { map, enemies, droppedItems: [], biome: 'WorldMap', locationId: 'world' };
 };
 
-// 街の内装パターン定義
-const TOWN_PATTERNS = {
-  'town_start': { // 日本風
-    floor: 'grass', // 地面は草地ベース
-    road: 'dirt',   // 道は土
-    wall: 'wood_wall', // 木の壁
-    roof: 'tile_roof' // 瓦屋根
-  }
-};
-
 export const generateTownMap = (id: string): ChunkData => {
   // IDからハッシュを生成してシードにする -> 常に同じ街には同じマップ
   let hash = 0;
