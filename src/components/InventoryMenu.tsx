@@ -1,6 +1,5 @@
-import React from 'react';
 import { X } from 'lucide-react';
-import { PlayerEntity, Item, EquipmentType } from '../types';
+import { PlayerEntity, Item } from '../types';
 
 interface InventoryMenuProps {
   uiState: PlayerEntity;
