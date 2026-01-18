@@ -140,7 +140,6 @@ export default function App() {
       player.x = (chunk.map[0].length * 32) / 2;
       player.y = (chunk.map.length * 32) / 2;
       
-      // ランダム生成ではなく、職業専用の初期装備を配布
       const starterWeapon = getStarterItem(job);
       player.inventory.push(starterWeapon);
     }
@@ -292,7 +291,8 @@ export default function App() {
       state.enemies = state.enemies.filter(e => !e.dead); state.droppedItems = state.droppedItems.filter(d => !d.dead);
       state.floatingTexts.forEach(t => { t.y -= 0.5; t.life--; }); state.floatingTexts = state.floatingTexts.filter(t => t.life > 0);
     }
-    renderGame(ctx, state, loadedAssets);
+    // assets 引数を削除
+    renderGame(ctx, state);
     if (state.gameTime % 10 === 0) setUiState({...state.player});
     reqRef.current = requestAnimationFrame(gameLoop);
   };
