@@ -137,9 +137,24 @@ export default function App() {
     } else {
       player = createPlayer(job, gender); updatePlayerStats(player);
       const chunk = generateWorldMap();
-      // 修正: ハードコードされた 32 を GAME_CONFIG.TILE_SIZE に置き換え
-      player.x = (chunk.map[0].length * GAME_CONFIG.TILE_SIZE) / 2;
-      player.y = (chunk.map.length * GAME_CONFIG.TILE_SIZE) / 2;
+      
+      // 修正: 街への入口を探してそこにスポーンさせる
+      let spawnX = (chunk.map[0].length * GAME_CONFIG.TILE_SIZE) / 2;
+      let spawnY = (chunk.map.length * GAME_CONFIG.TILE_SIZE) / 2;
+      
+      // マップ内を探索して 'town_entrance' を探す
+      for(let y=0; y<chunk.map.length; y++) {
+          for(let x=0; x<chunk.map[0].length; x++) {
+              if(chunk.map[y][x].type === 'town_entrance') {
+                  spawnX = x * GAME_CONFIG.TILE_SIZE;
+                  spawnY = y * GAME_CONFIG.TILE_SIZE;
+                  break;
+              }
+          }
+      }
+
+      player.x = spawnX;
+      player.y = spawnY;
       
       const starterWeapon = getStarterItem(job);
       player.inventory.push(starterWeapon);
