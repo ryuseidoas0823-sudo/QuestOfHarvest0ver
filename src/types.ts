@@ -23,7 +23,11 @@ export interface Particle extends Entity { life: number; maxLife: number; size: 
 export interface FloatingText extends Entity { text: string; life: number; color: string; }
 export interface Projectile extends Entity { damage: number; ownerId: string; life: number; }
 export interface ChunkData { map: Tile[][]; enemies: EnemyEntity[]; droppedItems: DroppedItem[]; biome: Biome; locationId: string; }
+
 export interface GameState { 
+  worldX: number;
+  worldY: number;
+  currentBiome: Biome;
   locationId: string;
   savedChunks: Record<string, ChunkData>; 
   map: Tile[][]; 
