@@ -2,6 +2,52 @@ import { Job, Gender, PlayerEntity, EnemyEntity, ChunkData, Tile, TileType, Item
 import { JOB_DATA, ENEMY_TYPES, RARITY_MULTIPLIERS, ENCHANT_SLOTS, ITEM_BASE_NAMES, ICONS, BIOME_NAMES } from './data';
 import { THEME, GAME_CONFIG } from './config';
 
+export const getStarterItem = (job: Job): Item => {
+  const id = crypto.randomUUID();
+  const level = 1;
+  const rarity: Rarity = 'Common';
+  const color = '#9ca3af'; // gray
+  const stats = { attack: 3, defense: 0, speed: 0, maxHp: 0 };
+  
+  let name = '錆びた剣';
+  let subType: WeaponStyle = 'OneHanded';
+  let icon = '⚔️';
+
+  switch (job) {
+    case 'Swordsman':
+      name = '錆びた剣';
+      subType = 'OneHanded';
+      icon = '⚔️';
+      stats.attack = 5;
+      break;
+    case 'Warrior':
+      name = '錆びた斧';
+      subType = 'TwoHanded';
+      icon = '🪓';
+      stats.attack = 8;
+      stats.speed = -0.5;
+      break;
+    case 'Archer':
+      name = '練習用の弓';
+      subType = 'TwoHanded';
+      icon = '🏹';
+      stats.attack = 4;
+      stats.speed = 1;
+      break;
+    case 'Mage':
+      name = '古びた杖';
+      subType = 'OneHanded';
+      icon = '🪄';
+      stats.attack = 3;
+      stats.maxHp = 5;
+      break;
+  }
+
+  return {
+    id, name, type: 'Weapon', subType, rarity, level, stats, enchantments: [], icon, color: '#b0b0b0'
+  };
+};
+
 export const generateRandomItem = (level: number, rankBonus: number = 0): Item | null => {
   let roll = Math.random() * 100 - rankBonus * 5;
   let rarity: Rarity = roll < 1 ? 'Legendary' : roll < 5 ? 'Epic' : roll < 15 ? 'Rare' : roll < 40 ? 'Uncommon' : 'Common';
@@ -77,10 +123,6 @@ export const generateEnemy = (x: number, y: number, level: number, allowedTypes?
 
 // --- Map Generators ---
 
-/**
- * ワールドマップ（オーバーワールド）を生成します。
- * 固定のレイアウトを持ち、各ダンジョンや街へのポータルを配置します。
- */
 export const generateOverworld = (): ChunkData => {
   const width = 64;
   const height = 64;
@@ -96,14 +138,14 @@ export const generateOverworld = (): ChunkData => {
     if (y < 20) { biome = 'Snow'; type = 'snow'; }
     else if (y > 44) { biome = 'Desert'; type = 'sand'; }
     else if (x < 20) { biome = 'Wasteland'; type = 'dirt'; }
-    else if (x > 44) { biome = 'Forest'; type = 'grass'; } // Forest uses grass but maybe darker?
+    else if (x > 44) { biome = 'Forest'; type = 'grass'; } 
     
-    // 自然生成物 (木や岩)
+    // 自然生成物
     if (Math.random() < 0.05) {
        solid = true;
        if (biome === 'Wasteland' || biome === 'Desert') type = 'rock';
-       else type = 'tree'; // 便宜上 tree というタイプがないので wall 扱いにするか、renderer で処理
-       if (type === 'tree') solid = true; // 仮
+       else type = 'tree'; 
+       if (type === 'tree') solid = true;
     }
     
     // 外壁
@@ -115,12 +157,10 @@ export const generateOverworld = (): ChunkData => {
     return { x: x * tileSize, y: y * tileSize, type, solid, teleportTo };
   }));
 
-  // ポータルの配置
   const placePortal = (tx: number, ty: number, dest: string, tileType: TileType) => {
     map[ty][tx].type = tileType;
     map[ty][tx].solid = false;
     map[ty][tx].teleportTo = dest;
-    // 周囲をクリアにする
     for(let dy=-1; dy<=1; dy++){
         for(let dx=-1; dx<=1; dx++){
             if(map[ty+dy]?.[tx+dx]) map[ty+dy][tx+dx].solid = false;
@@ -128,22 +168,12 @@ export const generateOverworld = (): ChunkData => {
     }
   };
 
-  // 1. 中央：街への入り口
   placePortal(32, 32, 'town_start', 'town_entrance');
-
-  // 2. 北：氷の洞窟
   placePortal(32, 5, 'dungeon_snow', 'dungeon_entrance');
-
-  // 3. 南：砂漠の遺跡
   placePortal(32, 58, 'dungeon_desert', 'dungeon_entrance');
-
-  // 4. 西：荒野の砦
   placePortal(5, 32, 'dungeon_wasteland', 'dungeon_entrance');
-
-  // 5. 東：深い森の迷宮
   placePortal(58, 32, 'dungeon_forest', 'dungeon_entrance');
 
-  // 敵の配置 (街の近くは安全)
   const enemies: EnemyEntity[] = [];
   const safeZoneRadius = 15;
   const centerX = 32, centerY = 32;
@@ -152,7 +182,6 @@ export const generateOverworld = (): ChunkData => {
     const tx = Math.floor(Math.random() * width);
     const ty = Math.floor(Math.random() * height);
     
-    // 街の近くには敵を沸かせない
     const dist = Math.sqrt((tx - centerX)**2 + (ty - centerY)**2);
     if (dist < safeZoneRadius || map[ty][tx].solid) continue;
 
@@ -162,9 +191,8 @@ export const generateOverworld = (): ChunkData => {
     else if (tx < 20) biome = 'Wasteland';
     else if (tx > 44) biome = 'Forest';
 
-    // バイオームごとの敵種別設定（簡易版）
     let allowedTypes: string[] = ['Slime', 'Bandit'];
-    if (biome === 'Snow') allowedTypes = ['Wolf', 'Ghost', 'White Bear']; // White Bearは未定義だがフォールバックでスライムになるか定義追加が必要
+    if (biome === 'Snow') allowedTypes = ['Wolf', 'Ghost', 'White Bear'];
     if (biome === 'Desert') allowedTypes = ['Scorpion', 'Bandit', 'Giant Ant'];
     if (biome === 'Forest') allowedTypes = ['Spider', 'Wolf', 'Boar', 'Grizzly'];
     if (biome === 'Wasteland') allowedTypes = ['Zombie', 'Ghoul', 'Dragonewt'];
@@ -181,24 +209,16 @@ export const generateTownMap = (id: string): ChunkData => {
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
     let type: TileType = 'floor';
     let solid = false;
-    
-    // 壁
     if (x===0 || x===width-1 || y===0 || y===height-1) { type='wall'; solid=true; }
-    
-    // 出口（ワールドマップへ）
     if (y===height-1 && Math.abs(x - width/2) < 2) { type='portal_out'; solid=false; }
-    
     return { x: x * tileSize, y: y * tileSize, type, solid, teleportTo: type === 'portal_out' ? 'world' : undefined };
   }));
 
-  // 施設（簡易的な壁配置）
-  // 宿屋風
   for(let y=5; y<10; y++) for(let x=5; x<12; x++) { map[y][x].type='wall'; map[y][x].solid=true; }
-  map[9][8].type='floor'; map[9][8].solid=false; // ドア
+  map[9][8].type='floor'; map[9][8].solid=false;
 
-  // 鍛冶屋風
   for(let y=5; y<10; y++) for(let x=28; x<35; x++) { map[y][x].type='wall'; map[y][x].solid=true; }
-  map[9][31].type='floor'; map[9][31].solid=false; // ドア
+  map[9][31].type='floor'; map[9][31].solid=false;
 
   return { map, enemies: [], droppedItems: [], biome: 'Town', locationId: id };
 };
@@ -206,43 +226,30 @@ export const generateTownMap = (id: string): ChunkData => {
 export const generateDungeonMap = (id: string, level: number, theme: Biome): ChunkData => {
   const width = 50; const height = 50;
   const tileSize = 32;
-  
-  // テーマに応じたタイル
   let floorType: TileType = 'dirt';
   let wallType: TileType = 'rock';
   if (theme === 'Snow') { floorType = 'snow'; wallType = 'rock'; }
   if (theme === 'Desert') { floorType = 'sand'; wallType = 'rock'; }
   if (theme === 'Forest') { floorType = 'grass'; wallType = 'tree'; }
-  if (theme === 'Town') { floorType = 'floor'; wallType = 'wall'; } // ダンジョンとしては稀だが
+  if (theme === 'Town') { floorType = 'floor'; wallType = 'wall'; }
 
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
      let type: TileType = floorType;
      let solid = false;
-
-     // ランダムな障害物
      if (Math.random() < 0.15) { type = wallType; solid = true; }
-     
-     // 外壁
      if (x===0 || x===width-1 || y===0 || y===height-1) { type = wallType; solid = true; }
-
      return { x: x*tileSize, y: y*tileSize, type, solid, teleportTo: undefined };
   }));
 
   const midX = Math.floor(width/2);
-  const midY = Math.floor(height/2);
-
-  // 出口（ワールドマップへ）- 基本的にプレイヤーは (midX, midY) 付近にスポーンさせると想定し、出口をそこに置くか、
-  // あるいは入り口と出口を別にするのが一般的だが、今回は簡易的に「入ってきた場所に戻る」ポータルを配置
   map[height-2][midX].type='portal_out'; 
   map[height-2][midX].solid=false; 
   map[height-2][midX].teleportTo='world';
-  // 出口周辺はクリアに
   map[height-3][midX].solid=false; map[height-3][midX].type=floorType;
 
   const enemies: EnemyEntity[] = [];
   const enemyCount = 20 + level * 2;
   
-  // 敵の選定
   let allowedTypes: string[] = ['Slime'];
   if (theme === 'Snow') allowedTypes = ['Wolf', 'Ghost', 'Bat'];
   if (theme === 'Desert') allowedTypes = ['Scorpion', 'Bandit', 'Giant Ant'];
@@ -254,10 +261,8 @@ export const generateDungeonMap = (id: string, level: number, theme: Biome): Chu
      do { 
        ex = Math.floor(Math.random()*width); 
        ey = Math.floor(Math.random()*height); 
-       // 出口付近には沸かせない
        if (Math.abs(ex - midX) < 5 && Math.abs(ey - (height-2)) < 5) continue;
      } while(map[ey][ex].solid);
-     
      enemies.push(generateEnemy(ex*tileSize, ey*tileSize, level, allowedTypes));
   }
 
@@ -267,24 +272,19 @@ export const generateDungeonMap = (id: string, level: number, theme: Biome): Chu
 export const getMapData = (locationId: string): ChunkData => {
   if (locationId === 'world') return generateOverworld();
   if (locationId === 'town_start') return generateTownMap('town_start');
-  
   if (locationId.startsWith('dungeon_')) {
-      const parts = locationId.split('_'); // dungeon_forest_1
-      const themeName = parts[1]; // forest
-      // Biome型にキャスト（簡易的）
+      const parts = locationId.split('_'); 
+      const themeName = parts[1];
       let theme: Biome = 'Plains';
       if (themeName === 'snow') theme = 'Snow';
       else if (themeName === 'desert') theme = 'Desert';
       else if (themeName === 'forest') theme = 'Forest';
       else if (themeName === 'wasteland') theme = 'Wasteland';
-      
       return generateDungeonMap(locationId, 1, theme);
   }
-  
   return generateOverworld();
 };
 
-// 互換性のためのエイリアス
 export const generateWorldMap = generateOverworld;
 
 export const updatePlayerStats = (player: PlayerEntity) => {
