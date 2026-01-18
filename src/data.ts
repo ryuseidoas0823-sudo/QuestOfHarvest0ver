@@ -1,20 +1,18 @@
-import { Job, Attributes, PerkData } from './types';
+import { Biome, Job, Attributes, EquipmentType, WeaponStyle, Rarity } from './types';
 
-export const JOB_DATA: Record<Job, { attributes: Attributes, desc: string, icon: string, color: string }> = {
-  Swordsman: { attributes: { vitality: 12, strength: 12, dexterity: 12, intelligence: 8, endurance: 11, luck: 5 }, icon: '⚔️', desc: '攻守のバランスに優れた剣士。初心者におすすめ。', color: '#3b82f6' },
-  Warrior:   { attributes: { vitality: 14, strength: 16, dexterity: 9, intelligence: 6, endurance: 15, luck: 3 }, icon: '🪓', desc: '強靭な肉体と破壊力を持つ戦士。最前線で戦う。', color: '#ef4444' },
-  Archer:    { attributes: { vitality: 10, strength: 10, dexterity: 16, intelligence: 10, endurance: 10, luck: 6 }, icon: '🏹', desc: '素早い動きで遠距離から攻撃する狩人。', color: '#10b981' },
-  Mage:      { attributes: { vitality: 9, strength: 6, dexterity: 12, intelligence: 18, endurance: 8, luck: 5 }, icon: '🪄', desc: '強力な魔法を操る賢者。打たれ弱いが火力は高い。', color: '#a855f7' },
-  Rogue:     { attributes: { vitality: 10, strength: 11, dexterity: 15, intelligence: 9, endurance: 8, luck: 8 }, icon: '🗡️', desc: 'トリッキーな動きで敵を翻弄する。', color: '#44ff44' },
-  Cleric:    { attributes: { vitality: 13, strength: 9, dexterity: 8, intelligence: 14, endurance: 12, luck: 6 }, icon: '✨', desc: '回復魔法で生存能力が高い。', color: '#ffff44' }
+export const BIOME_NAMES: Record<Biome, string> = { 
+  WorldMap: 'ワールドマップ',
+  Town: '街',
+  Dungeon: 'ダンジョン',
+  Plains: '平原', Forest: '森', Desert: '砂漠', Snow: '雪原', Wasteland: '荒野'
 };
 
-export const PERK_DEFINITIONS: PerkData[] = [
-  { id: 'berserker', name: 'Berserker', description: 'Increases attack damage.', level: 1, maxLevel: 5 },
-  { id: 'stone_skin', name: 'Stone Skin', description: 'Increases defense.', level: 1, maxLevel: 5 },
-  { id: 'vitality_boost', name: 'Vitality', description: 'Increases Max HP.', level: 1, maxLevel: 10 },
-  { id: 'swift_step', name: 'Swift Step', description: 'Increases movement speed.', level: 1, maxLevel: 3 },
-];
+export const JOB_DATA: Record<Job, { attributes: Attributes, desc: string, icon: string, color: string }> = {
+  Swordsman: { attributes: { vitality: 12, strength: 12, dexterity: 12, intelligence: 8, endurance: 11 }, icon: '⚔️', desc: '攻守のバランスに優れた剣士。初心者におすすめ。', color: '#3b82f6' },
+  Warrior:   { attributes: { vitality: 14, strength: 16, dexterity: 9, intelligence: 6, endurance: 15 }, icon: '🪓', desc: '強靭な肉体と破壊力を持つ戦士。最前線で戦う。', color: '#ef4444' },
+  Archer:    { attributes: { vitality: 10, strength: 10, dexterity: 16, intelligence: 10, endurance: 10 }, icon: '🏹', desc: '素早い動きで遠距離から攻撃する狩人。', color: '#10b981' },
+  Mage:      { attributes: { vitality: 9, strength: 6, dexterity: 12, intelligence: 18, endurance: 8 }, icon: '🪄', desc: '強力な魔法を操る賢者。打たれ弱いが火力は高い。', color: '#a855f7' },
+};
 
 export const ENEMY_TYPES = [
   { name: 'Zombie',   hp: 50, atk: 8,  spd: 1.5, color: '#5d4037', icon: '🧟', xp: 15, shape: 'humanoid', w: 24, h: 24, vw: 32, vh: 48 },
@@ -32,3 +30,8 @@ export const ENEMY_TYPES = [
   { name: 'Wolf',      hp: 35, atk: 9, spd: 4.2, color: '#757575', icon: '🐺', xp: 25, shape: 'beast',    w: 32, h: 24, vw: 48, vh: 32 },
   { name: 'Ghost',     hp: 20, atk: 7, spd: 1.0, color: '#cfd8dc', icon: '👻', xp: 28, shape: 'ghost',    w: 24, h: 24, vw: 32, vh: 40 },
 ];
+
+export const RARITY_MULTIPLIERS: Record<Rarity, number> = { Common: 1.0, Uncommon: 1.2, Rare: 1.5, Epic: 2.0, Legendary: 3.0 };
+export const ENCHANT_SLOTS: Record<Rarity, number> = { Common: 0, Uncommon: 1, Rare: 2, Epic: 3, Legendary: 5 };
+export const ITEM_BASE_NAMES = { Weapon: { OneHanded: '剣', TwoHanded: '大剣', DualWield: '双剣' }, Helm: '兜', Armor: '板金鎧', Shield: '盾', Boots: '具足' };
+export const ICONS: Record<EquipmentType, any> = { Weapon: { OneHanded: '⚔️', TwoHanded: '🗡️', DualWield: '⚔️' }, Helm: '🪖', Armor: '🛡️', Shield: '🛡️', Boots: '👢' };
