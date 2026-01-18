@@ -245,7 +245,7 @@ export const generateTownMap = (id: string): ChunkData => {
     // 外周
     if (x===0 || x===width-1 || y===0 || y===height-1) { type='tree'; solid=true; }
     
-    // 出口 (下側。判定を確実にし、プレイヤーが通れるように solid=false を徹底)
+    // 出口 (下側)
     if (y >= height-2 && Math.abs(x - width/2) < 4) { 
         type='portal_out'; 
         solid=false; 
@@ -254,9 +254,8 @@ export const generateTownMap = (id: string): ChunkData => {
     return { x: x * tileSize, y: y * tileSize, type, solid, teleportTo: type === 'portal_out' ? 'world' : undefined };
   }));
 
-  // 道と建物生成 (省略版、基本的な構造を維持)
+  // 道と建物生成
   const centerX = Math.floor(width/2);
-  const centerY = Math.floor(height/2);
   for(let y=5; y<height-1; y++) for(let dx=-2; dx<=1; dx++) map[y][centerX+dx].type = 'dirt';
   
   return { map, enemies: [], droppedItems: [], biome: 'Town', locationId: id };
