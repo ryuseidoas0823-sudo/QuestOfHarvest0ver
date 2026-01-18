@@ -9,7 +9,7 @@ import { GameState, PlayerEntity, Job, Gender, MenuType, ResolutionMode, Biome, 
 import { ASSETS_SVG, svgToUrl } from './assets';
 import { createPlayer, generateRandomItem, generateWorldMap, getMapData, updatePlayerStats, resolveMapCollision, checkCollision, generateEnemy } from './gameLogic';
 import { renderGame } from './renderer';
-import { BIOME_NAMES } from './data';
+import { BIOME_NAMES } from './data'; // インポート元を修正
 
 // Component Imports
 import { TitleScreen } from './components/TitleScreen';
