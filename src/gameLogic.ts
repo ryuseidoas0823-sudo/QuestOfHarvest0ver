@@ -119,11 +119,19 @@ export const generateRandomItem = (level: number, rankBonus: number = 0): Item |
 
 export const createPlayer = (job: Job, gender: Gender): PlayerEntity => {
   const baseAttrs = JOB_DATA[job].attributes;
-  return {
-    id: 'player', type: 'player', x: 0, y: 0, width: 20, height: 20, visualWidth: 32, visualHeight: 56, color: THEME.colors.player, job, gender, shape: 'humanoid',
-    hp: 100, maxHp: 100, mp: 50, maxMp: 50, attack: 10, defense: 0, speed: 4, level: 1, xp: 0, nextLevelXp: 100, gold: 0, statPoints: 0, attributes: { ...baseAttrs },
-    dead: false, lastAttackTime: 0, attackCooldown: 500, direction: 1, inventory: [], equipment: {}, calculatedStats: { maxHp: 100, maxMp: 50, attack: 10, defense: 0, speed: 4 }
+  const player: PlayerEntity = {
+    id: 'player', type: 'player', x: 0, y: 0, width: 24, height: 24, visualWidth: 32, visualHeight: 56, color: THEME.colors.player, job, gender, shape: 'humanoid',
+    hp: 100, maxHp: 100, mp: 50, maxMp: 50, attack: 10, defense: 5, speed: 4, level: 1, xp: 0, nextLevelXp: 100, gold: 0, statPoints: 0, attributes: { ...baseAttrs },
+    dead: false, lastAttackTime: 0, attackCooldown: 400, direction: 1, inventory: [], equipment: {}, calculatedStats: { maxHp: 100, maxMp: 50, attack: 10, defense: 5, speed: 4 }
   };
+  
+  // 初期武器を生成して装備
+  const starterWeapon = getStarterItem(job);
+  player.inventory.push(starterWeapon);
+  player.equipment.mainHand = starterWeapon;
+  updatePlayerStats(player);
+  
+  return player;
 };
 
 export const generateEnemy = (x: number, y: number, level: number, allowedTypes?: string[]): EnemyEntity => {
@@ -137,13 +145,21 @@ export const generateEnemy = (x: number, y: number, level: number, allowedTypes?
   let scale = 1 + (level * 0.1);
   let color = type.color;
   if (rankRoll < 0.05) { rank = 'Boss'; scale *= 3; color = '#ff0000'; } else if (rankRoll < 0.2) { rank = 'Elite'; scale *= 1.5; color = '#ffeb3b'; }
+  
   return {
-    id: `enemy_${crypto.randomUUID()}`, type: 'enemy', race: type.name, rank, x, y, width: type.w * (rank === 'Boss' ? 1.5 : 1), height: type.h * (rank === 'Boss' ? 1.5 : 1),
-    visualWidth: type.vw! * (rank === 'Boss' ? 1.5 : 1), visualHeight: type.vh! * (rank === 'Boss' ? 1.5 : 1), 
+    id: `enemy_${crypto.randomUUID()}`, type: 'enemy', race: type.name, rank, x, y, 
+    width: (type.w || 24) * (rank === 'Boss' ? 1.5 : 1), 
+    height: (type.h || 24) * (rank === 'Boss' ? 1.5 : 1),
+    visualWidth: (type.vw || 32) * (rank === 'Boss' ? 1.5 : 1), 
+    visualHeight: (type.vh || 32) * (rank === 'Boss' ? 1.5 : 1), 
     color, 
-    shape: type.shape as any,
-    hp: Math.floor(type.hp * scale), maxHp: Math.floor(type.hp * scale), attack: Math.floor(type.atk * scale), defense: Math.floor(level * 2), speed: type.spd,
-    level, direction: 1, dead: false, lastAttackTime: 0, attackCooldown: 1000 + Math.random() * 500, detectionRange: 350, xpValue: Math.floor(type.xp * scale * (rank === 'Boss' ? 5 : rank === 'Elite' ? 2 : 1))
+    shape: (type.shape || 'slime') as any,
+    hp: Math.max(10, Math.floor((type.hp || 20) * scale)), 
+    maxHp: Math.max(10, Math.floor((type.hp || 20) * scale)), 
+    attack: Math.max(1, Math.floor((type.atk || 5) * scale)), 
+    defense: Math.floor(level * 1.5), 
+    speed: type.spd || 2,
+    level, direction: 1, dead: false, lastAttackTime: 0, attackCooldown: 1000 + Math.random() * 500, detectionRange: 350, xpValue: Math.floor((type.xp || 10) * scale * (rank === 'Boss' ? 5 : rank === 'Elite' ? 2 : 1))
   };
 };
 
@@ -155,7 +171,6 @@ export const generateEnemy = (x: number, y: number, level: number, allowedTypes?
  */
 export const generateOverworld = (): ChunkData => {
   const rng = new SeededRandom(20240923); 
-  // マップサイズを4倍に拡大 (面積比)
   const width = 320;
   const height = 200;
   const tileSize = GAME_CONFIG.TILE_SIZE;
@@ -180,20 +195,18 @@ export const generateOverworld = (): ChunkData => {
       }
   };
 
-  // 大陸配置 (320x200のスケールに合わせて座標を倍増)
   drawLand(200, 60, 80, 50, 'grass'); // ユーラシア
-  drawLand(150, 50, 30, 30, 'grass'); // ヨーロッパ方面
-  drawLand(240, 50, 45, 35, 'snow');  // シベリア
-  drawLand(170, 130, 40, 45, 'sand');  // アフリカ
-  drawLand(180, 160, 35, 30, 'grass'); // サバンナ
-  drawLand(70, 50, 50, 35, 'grass');  // 北米
-  drawLand(50, 40, 35, 25, 'snow');   // カナダ・アラスカ
-  drawLand(60, 75, 30, 20, 'dirt');   // 西部
-  drawLand(80, 145, 35, 45, 'tree');  // 南米
-  drawLand(75, 175, 25, 20, 'rock');  // アンデス
-  drawLand(270, 165, 30, 25, 'dirt');  // オーストラリア
+  drawLand(150, 50, 30, 30, 'grass'); 
+  drawLand(240, 50, 45, 35, 'snow');  
+  drawLand(170, 130, 40, 45, 'sand');  
+  drawLand(180, 160, 35, 30, 'grass'); 
+  drawLand(70, 50, 50, 35, 'grass');  
+  drawLand(50, 40, 35, 25, 'snow');   
+  drawLand(60, 75, 30, 20, 'dirt');   
+  drawLand(80, 145, 35, 45, 'tree');  
+  drawLand(75, 175, 25, 20, 'rock');  
+  drawLand(270, 165, 30, 25, 'dirt');  
 
-  // 日本列島 (東端)
   const drawIsland = (x: number, y: number, w: number, h: number) => {
       for(let dy=0; dy<h; dy++) for(let dx=0; dx<w; dx++) {
           if(isValid(x+dx, y+dy)) {
@@ -202,11 +215,10 @@ export const generateOverworld = (): ChunkData => {
           }
       }
   };
-  drawIsland(290, 60, 4, 8);   // 北海道風
-  drawIsland(286, 75, 6, 24);  // 本州風
-  drawIsland(282, 90, 4, 6);   // 九州風
+  drawIsland(290, 60, 4, 8);   
+  drawIsland(286, 75, 6, 24);  
+  drawIsland(282, 90, 4, 6);   
 
-  // 山脈 (スケールアップ)
   const addMountains = (cx: number, cy: number, length: number) => {
       for(let i=0; i<length; i++) {
           if(isValid(cx+i, cy)) { map[cy][cx+i].type = 'rock'; map[cy][cx+i].solid = true; }
@@ -214,15 +226,15 @@ export const generateOverworld = (): ChunkData => {
           if(isValid(cx+i, cy-1)) { map[cy-1][cx+i].type = 'rock'; map[cy-1][cx+i].solid = true; }
       }
   };
-  addMountains(180, 80, 40); // ヒマラヤ
-  addMountains(50, 50, 15);  // ロッキー
-  addMountains(75, 140, 15); // アンデス
+  addMountains(180, 80, 40); 
+  addMountains(50, 50, 15);  
+  addMountains(75, 140, 15); 
 
   for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
           if (map[y][x].solid) continue;
           const t = map[y][x].type;
-          if (y < 25) { map[y][x].type = 'snow'; } // 北極圏拡大
+          if (y < 25) { map[y][x].type = 'snow'; } 
           if (t === 'grass' && rng.chance(0.18)) { map[y][x].type = 'tree'; map[y][x].solid = false; }
           if (t === 'sand' && rng.chance(0.12)) { map[y][x].type = 'dirt'; }
       }
@@ -245,18 +257,16 @@ export const generateOverworld = (): ChunkData => {
       }
   };
 
-  // はじまりの街 (大陸内: ユーラシア大陸の中心平原地帯)
   const townPos = { x: 210, y: 60 };
   setPortal(townPos.x, townPos.y, 'town_start', 'town_entrance');
 
-  // ダンジョン配置 (スケールに合わせて調整)
   setPortal(250, 45, 'dungeon_snow', 'dungeon_entrance');
   setPortal(170, 130, 'dungeon_desert', 'dungeon_entrance');
   setPortal(80, 150, 'dungeon_forest', 'dungeon_entrance');
   setPortal(270, 160, 'dungeon_wasteland', 'dungeon_entrance');
 
   const enemies: EnemyEntity[] = [];
-  const enemyCount = 250; // 広くなったので敵の数も増加
+  const enemyCount = 300; 
   const landTiles: {x: number, y: number, type: TileType}[] = [];
   for(let y=0; y<height; y++) for(let x=0; x<width; x++) {
       if(!map[y][x].solid) landTiles.push({x, y, type: map[y][x].type});
@@ -265,7 +275,7 @@ export const generateOverworld = (): ChunkData => {
   for(let i=0; i<enemyCount; i++) {
       if (landTiles.length === 0) break;
       const tile = rng.pick(landTiles); 
-      if(Math.abs(tile.x - townPos.x) < 20 && Math.abs(tile.y - townPos.y) < 20) continue; // 街周辺の安全圏も拡大
+      if(Math.abs(tile.x - townPos.x) < 25 && Math.abs(tile.y - townPos.y) < 25) continue; 
       let allowedTypes: string[] = ['Slime'];
       const t = tile.type;
       if (t === 'snow') allowedTypes = ['Wolf', 'Ghost', 'Bat'];
@@ -280,6 +290,10 @@ export const generateOverworld = (): ChunkData => {
 };
 
 export const generateTownMap = (id: string): ChunkData => {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash << 5) - hash + id.charCodeAt(i);
+  const rng = new SeededRandom(Math.abs(hash));
+
   const width = 60; const height = 50; 
   const tileSize = 32;
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
@@ -293,7 +307,6 @@ export const generateTownMap = (id: string): ChunkData => {
   const centerX = Math.floor(width/2);
   const centerY = Math.floor(height/2);
   
-  // メインストリート
   for(let y=5; y<height-1; y++) {
       for(let dx=-2; dx<=1; dx++) map[y][centerX+dx].type = 'dirt';
   }
@@ -301,12 +314,10 @@ export const generateTownMap = (id: string): ChunkData => {
       for(let dy=-1; dy<=1; dy++) map[centerY+dy][x].type = 'dirt';
   }
   
-  // 広場
   for(let y=centerY-3; y<=centerY+3; y++) {
       for(let x=centerX-3; x<=centerX+3; x++) map[y][x].type = 'dirt';
   }
 
-  const buildings: {x:number, y:number, w:number, h:number, type: string}[] = [];
   const enemies: EnemyEntity[] = [];
 
   const addNPC = (x: number, y: number, role: string, color: string = '#3b82f6') => {
@@ -317,7 +328,7 @@ export const generateTownMap = (id: string): ChunkData => {
           width: 24, height: 24,
           visualWidth: 32, visualHeight: 56,
           color, shape: 'humanoid',
-          hp: 100, maxHp: 100, attack: 0, defense: 100, speed: 0, 
+          hp: 999, maxHp: 999, attack: 0, defense: 999, speed: 0, 
           level: 1, direction: 1, dead: false, lastAttackTime: 0, attackCooldown: 999999,
           detectionRange: 0, xpValue: 0, vx: 0, vy: 0
       };
@@ -340,10 +351,9 @@ export const generateTownMap = (id: string): ChunkData => {
       map[by+bh-1][doorX].type = 'floor';
       map[by+bh-1][doorX].solid = false;
 
-      // 内装とNPC配置
       if (name === 'home') {
-          map[by+1][bx+1].type = 'wall'; map[by+1][bx+1].solid = true; // ベッド
-          map[by+2][bx+Math.floor(bw/2)].type = 'wall'; map[by+2][bx+Math.floor(bw/2)].solid = true; // テーブル
+          map[by+1][bx+1].type = 'wall'; map[by+1][bx+1].solid = true; 
+          map[by+2][bx+Math.floor(bw/2)].type = 'wall'; map[by+2][bx+Math.floor(bw/2)].solid = true; 
           addNPC(bx + 2, by + 2, 'Mom', '#ec4899');
       } else if (name === 'weapon_shop') {
           const counterY = by + 2;
@@ -356,20 +366,13 @@ export const generateTownMap = (id: string): ChunkData => {
       } else if (name === 'inn') {
           addNPC(bx + 2, by + 2, 'Innkeeper', '#f59e0b');
       }
-      
-      buildings.push({x: bx, y: by, w: bw, h: bh, type: name});
   };
 
-  // 1. 実家
   placeBuilding(8, 8, 10, 8, 'home');
-  // 2. 武器屋
   placeBuilding(centerX - 12, centerY - 10, 8, 6, 'weapon_shop');
-  // 3. 防具屋
   placeBuilding(centerX + 4, centerY - 10, 8, 6, 'armor_shop');
-  // 4. 宿屋
   placeBuilding(centerX - 12, centerY + 4, 10, 7, 'inn');
 
-  // 民家と村人
   const houseCoords = [{x: 8, y: centerY + 8}, {x: width - 18, y: 8}, {x: width - 18, y: centerY + 8}];
   houseCoords.forEach((coord, idx) => {
       placeBuilding(coord.x, coord.y, 7, 6, 'house');
@@ -411,7 +414,7 @@ export const generateDungeonMap = (id: string, level: number, theme: Biome): Chu
   map[height-3][midX].solid=false; map[height-3][midX].type=floorType;
 
   const enemies: EnemyEntity[] = [];
-  const enemyCount = 20 + level * 2;
+  const enemyCount = 25 + level * 2;
   let allowedTypes: string[] = ['Slime'];
   if (theme === 'Snow') allowedTypes = ['Wolf', 'Ghost', 'Bat'];
   if (theme === 'Desert') allowedTypes = ['Scorpion', 'Bandit', 'Giant Ant'];
@@ -453,10 +456,31 @@ export const generateWorldMap = generateOverworld;
 
 export const updatePlayerStats = (player: PlayerEntity) => {
   const attr = player.attributes;
-  let maxHp = attr.vitality * 10, maxMp = attr.intelligence * 5, baseAtk = Math.floor(attr.strength * 1.5 + attr.dexterity * 0.5), baseDef = Math.floor(attr.endurance * 1.2), baseSpd = 3 + (attr.dexterity * 0.05);
+  let maxHp = Math.max(20, (attr.vitality || 10) * 10);
+  let maxMp = Math.max(10, (attr.intelligence || 10) * 5);
+  let baseAtk = Math.max(5, Math.floor((attr.strength || 10) * 1.5 + (attr.dexterity || 10) * 0.5));
+  let baseDef = Math.floor((attr.endurance || 10) * 1.2);
+  let baseSpd = 3 + ((attr.dexterity || 10) * 0.05);
+  
   let equipAtk = 0, equipDef = 0, equipSpd = 0, equipHp = 0;
-  Object.values(player.equipment).forEach(item => { if (item) { equipAtk += item.stats.attack; equipDef += item.stats.defense; equipSpd += item.stats.speed; equipHp += item.stats.maxHp; } });
-  player.calculatedStats = { maxHp: maxHp + equipHp, maxMp: maxMp, attack: baseAtk + equipAtk, defense: baseDef + equipDef, speed: baseSpd + equipSpd };
+  Object.values(player.equipment).forEach(item => { 
+    if (item && item.stats) { 
+      equipAtk += (item.stats.attack || 0); 
+      equipDef += (item.stats.defense || 0); 
+      equipSpd += (item.stats.speed || 0); 
+      equipHp += (item.stats.maxHp || 0); 
+    } 
+  });
+  
+  player.calculatedStats = { 
+    maxHp: maxHp + equipHp, 
+    maxMp: maxMp, 
+    attack: baseAtk + equipAtk, 
+    defense: baseDef + equipDef, 
+    speed: baseSpd + equipSpd 
+  };
+  
   Object.assign(player, player.calculatedStats);
-  if (player.hp > player.maxHp) player.hp = player.maxHp; if (player.mp > player.maxMp) player.mp = player.maxMp;
+  if (player.hp > player.maxHp) player.hp = player.maxHp; 
+  if (player.mp > player.maxMp) player.mp = player.maxMp;
 };
