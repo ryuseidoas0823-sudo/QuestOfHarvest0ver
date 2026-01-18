@@ -2,6 +2,34 @@ import { Job, Gender, PlayerEntity, EnemyEntity, ChunkData, Tile, TileType, Item
 import { JOB_DATA, ENEMY_TYPES, RARITY_MULTIPLIERS, ENCHANT_SLOTS, ITEM_BASE_NAMES, ICONS } from './data';
 import { THEME, GAME_CONFIG } from './config';
 
+// 決定論的乱数生成クラス (Linear Congruential Generator)
+class SeededRandom {
+  private seed: number;
+  constructor(seed: number) {
+    this.seed = seed % 2147483647;
+    if (this.seed <= 0) this.seed += 2147483646;
+  }
+  
+  next(): number {
+    this.seed = (this.seed * 16807) % 2147483647;
+    return (this.seed - 1) / 2147483646;
+  }A
+
+  range(min: number, max: number): number {
+    return Math.floor(this.next() * (max - min + 1)) + min;
+  }
+  
+  // 配列からランダムに1つ選ぶ
+  pick<T>(array: T[]): T {
+    return array[this.range(0, array.length - 1)];
+  }
+  
+  // 確率判定 (0.0 - 1.0)
+  chance(probability: number): boolean {
+    return this.next() < probability;
+  }
+}
+
 export const getStarterItem = (job: Job): Item => {
   const id = crypto.randomUUID();
   const level = 1;
@@ -124,11 +152,13 @@ export const generateEnemy = (x: number, y: number, level: number, allowedTypes?
 // --- Map Generators ---
 
 /**
- * 地球の世界地図をモチーフにした固定ワールドマップを生成
- * - マップサイズ: 160x100
- * - 大陸: ユーラシア、アフリカ、北米、南米、オーストラリア、日本列島
+ * 固定シードを使用した決定論的なワールドマップ生成
+ * 毎回同じ地形が生成される
  */
 export const generateOverworld = (): ChunkData => {
+  // ワールド生成用の固定シード
+  const rng = new SeededRandom(20240923); 
+  
   const width = 160;
   const height = 100;
   const tileSize = GAME_CONFIG.TILE_SIZE;
@@ -147,7 +177,7 @@ export const generateOverworld = (): ChunkData => {
               if (!isValid(x, y)) continue;
               if (Math.pow((x - cx) / rx, 2) + Math.pow((y - cy) / ry, 2) <= 1) {
                   // ランダムにノイズを加えて海岸線を自然に
-                  if (Math.random() > 0.1) {
+                  if (rng.chance(0.9)) { // 90%の確率で陸地
                     map[y][x].type = type;
                     map[y][x].solid = false;
                   }
@@ -156,31 +186,30 @@ export const generateOverworld = (): ChunkData => {
       }
   };
 
-  // --- 大陸配置 (座標は大まかなグリッド) ---
+  // --- 大陸配置 (固定座標) ---
 
   // 1. ユーラシア大陸 (右側上部)
-  drawLand(100, 30, 35, 20, 'grass'); // メイン
-  drawLand(75, 25, 15, 15, 'grass');  // ヨーロッパ方面
-  drawLand(120, 25, 20, 15, 'snow');  // シベリア（雪）
+  drawLand(100, 30, 35, 20, 'grass');
+  drawLand(75, 25, 15, 15, 'grass'); 
+  drawLand(120, 25, 20, 15, 'snow'); // シベリア
   
   // 2. アフリカ大陸 (ユーラシアの下)
-  drawLand(85, 65, 18, 20, 'sand');   // サハラ（砂漠）
-  drawLand(90, 80, 15, 15, 'grass');  // 南部（サバンナ）
+  drawLand(85, 65, 18, 20, 'sand'); // サハラ
+  drawLand(90, 80, 15, 15, 'grass'); // サバンナ
 
   // 3. 北アメリカ (左側上部)
-  drawLand(35, 25, 25, 15, 'grass');  // メイン
-  drawLand(25, 20, 15, 12, 'snow');   // アラスカ・カナダ（雪）
-  drawLand(30, 35, 15, 10, 'dirt');   // 西部（荒野）
+  drawLand(35, 25, 25, 15, 'grass');
+  drawLand(25, 20, 15, 12, 'snow'); // アラスカ
+  drawLand(30, 35, 15, 10, 'dirt'); // 西部
 
   // 4. 南アメリカ (北米の下)
-  drawLand(40, 70, 15, 20, 'tree');   // アマゾン（森）
-  drawLand(38, 85, 10, 10, 'rock');   // アンデス（山）
+  drawLand(40, 70, 15, 20, 'tree'); // アマゾン
+  drawLand(38, 85, 10, 10, 'rock'); // アンデス
 
   // 5. オーストラリア (右下)
-  drawLand(135, 80, 12, 10, 'dirt');  // 荒野
+  drawLand(135, 80, 12, 10, 'dirt');
 
   // 6. 日本列島 (ユーラシアの東) - スタート地点
-  // 細長い島を並べる
   const drawIsland = (x: number, y: number, w: number, h: number) => {
       for(let dy=0; dy<h; dy++) for(let dx=0; dx<w; dx++) {
           if(isValid(x+dx, y+dy)) {
@@ -206,7 +235,7 @@ export const generateOverworld = (): ChunkData => {
   addMountains(25, 25, 5);   // ロッキー風
   addMountains(35, 70, 5);   // アンデス風
 
-  // 森や砂漠のランダム配置（大陸のベースカラーに上書き）
+  // 森や砂漠のランダム配置（固定シードで再現性あり）
   for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
           if (map[y][x].solid) continue; // 海や山はスキップ
@@ -215,11 +244,10 @@ export const generateOverworld = (): ChunkData => {
           
           // 緯度によるバイオーム補正
           if (y < 15) { map[y][x].type = 'snow'; } // 北極圏
-          else if (y > 85) { /* 南極圏（今回は陸地なし） */ }
           
-          // ランダム生成要素
-          if (t === 'grass' && Math.random() < 0.15) { map[y][x].type = 'tree'; map[y][x].solid = false; }
-          if (t === 'sand' && Math.random() < 0.1) { map[y][x].type = 'dirt'; } // 砂漠の岩場
+          // ランダム生成要素（rng使用）
+          if (t === 'grass' && rng.chance(0.15)) { map[y][x].type = 'tree'; map[y][x].solid = false; }
+          if (t === 'sand' && rng.chance(0.1)) { map[y][x].type = 'dirt'; }
       }
   }
 
@@ -230,12 +258,12 @@ export const generateOverworld = (): ChunkData => {
       map[y][x].type = icon;
       map[y][x].solid = false;
       map[y][x].teleportTo = to;
-      // 周囲を整地（障害物になりうるものを取り除く）
+      
+      // 周囲を整地（安全地帯確保）
       for(let dy=-2; dy<=2; dy++) for(let dx=-2; dx<=2; dx++) {
           if(isValid(x+dx, y+dy)) {
               const target = map[y+dy][x+dx];
               target.solid = false;
-              // 水、山、壁、木などを平地に変える
               if (target.type === 'water' || target.type === 'rock' || target.type === 'wall' || target.type === 'tree') {
                   target.type = 'grass';
               }
@@ -243,35 +271,32 @@ export const generateOverworld = (): ChunkData => {
       }
       // プレイヤーがスポーンする可能性のある場所（下側）を確実に空ける
       if(isValid(x, y+1)) { map[y+1][x].solid = false; map[y+1][x].type = 'grass'; }
+      if(isValid(x, y+2)) { map[y+2][x].solid = false; map[y+2][x].type = 'grass'; } // 前回 +64px に変更したので2マス下も空ける
   };
 
-  // 1. はじまりの街 (日本列島: 本州風の場所)
+  // 1. はじまりの街
   const townPos = { x: 144, y: 38 };
   setPortal(townPos.x, townPos.y, 'town_start', 'town_entrance');
 
-  // 2. 雪のダンジョン (シベリア)
+  // 2. 各地ダンジョン
   setPortal(125, 20, 'dungeon_snow', 'dungeon_entrance');
-
-  // 3. 砂漠のダンジョン (サハラ)
   setPortal(85, 65, 'dungeon_desert', 'dungeon_entrance');
-
-  // 4. 森のダンジョン (アマゾン)
   setPortal(40, 75, 'dungeon_forest', 'dungeon_entrance');
-
-  // 5. 荒野のダンジョン (オーストラリア)
   setPortal(135, 80, 'dungeon_wasteland', 'dungeon_entrance');
 
-  // --- 敵の配置 ---
+  // --- 敵の配置 (固定シードで配置) ---
   const enemies: EnemyEntity[] = [];
   const enemyCount = 80;
-  // 陸地セルをリストアップ
+  
   const landTiles: {x: number, y: number, type: TileType}[] = [];
   for(let y=0; y<height; y++) for(let x=0; x<width; x++) {
       if(!map[y][x].solid) landTiles.push({x, y, type: map[y][x].type});
   }
 
   for(let i=0; i<enemyCount; i++) {
-      const tile = landTiles[Math.floor(Math.random() * landTiles.length)];
+      if (landTiles.length === 0) break;
+      const tile = rng.pick(landTiles); // 固定乱数で選択
+      
       // 街周辺は安全に
       if(Math.abs(tile.x - townPos.x) < 10 && Math.abs(tile.y - townPos.y) < 10) continue;
 
@@ -282,8 +307,11 @@ export const generateOverworld = (): ChunkData => {
       else if (t === 'sand') allowedTypes = ['Scorpion', 'Bandit', 'Giant Ant'];
       else if (t === 'tree') allowedTypes = ['Spider', 'Wolf', 'Boar', 'Grizzly'];
       else if (t === 'dirt') allowedTypes = ['Zombie', 'Ghoul', 'Dragonewt'];
-      else allowedTypes = ['Slime', 'Bandit', 'Goblin']; // Grass
+      else allowedTypes = ['Slime', 'Bandit', 'Goblin'];
 
+      // 敵の強さなどは多少ランダム性を持たせつつ、シード依存にはしない（戦闘の都度生成でも良いが、ここでは初期配置）
+      // 初期配置も固定化したい場合は rng を使うべきだが、敵のパラメータ生成関数(generateEnemy)がMath.randomを使っている
+      // 今回は配置場所だけ固定化
       enemies.push(generateEnemy(tile.x * tileSize, tile.y * tileSize, 1, allowedTypes));
   }
 
@@ -291,31 +319,56 @@ export const generateOverworld = (): ChunkData => {
 };
 
 export const generateTownMap = (id: string): ChunkData => {
+  // IDからハッシュを生成してシードにする -> 常に同じ街には同じマップ
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash << 5) - hash + id.charCodeAt(i);
+  const rng = new SeededRandom(Math.abs(hash));
+
   const width = 40; const height = 30;
   const tileSize = 32;
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
     let type: TileType = 'floor';
     let solid = false;
-    // 壁
+    // 外壁
     if (x===0 || x===width-1 || y===0 || y===height-1) { type='wall'; solid=true; }
     
-    // 出口
+    // 出口 (下中央)
     if (y===height-1 && Math.abs(x - width/2) < 2) { type='portal_out'; solid=false; }
     
     return { x: x * tileSize, y: y * tileSize, type, solid, teleportTo: type === 'portal_out' ? 'world' : undefined };
   }));
 
-  // 障害物などを配置（例：噴水や建物）
-  for(let y=5; y<10; y++) for(let x=5; x<12; x++) { map[y][x].type='wall'; map[y][x].solid=true; }
-  map[9][8].type='floor'; map[9][8].solid=false; // ドア
+  // 固定の内装生成（乱数ではなくシード依存）
+  // 建物
+  const buildings = rng.range(3, 6);
+  for(let i=0; i<buildings; i++) {
+      const bx = rng.range(4, width - 8);
+      const by = rng.range(4, height - 8);
+      const bw = rng.range(4, 8);
+      const bh = rng.range(3, 6);
+      
+      // 出口付近は避ける
+      if (Math.abs(bx - width/2) < 5 && by > height - 10) continue;
 
-  for(let y=5; y<10; y++) for(let x=28; x<35; x++) { map[y][x].type='wall'; map[y][x].solid=true; }
-  map[9][31].type='floor'; map[9][31].solid=false; // ドア
+      for(let y=by; y<by+bh; y++) for(let x=bx; x<bx+bw; x++) {
+          map[y][x].type = 'wall';
+          map[y][x].solid = true;
+      }
+      // ドア
+      map[by+bh-1][Math.floor(bx+bw/2)].type = 'floor';
+      map[by+bh-1][Math.floor(bx+bw/2)].solid = false;
+  }
 
   return { map, enemies: [], droppedItems: [], biome: 'Town', locationId: id };
 };
 
 export const generateDungeonMap = (id: string, level: number, theme: Biome): ChunkData => {
+  // IDと階層をシードにする
+  let hash = 0;
+  const str = `${id}_${level}`;
+  for (let i = 0; i < str.length; i++) hash = (hash << 5) - hash + str.charCodeAt(i);
+  const rng = new SeededRandom(Math.abs(hash));
+
   const width = 50; const height = 50;
   const tileSize = 32;
   let floorType: TileType = 'dirt';
@@ -328,8 +381,11 @@ export const generateDungeonMap = (id: string, level: number, theme: Biome): Chu
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
      let type: TileType = floorType;
      let solid = false;
-     if (Math.random() < 0.15) { type = wallType; solid = true; }
+     
+     // シード乱数で壁生成
+     if (rng.chance(0.15)) { type = wallType; solid = true; }
      if (x===0 || x===width-1 || y===0 || y===height-1) { type = wallType; solid = true; }
+     
      return { x: x*tileSize, y: y*tileSize, type, solid, teleportTo: undefined };
   }));
 
@@ -342,6 +398,7 @@ export const generateDungeonMap = (id: string, level: number, theme: Biome): Chu
   map[height-2][midX+1].solid=false; map[height-2][midX+1].type=floorType;
   map[height-3][midX].solid=false; map[height-3][midX].type=floorType;
 
+  // 敵の配置 (シード依存)
   const enemies: EnemyEntity[] = [];
   const enemyCount = 20 + level * 2;
   
@@ -353,12 +410,19 @@ export const generateDungeonMap = (id: string, level: number, theme: Biome): Chu
 
   for(let i=0; i<enemyCount; i++) {
      let ex, ey;
+     let attempts = 0;
      do { 
-       ex = Math.floor(Math.random()*width); 
-       ey = Math.floor(Math.random()*height); 
+       ex = rng.range(1, width-2); 
+       ey = rng.range(1, height-2); 
+       attempts++;
+       if (attempts > 100) break;
+       // 出口付近は避ける
        if (Math.abs(ex - midX) < 5 && Math.abs(ey - (height-2)) < 5) continue;
      } while(map[ey][ex].solid);
-     enemies.push(generateEnemy(ex*tileSize, ey*tileSize, level, allowedTypes));
+     
+     if (!map[ey][ex].solid) {
+        enemies.push(generateEnemy(ex*tileSize, ey*tileSize, level, allowedTypes));
+     }
   }
 
   return { map, enemies, droppedItems: [], biome: theme, locationId: id };
