@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Loader, Save, User, Monitor, AlertTriangle, X } from 'lucide-react';
-import { onAuthStateChanged, signInAnonymously, signInWithCustomToken, User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 
 import { auth, db, isConfigValid, appId, GAME_CONFIG } from './config';
-import { GameState, PlayerEntity, Job, Gender, MenuType, ResolutionMode, Biome, Item, Attributes, ChunkData } from './types';
+import { GameState, PlayerEntity, Job, Gender, MenuType, ResolutionMode, Biome, ChunkData } from './types';
 import { ASSETS_SVG, svgToUrl } from './assets';
-import { createPlayer, generateRandomItem, generateWorldMap, getMapData, updatePlayerStats, getStarterItem, generateTownMap, generateDungeonMap } from './gameLogic';
-import { resolveMapCollision, checkCollision } from './utils';
+import { createPlayer, generateOverworld, getMapData, updatePlayerStats, getStarterItem, generateTownMap } from './gameLogic';
+import { resolveMapCollision } from './utils';
 import { renderGame } from './renderer';
 import { BIOME_NAMES } from './data';
 
@@ -19,7 +18,6 @@ import { InventoryMenu } from './components/InventoryMenu';
 export default function App() {
   const [screen, setScreen] = useState<'auth' | 'title' | 'game' | 'job_select'>('auth');
   const [saveData, setSaveData] = useState<any>(null);
-  const [loadingMessage, setLoadingMessage] = useState('クラウドに接続中...');
   const [loadingProgress, setLoadingProgress] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameState = useRef<GameState | null>(null);
@@ -31,8 +29,6 @@ export default function App() {
   const [message, setMessage] = useState<string | null>(null);
   const [viewportSize, setViewportSize] = useState({ width: 800, height: 600 });
   const [resolution, setResolution] = useState<ResolutionMode>('auto');
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
 
   const loadedAssets = useMemo(() => {
     const images: Record<string, HTMLImageElement> = {};
@@ -54,7 +50,7 @@ export default function App() {
       }
     };
     initAuth();
-    return onAuthStateChanged(auth, (u) => { setUser(u); if (u) checkSaveData(u.uid); });
+    return onAuthStateChanged(auth, (u) => { if (u) checkSaveData(u.uid); else setScreen('title'); });
   }, []);
 
   useEffect(() => {
@@ -88,7 +84,7 @@ export default function App() {
     setLoadingProgress(10);
     let player: PlayerEntity, worldX = 0, worldY = 0, savedChunks: Record<string, ChunkData> = {}, locationId = 'world';
     
-    const worldChunk = generateWorldMap();
+    const worldChunk = generateOverworld();
     let worldSpawnX = (worldChunk.map[0].length * GAME_CONFIG.TILE_SIZE) / 2;
     let worldSpawnY = (worldChunk.map.length * GAME_CONFIG.TILE_SIZE) / 2;
     
@@ -170,10 +166,10 @@ export default function App() {
 
     if (newLocationId === 'world' && state.lastWorldPos) {
        state.player.x = state.lastWorldPos.x;
-       state.player.y = state.lastWorldPos.y + 64; // 入り口の少し下に配置
+       state.player.y = state.lastWorldPos.y + 64; 
     } else {
        state.player.x = (newChunk.map[0].length * GAME_CONFIG.TILE_SIZE) / 2;
-       state.player.y = (newChunk.map.length * GAME_CONFIG.TILE_SIZE) - 96; // 出口の少し上に配置
+       state.player.y = (newChunk.map.length * GAME_CONFIG.TILE_SIZE) - 96; 
     }
 
     setWorldInfo({x: state.worldX, y: state.worldY, biome: state.currentBiome});
@@ -199,9 +195,8 @@ export default function App() {
       if (dx !== 0 || dy !== 0) {
         const nextPos = resolveMapCollision(p, dx, dy, state.map);
         
-        // ポータル判定 (足元のタイルで判定するように修正)
         const feetX = nextPos.x + p.width / 2;
-        const feetY = nextPos.y + p.height - 4; // 足元ギリギリ
+        const feetY = nextPos.y + p.height - 4; 
         const tileX = Math.floor(feetX / GAME_CONFIG.TILE_SIZE);
         const tileY = Math.floor(feetY / GAME_CONFIG.TILE_SIZE);
         const tile = state.map[tileY]?.[tileX];
@@ -212,8 +207,6 @@ export default function App() {
         }
         p.x = nextPos.x; p.y = nextPos.y;
       }
-      
-      // ... 戦闘やドロップ等のロジック (省略) ...
     }
     renderGame(ctx, state, loadedAssets);
     if (state.gameTime % 10 === 0) setUiState({...state.player});
@@ -222,7 +215,6 @@ export default function App() {
 
   useEffect(() => { if (screen === 'game') gameLoop(); return () => { if (reqRef.current) cancelAnimationFrame(reqRef.current); } }, [screen]);
 
-  // --- Render (UI) ---
   if (!isConfigValid) return <div className="w-full h-screen bg-slate-900 text-white flex items-center justify-center">設定エラー</div>;
   if (screen === 'auth') return <div className="w-full h-screen bg-slate-900 text-white flex items-center justify-center">接続中...</div>;
   if (screen === 'title') return <TitleScreen onStart={() => setScreen('job_select')} onContinue={() => startGame('Swordsman', 'Male', true)} canContinue={!!saveData} resolution={resolution} setResolution={setResolution} loadingProgress={loadingProgress} />;
