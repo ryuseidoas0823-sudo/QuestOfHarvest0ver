@@ -1,4 +1,4 @@
-import { Tile, Entity, PlayerEntity } from './types';
+import { Tile, PlayerEntity } from './types';
 import { GAME_CONFIG } from './config';
 
 /**
