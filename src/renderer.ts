@@ -1,4 +1,4 @@
-import { GameState, Tile, CombatEntity } from './types';
+import { GameState, Tile, CombatEntity, PlayerEntity, EnemyEntity } from './types';
 import { GAME_CONFIG } from './config';
 
 export const renderGame = (
@@ -137,8 +137,26 @@ const drawEntity = (ctx: CanvasRenderingContext2D, entity: CombatEntity, assets:
 
   // アセットのキーを決定
   let assetKey = '';
-  if (entity.type === 'player') assetKey = entity.job; // 例: Swordsman
-  if (entity.type === 'enemy') assetKey = entity.race; // 例: Slime
+  if (entity.type === 'player') {
+    // 修正: プレイヤーのジョブと性別を組み合わせてキーを作成
+    const p = entity as PlayerEntity;
+    assetKey = `${p.job}_${p.gender}`;
+  }
+  if (entity.type === 'enemy') {
+    const race = (entity as EnemyEntity).race;
+    // 修正: モンスター名からアセットキーへのマッピング（部分一致）
+    if (race.includes('Slime') || race.includes('Jelly')) assetKey = 'Slime';
+    else if (race.includes('Bandit') || race.includes('Mercenary') || race.includes('Assassin')) assetKey = 'Bandit';
+    else if (race.includes('Zombie') || race.includes('Ghoul') || race.includes('Wight')) assetKey = 'Zombie';
+    else if (race.includes('Ant') || race.includes('Spider') || race.includes('Bee') || race.includes('Scorpion')) assetKey = 'Insect';
+    else if (race.includes('Imp') || race.includes('Demon')) assetKey = 'Demon';
+    else if (race.includes('Bat') || race.includes('Vampire')) assetKey = 'Bat';
+    else if (race.includes('Dragon') || race.includes('Wyvern')) assetKey = 'Dragon';
+    else if (race.includes('Boar') || race.includes('Grizzly') || race.includes('Chimera')) assetKey = 'Beast';
+    else if (race.includes('Wolf') || race.includes('Hound') || race.includes('Cerberus')) assetKey = 'Wolf';
+    else if (race.includes('Ghost') || race.includes('Wraith') || race.includes('Lich')) assetKey = 'Ghost';
+    else assetKey = race; // そのままの名前で試行
+  }
 
   const img = assets[assetKey] || assets[entity.type]; // 具体名 -> 汎用名 (player/enemy) の順で検索
 
