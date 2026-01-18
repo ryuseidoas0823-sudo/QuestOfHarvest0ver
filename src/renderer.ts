@@ -1,9 +1,11 @@
 import { GameState, Tile, CombatEntity } from './types';
 import { GAME_CONFIG } from './config';
+import { ICONS } from './data';
 
 export const renderGame = (
   ctx: CanvasRenderingContext2D,
-  state: GameState
+  state: GameState,
+  assets: Record<string, HTMLImageElement>
 ) => {
   const { width, height } = ctx.canvas;
   ctx.clearRect(0, 0, width, height);
@@ -53,12 +55,12 @@ export const renderGame = (
 
   // 敵の描画
   state.enemies.forEach(enemy => {
-    drawEntity(ctx, enemy);
+    drawEntity(ctx, enemy, assets);
     drawHealthBar(ctx, enemy);
   });
 
   // プレイヤーの描画
-  drawEntity(ctx, state.player);
+  drawEntity(ctx, state.player, assets);
   
   // エフェクト・パーティクルの描画 (もしあれば)
   
@@ -122,7 +124,7 @@ const drawTile = (ctx: CanvasRenderingContext2D, tile: Tile) => {
   }
 };
 
-const drawEntity = (ctx: CanvasRenderingContext2D, entity: CombatEntity) => {
+const drawEntity = (ctx: CanvasRenderingContext2D, entity: CombatEntity, assets: Record<string, HTMLImageElement>) => {
   const vw = entity.visualWidth || entity.width;
   const vh = entity.visualHeight || entity.height;
   const cx = entity.x + entity.width/2;
@@ -134,20 +136,28 @@ const drawEntity = (ctx: CanvasRenderingContext2D, entity: CombatEntity) => {
   ctx.ellipse(cx, entity.y + entity.height - 2, entity.width/2, entity.width/4, 0, 0, Math.PI*2);
   ctx.fill();
 
-  // 本体（簡易的な矩形描画、またはアセットがあればそれを使う）
-  // ここでは色付きの矩形 + アイコン的な表現
-  
-  ctx.fillStyle = entity.color;
-  // 向きに応じて反転などを入れたいが、とりあえず矩形
-  ctx.fillRect(cx - vw/2, cy - vh/2, vw, vh);
+  // アセットのキーを決定
+  let assetKey = '';
+  if (entity.type === 'player') assetKey = entity.job; // 例: Swordsman
+  if (entity.type === 'enemy') assetKey = entity.race; // 例: Slime
 
-  // 目の描画（向き表現）
-  ctx.fillStyle = 'white';
-  const eyeOffX = entity.direction === 0 ? 4 : entity.direction === 2 ? -4 : 0;
-  const eyeOffY = entity.direction === 1 ? 2 : entity.direction === 3 ? -2 : 0;
-  
-  ctx.fillRect(cx - vw/2 + 8 + eyeOffX, cy - vh/2 + 8 + eyeOffY, 4, 4);
-  ctx.fillRect(cx + vw/2 - 12 + eyeOffX, cy - vh/2 + 8 + eyeOffY, 4, 4);
+  const img = assets[assetKey] || assets[entity.type]; // 具体名 -> 汎用名 (player/enemy) の順で検索
+
+  if (img) {
+    // 画像がある場合
+    ctx.drawImage(img, cx - vw/2, cy - vh/2, vw, vh);
+  } else {
+    // 画像がない場合のフォールバック（矩形 + 絵文字/色）
+    ctx.fillStyle = entity.color;
+    ctx.fillRect(cx - vw/2, cy - vh/2, vw, vh);
+
+    // 目の描画（向き表現）- 矩形描画時のみ
+    ctx.fillStyle = 'white';
+    const eyeOffX = entity.direction === 0 ? 4 : entity.direction === 2 ? -4 : 0;
+    const eyeOffY = entity.direction === 1 ? 2 : entity.direction === 3 ? -2 : 0;
+    ctx.fillRect(cx - vw/2 + 8 + eyeOffX, cy - vh/2 + 8 + eyeOffY, 4, 4);
+    ctx.fillRect(cx + vw/2 - 12 + eyeOffX, cy - vh/2 + 8 + eyeOffY, 4, 4);
+  }
   
   // 攻撃時のエフェクト（簡易）
   // @ts-ignore
