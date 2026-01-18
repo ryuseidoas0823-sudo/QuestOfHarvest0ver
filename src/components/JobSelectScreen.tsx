@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Sword, Heart, Zap, Activity } from 'lucide-react';
 import { Job, Gender } from '../types';
-import { JOB_DATA } from '../data'; // インポート元を修正
+import { JOB_DATA } from '../data';
 
 interface JobSelectScreenProps {
   onBack: () => void;
