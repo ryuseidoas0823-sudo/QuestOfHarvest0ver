@@ -1,4 +1,3 @@
-import React from 'react';
 import { Compass, ShoppingBag, User, Settings } from 'lucide-react';
 import { PlayerEntity, MenuType, Biome } from '../types';
 import { BIOME_NAMES } from '../data';
