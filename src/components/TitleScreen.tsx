@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Play, Save, Settings, Monitor, X } from 'lucide-react';
 import { ResolutionMode } from '../types';
 
@@ -15,15 +15,12 @@ export const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setR
 
   return (
     <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white relative overflow-hidden font-sans bg-mist">
-      {/* Background Effects */}
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-30"></div>
       <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl animate-float"></div>
       <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl animate-float" style={{animationDelay: '1s'}}></div>
       
-      {/* Safe Area Container (Letterboxing) */}
       <div className="relative z-10 w-full h-full max-w-[177.78vh] max-h-[56.25vw] aspect-video m-auto flex flex-col items-center justify-center p-8">
         
-        {/* Main Title Content */}
         <div className={`text-center space-y-10 animate-fade-in transition-all duration-300 w-full ${showSettings ? 'blur-sm scale-95 opacity-50' : ''}`}>
           <div className="relative">
             <h1 className="text-6xl md:text-8xl lg:text-9xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-yellow-500 to-yellow-800 drop-shadow-2xl mb-4 text-shadow-strong tracking-tighter" 
@@ -54,7 +51,6 @@ export const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setR
           </div>
         </div>
 
-        {/* Settings Modal Overlay */}
         {showSettings && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-fade-in">
             <div className="bg-slate-900 p-8 rounded-xl border-2 border-slate-600 w-[400px] shadow-2xl transform scale-100 transition-all">
@@ -70,7 +66,7 @@ export const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setR
               <div className="space-y-6">
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
-                    <Monitor size={16} /> Screen Resolution
+                    <Monitor size={16} /> Screen Resolution (Game)
                   </label>
                   <div className="grid grid-cols-1 gap-2">
                     {[
