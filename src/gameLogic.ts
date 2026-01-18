@@ -322,19 +322,30 @@ export const generateOverworld = (): ChunkData => {
   return { map, enemies, droppedItems: [], biome: 'WorldMap', locationId: 'world' };
 };
 
+// 街の内装パターン定義
+const TOWN_PATTERNS = {
+  'town_start': { // 日本風
+    floor: 'grass', // 地面は草地ベース
+    road: 'dirt',   // 道は土
+    wall: 'wood_wall', // 木の壁
+    roof: 'tile_roof' // 瓦屋根
+  }
+};
+
 export const generateTownMap = (id: string): ChunkData => {
   // IDからハッシュを生成してシードにする -> 常に同じ街には同じマップ
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = (hash << 5) - hash + id.charCodeAt(i);
   const rng = new SeededRandom(Math.abs(hash));
 
-  const width = 40; const height = 30;
+  const width = 50; const height = 40; // 街を少し広くする
   const tileSize = 32;
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
-    let type: TileType = 'floor';
+    let type: TileType = 'grass';
     let solid = false;
-    // 外壁
-    if (x===0 || x===width-1 || y===0 || y===height-1) { type='wall'; solid=true; }
+    
+    // 外周は林で囲む
+    if (x===0 || x===width-1 || y===0 || y===height-1) { type='tree'; solid=true; }
     
     // 出口 (下中央)
     if (y===height-1 && Math.abs(x - width/2) < 2) { type='portal_out'; solid=false; }
@@ -342,28 +353,125 @@ export const generateTownMap = (id: string): ChunkData => {
     return { x: x * tileSize, y: y * tileSize, type, solid, teleportTo: type === 'portal_out' ? 'world' : undefined };
   }));
 
-  // 固定の内装生成（乱数ではなくシード依存）
-  // 建物
-  const buildings = rng.range(3, 6);
-  for(let i=0; i<buildings; i++) {
-      const bx = rng.range(4, width - 8);
-      const by = rng.range(4, height - 8);
-      const bw = rng.range(4, 8);
-      const bh = rng.range(3, 6);
-      
-      // 出口付近は避ける
-      if (Math.abs(bx - width/2) < 5 && by > height - 10) continue;
-
-      for(let y=by; y<by+bh; y++) for(let x=bx; x<bx+bw; x++) {
-          map[y][x].type = 'wall';
-          map[y][x].solid = true;
-      }
-      // ドア
-      map[by+bh-1][Math.floor(bx+bw/2)].type = 'floor';
-      map[by+bh-1][Math.floor(bx+bw/2)].solid = false;
+  // 道を引く (メインストリート: 十字)
+  const centerX = Math.floor(width/2);
+  const centerY = Math.floor(height/2);
+  
+  // 縦の道
+  for(let y=1; y<height-1; y++) {
+      map[y][centerX].type = 'dirt'; map[y][centerX-1].type = 'dirt';
+  }
+  // 横の道
+  for(let x=1; x<width-1; x++) {
+      map[centerY][x].type = 'dirt'; map[centerY+1][x].type = 'dirt';
   }
 
-  return { map, enemies: [], droppedItems: [], biome: 'Town', locationId: id };
+  const buildings: {x:number, y:number, w:number, h:number, type: string}[] = [];
+
+  // 建物を配置するヘルパー
+  const placeBuilding = (bx: number, by: number, bw: number, bh: number, name: string) => {
+      // 建物内部
+      for(let y=by; y<by+bh; y++) for(let x=bx; x<bx+bw; x++) {
+          map[y][x].type = 'floor'; // 床 (rendererで木目調にするなど)
+          map[y][x].solid = false;
+      }
+      // 壁 (外周)
+      for(let x=bx; x<bx+bw; x++) { map[by][x].type = 'wall'; map[by][x].solid = true; map[by+bh-1][x].type = 'wall'; map[by+bh-1][x].solid = true; }
+      for(let y=by; y<by+bh; y++) { map[y][bx].type = 'wall'; map[y][bx].solid = true; map[y][bx+bw-1].type = 'wall'; map[y][bx+bw-1].solid = true; }
+      
+      // 入口 (南側中央)
+      const doorX = Math.floor(bx + bw/2);
+      map[by+bh-1][doorX].type = 'floor';
+      map[by+bh-1][doorX].solid = false;
+
+      // 内装 (簡易的)
+      if (name === 'home') {
+          // 実家: ベッドやテーブル
+          map[by+1][bx+1].type = 'wall'; // 本棚やタンスの代わり
+          map[by+1][bx+1].solid = true;
+      } else if (name === 'shop') {
+          // 店: カウンター
+          for(let x=bx+1; x<bx+bw-1; x++) {
+              map[by+2][x].type = 'wall'; // カウンター
+              map[by+2][x].solid = true; 
+          }
+      }
+      
+      buildings.push({x: bx, y: by, w: bw, h: bh, type: name});
+  };
+
+  // 1. 実家 (北西、少し離れた静かな場所)
+  placeBuilding(6, 6, 8, 6, 'home');
+
+  // 2. 武器屋 (中央広場の近く)
+  placeBuilding(centerX - 10, centerY - 8, 7, 5, 'shop');
+
+  // 3. 防具屋
+  placeBuilding(centerX + 4, centerY - 8, 7, 5, 'shop');
+
+  // 4. 宿屋
+  placeBuilding(centerX - 12, centerY + 4, 8, 6, 'inn');
+
+  // 5. 民家 (ランダム配置)
+  for(let i=0; i<4; i++) {
+      let bx, by;
+      let conflict = false;
+      let attempts = 0;
+      do {
+          conflict = false;
+          bx = rng.range(4, width - 10);
+          by = rng.range(4, height - 10);
+          // 道の上は避ける
+          if (Math.abs(bx - centerX) < 5 || Math.abs(by - centerY) < 5) conflict = true;
+          // 既存の建物と重ならないか
+          for(const b of buildings) {
+              if (bx < b.x + b.w + 2 && bx + 6 > b.x - 2 && by < b.y + b.h + 2 && by + 5 > b.y - 2) conflict = true;
+          }
+          attempts++;
+      } while(conflict && attempts < 50);
+
+      if (!conflict) {
+          placeBuilding(bx, by, 6, 5, 'house');
+      }
+  }
+
+  // NPC配置
+  const enemies: EnemyEntity[] = []; // NPCもEntityとして扱うが、敵対しない設定が必要（今回は簡易的にenemy型を使用し、AIで制御）
+  
+  // 店員などのNPC生成ヘルパー
+  const addNPC = (x: number, y: number, role: string) => {
+      const npc: EnemyEntity = {
+          id: `npc_${role}_${crypto.randomUUID()}`,
+          type: 'enemy', // 将来的には 'npc' 型を作るべき
+          race: 'Human',
+          rank: 'Normal',
+          x: x * tileSize,
+          y: y * tileSize,
+          width: 20, height: 20,
+          visualWidth: 32, visualHeight: 56,
+          color: '#3b82f6', // 青色 (味方っぽい色)
+          shape: 'humanoid',
+          hp: 100, maxHp: 100, attack: 0, defense: 100, speed: 0, // 動かない
+          level: 1, direction: 1, dead: false, lastAttackTime: 0, attackCooldown: 999999,
+          detectionRange: 0, // 反応しない
+          xpValue: 0,
+          vx: 0, vy: 0
+      };
+      // @ts-ignore カスタムプロパティ (型定義拡張が必要だが、一旦JS的に持たせる)
+      npc.isNPC = true;
+      // @ts-ignore
+      npc.npcRole = role;
+      enemies.push(npc);
+  };
+
+  // 武器屋の店主
+  addNPC(centerX - 7, centerY - 6, 'WeaponMerchant');
+  // 防具屋の店主
+  addNPC(centerX + 7, centerY - 6, 'ArmorMerchant');
+  // 実家の母親的なNPC
+  addNPC(10, 9, 'Mom');
+
+  return { map, enemies, droppedItems: [], biome: 'Town', locationId: id };
 };
 
 export const generateDungeonMap = (id: string, level: number, theme: Biome): ChunkData => {
