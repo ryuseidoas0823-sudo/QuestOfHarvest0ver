@@ -1,10 +1,9 @@
-import { GameState, Tile, PlayerEntity, EnemyEntity, DroppedItem, FloatingText, CombatEntity } from './types';
+import { GameState, Tile, CombatEntity } from './types';
 import { GAME_CONFIG } from './config';
 
 export const renderGame = (
   ctx: CanvasRenderingContext2D,
-  state: GameState,
-  assets: Record<string, HTMLImageElement>
+  state: GameState
 ) => {
   const { width, height } = ctx.canvas;
   ctx.clearRect(0, 0, width, height);
@@ -30,7 +29,7 @@ export const renderGame = (
     for (let x = startCol; x <= endCol; x++) {
       if (y >= 0 && y < state.map.length && x >= 0 && x < state.map[0].length) {
         const tile = state.map[y][x];
-        drawTile(ctx, tile, assets);
+        drawTile(ctx, tile);
       }
     }
   }
@@ -78,7 +77,7 @@ export const renderGame = (
   ctx.restore();
 };
 
-const drawTile = (ctx: CanvasRenderingContext2D, tile: Tile, assets: Record<string, HTMLImageElement>) => {
+const drawTile = (ctx: CanvasRenderingContext2D, tile: Tile) => {
   const size = GAME_CONFIG.TILE_SIZE;
   
   // 基本的な背景色
