@@ -29,6 +29,7 @@ export const ENEMY_TYPES = [
   { name: 'Grizzly',   hp: 100,atk: 18,spd: 2.0, color: '#3e2723', icon: '🐻', xp: 50, shape: 'beast',    w: 48, h: 48, vw: 64, vh: 64 },
   { name: 'Wolf',      hp: 35, atk: 9, spd: 4.2, color: '#757575', icon: '🐺', xp: 25, shape: 'beast',    w: 32, h: 24, vw: 48, vh: 32 },
   { name: 'Ghost',     hp: 20, atk: 7, spd: 1.0, color: '#cfd8dc', icon: '👻', xp: 28, shape: 'ghost',    w: 24, h: 24, vw: 32, vh: 40 },
+  { name: 'Scorpion',  hp: 35, atk: 11,spd: 2.5, color: '#bcaaa4', icon: '🦂', xp: 20, shape: 'insect',   w: 24, h: 20, vw: 32, vh: 24 },
 ];
 
 export const RARITY_MULTIPLIERS: Record<Rarity, number> = { Common: 1.0, Uncommon: 1.2, Rare: 1.5, Epic: 2.0, Legendary: 3.0 };
