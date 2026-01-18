@@ -125,50 +125,61 @@ export default function App() {
 
   const startGame = (job: Job, gender: Gender = 'Male', load = false) => {
     let player: PlayerEntity, worldX = 0, worldY = 0, savedChunks = {}, locationId = 'world';
+    
+    // ゲーム開始時はまずワールドマップを生成して、街の位置を把握する
+    // これにより「街から出たときに正しい位置に出る」ことができる
+    const worldChunk = generateWorldMap();
+    let worldSpawnX = (worldChunk.map[0].length * GAME_CONFIG.TILE_SIZE) / 2;
+    let worldSpawnY = (worldChunk.map.length * GAME_CONFIG.TILE_SIZE) / 2;
+    
+    // 街の入口を探す
+    for(let y=0; y<worldChunk.map.length; y++) {
+        for(let x=0; x<worldChunk.map[0].length; x++) {
+            if(worldChunk.map[y][x].type === 'town_entrance') {
+                worldSpawnX = x * GAME_CONFIG.TILE_SIZE;
+                worldSpawnY = y * GAME_CONFIG.TILE_SIZE;
+                break;
+            }
+        }
+    }
+
     if (load && saveData) {
       player = { ...saveData.player }; worldX = saveData.worldX; worldY = saveData.worldY; savedChunks = saveData.savedChunks || {}; updatePlayerStats(player);
       if (!saveData.locationId) {
         locationId = 'world';
-        generateWorldMap();
       } else {
-         getMapData(saveData.locationId);
          locationId = saveData.locationId;
       }
     } else {
       player = createPlayer(job, gender); updatePlayerStats(player);
-      const chunk = generateWorldMap();
       
-      // 修正: 街への入口を探してそこにスポーンさせる
-      // デフォルトは中央（安全策）
-      let spawnX = (chunk.map[0].length * GAME_CONFIG.TILE_SIZE) / 2;
-      let spawnY = (chunk.map.length * GAME_CONFIG.TILE_SIZE) / 2;
-      
-      // マップ内を探索して 'town_entrance' (街の入口) を探す
-      let found = false;
-      for(let y=0; y<chunk.map.length; y++) {
-          for(let x=0; x<chunk.map[0].length; x++) {
-              if(chunk.map[y][x].type === 'town_entrance') {
-                  spawnX = x * GAME_CONFIG.TILE_SIZE;
-                  spawnY = y * GAME_CONFIG.TILE_SIZE;
-                  found = true;
-                  break;
-              }
-          }
-          if(found) break;
-      }
-
-      player.x = spawnX;
-      player.y = spawnY;
+      // ニューゲーム：必ず「はじまりの街」の中からスタートする
+      locationId = 'town_start';
       
       const starterWeapon = getStarterItem(job);
       player.inventory.push(starterWeapon);
     }
     
-    const chunk = getMapData(locationId);
+    // 現在のマップデータを取得
+    let currentChunk = getMapData(locationId);
+    
+    // ニューゲームの場合、プレイヤー位置を街の中心（または安全な場所）に設定
+    if (!load) {
+        if (locationId === 'town_start') {
+             // 街の中央付近
+             player.x = (currentChunk.map[0].length * GAME_CONFIG.TILE_SIZE) / 2;
+             player.y = (currentChunk.map.length * GAME_CONFIG.TILE_SIZE) / 2;
+        } else {
+             player.x = worldSpawnX;
+             player.y = worldSpawnY;
+        }
+    }
 
     gameState.current = {
-      worldX, worldY, currentBiome: chunk.biome, savedChunks, map: chunk.map, player, enemies: chunk.enemies, droppedItems: chunk.droppedItems, locationId,
-      projectiles: [], particles: [], floatingTexts: [], camera: { x: 0, y: 0 }, gameTime: 0, isPaused: false, wave: 1
+      worldX, worldY, currentBiome: currentChunk.biome, savedChunks, map: currentChunk.map, player, enemies: currentChunk.enemies, droppedItems: currentChunk.droppedItems, locationId,
+      projectiles: [], particles: [], floatingTexts: [], camera: { x: 0, y: 0 }, gameTime: 0, isPaused: false, wave: 1,
+      // 街から出たときの戻り位置をワールドマップ上の街の入口に設定
+      lastWorldPos: { x: worldSpawnX, y: worldSpawnY + 32 }
     };
     setScreen('game');
   };
@@ -191,8 +202,9 @@ export default function App() {
 
     if (newLocationId === 'world' && state.lastWorldPos) {
        state.player.x = state.lastWorldPos.x;
-       state.player.y = state.lastWorldPos.y + 32;
+       state.player.y = state.lastWorldPos.y; 
     } else {
+       // ダンジョンや街に入ったときの位置（下側中央）
        state.player.x = (newChunk.map[0].length * 32) / 2;
        state.player.y = (newChunk.map.length * 32) - 64;
     }
@@ -294,9 +306,9 @@ export default function App() {
                // @ts-ignore
                state.worldX = 0; state.worldY = 0;
                // @ts-ignore
-               switchLocation('world');
+               switchLocation('town_start'); // 修正: 死んだら街に戻る
                p.x=(GAME_CONFIG.MAP_WIDTH*32)/2; p.y=(GAME_CONFIG.MAP_HEIGHT*32)/2; 
-               setMessage("死んでしまった！ワールドマップに戻ります。"); 
+               setMessage("死んでしまった！街に戻ります。"); 
                setTimeout(() => setMessage(null), 3000); 
             }
           }
@@ -311,7 +323,7 @@ export default function App() {
       state.enemies = state.enemies.filter(e => !e.dead); state.droppedItems = state.droppedItems.filter(d => !d.dead);
       state.floatingTexts.forEach(t => { t.y -= 0.5; t.life--; }); state.floatingTexts = state.floatingTexts.filter(t => t.life > 0);
     }
-    // 修正: loadedAssets を渡す
+    // @ts-ignore
     renderGame(ctx, state, loadedAssets);
     if (state.gameTime % 10 === 0) setUiState({...state.player});
     reqRef.current = requestAnimationFrame(gameLoop);
