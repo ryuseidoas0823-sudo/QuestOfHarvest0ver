@@ -20,7 +20,7 @@ export const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setR
       <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl animate-float"></div>
       <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl animate-float" style={{animationDelay: '1s'}}></div>
       
-      {/* Safe Area Container */}
+      {/* Safe Area Container (Letterboxing) */}
       <div className="relative z-10 w-full h-full max-w-[177.78vh] max-h-[56.25vw] aspect-video m-auto flex flex-col items-center justify-center p-8">
         
         {/* Main Title Content */}
@@ -70,7 +70,7 @@ export const TitleScreen = ({ onStart, onContinue, canContinue, resolution, setR
               <div className="space-y-6">
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
-                    <Monitor size={16} /> Screen Resolution (Game)
+                    <Monitor size={16} /> Screen Resolution
                   </label>
                   <div className="grid grid-cols-1 gap-2">
                     {[
