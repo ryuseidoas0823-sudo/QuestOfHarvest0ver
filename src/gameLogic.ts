@@ -219,7 +219,7 @@ export const generateOverworld = (): ChunkData => {
       }
   };
   drawIsland(145, 30, 2, 4); // 北海道風
-  drawIsland(143, 35, 3, 6); // 本州風
+  drawIsland(143, 35, 3, 12); // 本州風 (不具合修正: 南に拡張してスポーン地点を確保)
   drawIsland(141, 40, 2, 3); // 九州風
 
   // --- 地形調整 & 自然生成 ---
@@ -270,12 +270,16 @@ export const generateOverworld = (): ChunkData => {
               if (target.type === 'water' || target.type === 'rock' || target.type === 'wall' || target.type === 'tree' || target.type === 'dirt') {
                   target.type = 'grass';
               }
+              // スポーン地点（座標ずらし先）が再びポータルにならないように設定
+              if (dy !== 0 || dx !== 0) {
+                  target.teleportTo = undefined;
+              }
           }
       }
       // 特にプレイヤーがスポーンする場所（下側）を重点的に確保
-      if(isValid(x, y+1)) { map[y+1][x].solid = false; map[y+1][x].type = 'grass'; }
-      if(isValid(x, y+2)) { map[y+2][x].solid = false; map[y+2][x].type = 'grass'; }
-      if(isValid(x, y+3)) { map[y+3][x].solid = false; map[y+3][x].type = 'grass'; }
+      if(isValid(x, y+1)) { map[y+1][x].solid = false; map[y+1][x].type = 'grass'; map[y+1][x].teleportTo = undefined; }
+      if(isValid(x, y+2)) { map[y+2][x].solid = false; map[y+2][x].type = 'grass'; map[y+2][x].teleportTo = undefined; }
+      if(isValid(x, y+3)) { map[y+3][x].solid = false; map[y+3][x].type = 'grass'; map[y+3][x].teleportTo = undefined; }
   };
 
   // 1. はじまりの街
@@ -328,13 +332,13 @@ export const generateTownMap = (id: string): ChunkData => {
   for (let i = 0; i < id.length; i++) hash = (hash << 5) - hash + id.charCodeAt(i);
   const rng = new SeededRandom(Math.abs(hash));
 
-  const width = 50; const height = 40; // 街を少し広くする
+  const width = 60; const height = 50; // 街をさらに広くし、活気を出す
   const tileSize = 32;
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
     let type: TileType = 'grass';
     let solid = false;
     
-    // 外周は林で囲む
+    // 外周は林で囲む（活気のある集落感を出すため廃墟感を排除）
     if (x===0 || x===width-1 || y===0 || y===height-1) { type='tree'; solid=true; }
     
     // 出口 (下中央)
@@ -343,26 +347,30 @@ export const generateTownMap = (id: string): ChunkData => {
     return { x: x * tileSize, y: y * tileSize, type, solid, teleportTo: type === 'portal_out' ? 'world' : undefined };
   }));
 
-  // 道を引く (メインストリート: 十字)
+  // 道を引く (メインストリート: 十字路と広場)
   const centerX = Math.floor(width/2);
   const centerY = Math.floor(height/2);
   
-  // 縦の道
-  for(let y=1; y<height-1; y++) {
-      map[y][centerX].type = 'dirt'; map[y][centerX-1].type = 'dirt';
+  // メインストリート (幅広の道)
+  for(let y=5; y<height-1; y++) {
+      for(let dx=-2; dx<=1; dx++) map[y][centerX+dx].type = 'dirt';
   }
-  // 横の道
-  for(let x=1; x<width-1; x++) {
-      map[centerY][x].type = 'dirt'; map[centerY+1][x].type = 'dirt';
+  for(let x=5; x<width-5; x++) {
+      for(let dy=-1; dy<=1; dy++) map[centerY+dy][x].type = 'dirt';
+  }
+  
+  // 中央広場
+  for(let y=centerY-3; y<=centerY+3; y++) {
+      for(let x=centerX-3; x<=centerX+3; x++) map[y][x].type = 'dirt';
   }
 
   const buildings: {x:number, y:number, w:number, h:number, type: string}[] = [];
 
   // 建物を配置するヘルパー
   const placeBuilding = (bx: number, by: number, bw: number, bh: number, name: string) => {
-      // 建物内部
+      // 建物内部 (床)
       for(let y=by; y<by+bh; y++) for(let x=bx; x<bx+bw; x++) {
-          map[y][x].type = 'floor'; // 床 (rendererで木目調にするなど)
+          map[y][x].type = 'floor';
           map[y][x].solid = false;
       }
       // 壁 (外周)
@@ -376,96 +384,83 @@ export const generateTownMap = (id: string): ChunkData => {
 
       // 内装 (簡易的)
       if (name === 'home') {
-          // 実家: ベッドやテーブル
-          map[by+1][bx+1].type = 'wall'; // 本棚やタンスの代わり
-          map[by+1][bx+1].solid = true;
+          // 実家: 奥にベッド、中央にテーブル
+          map[by+1][bx+1].type = 'wall'; map[by+1][bx+1].solid = true; // ベッド
+          map[by+2][bx+Math.floor(bw/2)].type = 'wall'; map[by+2][bx+Math.floor(bw/2)].solid = true; // テーブル
       } else if (name === 'shop') {
-          // 店: カウンター
+          // 店: カウンターを配置
+          const counterY = by + 2;
           for(let x=bx+1; x<bx+bw-1; x++) {
-              map[by+2][x].type = 'wall'; // カウンター
-              map[by+2][x].solid = true; 
+              map[counterY][x].type = 'wall';
+              map[counterY][x].solid = true; 
           }
       }
       
       buildings.push({x: bx, y: by, w: bw, h: bh, type: name});
   };
 
-  // 1. 実家 (北西、少し離れた静かな場所)
-  placeBuilding(6, 6, 8, 6, 'home');
+  // 1. 主人公の実家 (北西の静かな場所)
+  placeBuilding(8, 8, 10, 8, 'home');
 
-  // 2. 武器屋 (中央広場の近く)
-  placeBuilding(centerX - 10, centerY - 8, 7, 5, 'shop');
+  // 2. 武器屋 (広場の西側)
+  placeBuilding(centerX - 12, centerY - 6, 8, 6, 'shop');
 
-  // 3. 防具屋
-  placeBuilding(centerX + 4, centerY - 8, 7, 5, 'shop');
+  // 3. 防具屋 (広場の東側)
+  placeBuilding(centerX + 4, centerY - 6, 8, 6, 'shop');
 
-  // 4. 宿屋
-  placeBuilding(centerX - 12, centerY + 4, 8, 6, 'inn');
+  // 4. 宿屋 (広場の南西)
+  placeBuilding(centerX - 12, centerY + 4, 10, 7, 'inn');
 
-  // 5. 民家 (ランダム配置)
-  for(let i=0; i<4; i++) {
-      let bx, by;
-      let conflict = false;
-      let attempts = 0;
-      do {
-          conflict = false;
-          bx = rng.range(4, width - 10);
-          by = rng.range(4, height - 10);
-          // 道の上は避ける
-          if (Math.abs(bx - centerX) < 5 || Math.abs(by - centerY) < 5) conflict = true;
-          // 既存の建物と重ならないか
-          for(const b of buildings) {
-              if (bx < b.x + b.w + 2 && bx + 6 > b.x - 2 && by < b.y + b.h + 2 && by + 5 > b.y - 2) conflict = true;
-          }
-          attempts++;
-      } while(conflict && attempts < 50);
+  // 5. 民家 (さらに数件配置)
+  const houseCoords = [
+      {x: 8, y: centerY + 8}, {x: width - 18, y: 8}, {x: width - 18, y: centerY + 8}
+  ];
+  houseCoords.forEach(coord => placeBuilding(coord.x, coord.y, 7, 6, 'house'));
 
-      if (!conflict) {
-          placeBuilding(bx, by, 6, 5, 'house');
-      }
-  }
-
-  // NPC配置
-  const enemies: EnemyEntity[] = []; // NPCもEntityとして扱うが、敵対しない設定が必要（今回は簡易的にenemy型を使用し、AIで制御）
+  // NPC配置 (EnemyEntityを流用し、NPCとして機能させる)
+  const enemies: EnemyEntity[] = [];
   
-  // 店員などのNPC生成ヘルパー
-  const addNPC = (x: number, y: number, role: string) => {
+  const addNPC = (x: number, y: number, role: string, color: string = '#3b82f6') => {
       const npc: EnemyEntity = {
           id: `npc_${role}_${crypto.randomUUID()}`,
-          type: 'enemy', // 将来的には 'npc' 型を作るべき
+          type: 'enemy', 
           race: 'Human',
           rank: 'Normal',
           x: x * tileSize,
           y: y * tileSize,
           width: 20, height: 20,
           visualWidth: 32, visualHeight: 56,
-          color: '#3b82f6', // 青色 (味方っぽい色)
+          color, 
           shape: 'humanoid',
-          hp: 100, maxHp: 100, attack: 0, defense: 100, speed: 0, // 動かない
+          hp: 100, maxHp: 100, attack: 0, defense: 100, speed: 0, 
           level: 1, direction: 1, dead: false, lastAttackTime: 0, attackCooldown: 999999,
-          detectionRange: 0, // 反応しない
+          detectionRange: 0, 
           xpValue: 0,
           vx: 0, vy: 0
       };
-      // @ts-ignore カスタムプロパティ (型定義拡張が必要だが、一旦JS的に持たせる)
+      // @ts-ignore カスタムプロパティ (UIやロジックでの判別用)
       npc.isNPC = true;
       // @ts-ignore
       npc.npcRole = role;
       enemies.push(npc);
   };
 
-  // 武器屋の店主
-  addNPC(centerX - 7, centerY - 6, 'WeaponMerchant');
+  // 武器屋の店主 (カウンターの奥)
+  addNPC(centerX - 8, centerY - 5, 'WeaponMerchant', '#ef4444');
   // 防具屋の店主
-  addNPC(centerX + 7, centerY - 6, 'ArmorMerchant');
-  // 実家の母親的なNPC
-  addNPC(10, 9, 'Mom');
+  addNPC(centerX + 8, centerY - 5, 'ArmorMerchant', '#10b981');
+  // 宿屋の受付
+  addNPC(centerX - 7, centerY + 5, 'Innkeeper', '#f59e0b');
+  // 実家の母親
+  addNPC(13, 10, 'Mom', '#ec4899');
+  // 広場の村人
+  addNPC(centerX, centerY - 1, 'Villager', '#6366f1');
 
   return { map, enemies, droppedItems: [], biome: 'Town', locationId: id };
 };
 
 export const generateDungeonMap = (id: string, level: number, theme: Biome): ChunkData => {
-  // IDと階層をシードにする
+  // IDと階層をシードにする (階層のみ固定を維持)
   let hash = 0;
   const str = `${id}_${level}`;
   for (let i = 0; i < str.length; i++) hash = (hash << 5) - hash + str.charCodeAt(i);
