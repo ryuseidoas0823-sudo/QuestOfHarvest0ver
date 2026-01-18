@@ -327,11 +327,8 @@ export const generateOverworld = (): ChunkData => {
 };
 
 export const generateTownMap = (id: string): ChunkData => {
-  // IDからハッシュを生成してシードにする -> 常に同じ街には同じマップ
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = (hash << 5) - hash + id.charCodeAt(i);
-  const rng = new SeededRandom(Math.abs(hash));
-
+  // IDからハッシュを生成してシードにする（将来の街ごとのバリエーション用）
+  // ビルドエラー修正：未使用変数 rng を削除
   const width = 60; const height = 50; // 街をさらに広くし、活気を出す
   const tileSize = 32;
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => {
