@@ -1,6 +1,5 @@
 import { GameState, Tile, CombatEntity } from './types';
 import { GAME_CONFIG } from './config';
-import { ICONS } from './data';
 
 export const renderGame = (
   ctx: CanvasRenderingContext2D,
