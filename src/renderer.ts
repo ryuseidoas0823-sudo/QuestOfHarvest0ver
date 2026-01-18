@@ -1,120 +1,177 @@
-import { GameState, CombatEntity, PlayerEntity, EnemyEntity } from './types';
+import { GameState, Tile, PlayerEntity, EnemyEntity, DroppedItem, FloatingText, CombatEntity } from './types';
 import { GAME_CONFIG } from './config';
-import { JOB_DATA, ENEMY_TYPES } from './data';
 
-export const renderGame = (ctx: CanvasRenderingContext2D, state: GameState, images: Record<string, HTMLImageElement>) => {
+export const renderGame = (
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  assets: Record<string, HTMLImageElement>
+) => {
   const { width, height } = ctx.canvas;
-  const T = GAME_CONFIG.TILE_SIZE;
-  ctx.fillStyle = '#111'; ctx.fillRect(0, 0, width, height);
-  ctx.save();
-  
-  const camX = Math.floor(state.player.x + state.player.width/2 - width/2);
-  const camY = Math.floor(state.player.y + state.player.height/2 - height/2);
-  ctx.translate(-camX, -camY);
-  state.camera = { x: camX, y: camY };
+  ctx.clearRect(0, 0, width, height);
 
-  const startCol = Math.floor(camX / T);
-  const endCol = startCol + (width / T) + 1;
-  const startRow = Math.floor(camY / T);
-  const endRow = startRow + (height / T) + 1;
+  // カメラ位置の計算 (プレイヤー中心)
+  const camX = Math.floor(state.player.x + state.player.width / 2 - width / 2);
+  const camY = Math.floor(state.player.y + state.player.height / 2 - height / 2);
+
+  state.camera.x = camX;
+  state.camera.y = camY;
+
+  ctx.save();
+  ctx.translate(-camX, -camY);
+
+  // マップの描画
+  // 画面内のタイルだけ描画するカリング処理
+  const startCol = Math.floor(camX / GAME_CONFIG.TILE_SIZE);
+  const endCol = startCol + (width / GAME_CONFIG.TILE_SIZE) + 1;
+  const startRow = Math.floor(camY / GAME_CONFIG.TILE_SIZE);
+  const endRow = startRow + (height / GAME_CONFIG.TILE_SIZE) + 1;
 
   for (let y = startRow; y <= endRow; y++) {
-    if (!state.map[y]) continue;
     for (let x = startCol; x <= endCol; x++) {
-      const tile = state.map[y][x];
-      if (!tile) continue;
-      
-      // @ts-ignore
-      let color = {
-        grass:'#1b2e1b', dirt:'#3e2723', sand:'#fbc02d', snow:'#e3f2fd', 
-        rock:'#616161', wall:'#424242', water:'#1a237e', floor:'#5d4037',
-        portal_out: '#5e35b1', town_entrance: '#795548', dungeon_entrance: '#212121'
-      }[tile.type] || '#000';
-
-      ctx.fillStyle = color;
-      ctx.fillRect(tile.x, tile.y, T, T);
-      ctx.strokeStyle = 'rgba(0,0,0,0.05)'; ctx.strokeRect(tile.x, tile.y, T, T);
-      
-      if (tile.type === 'wall' || tile.type === 'rock') { 
-        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(tile.x, tile.y+T-4, T, 4); 
-      }
-      if (tile.type === 'town_entrance') {
-        ctx.fillStyle = '#fff'; ctx.font = '20px Arial'; ctx.textAlign='center'; ctx.fillText('🏠', tile.x+T/2, tile.y+T/1.5);
-      }
-      if (tile.type === 'dungeon_entrance') {
-        ctx.fillStyle = '#fff'; ctx.font = '20px Arial'; ctx.textAlign='center'; ctx.fillText('💀', tile.x+T/2, tile.y+T/1.5);
-      }
-      if (tile.type === 'portal_out') {
-        ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.arc(tile.x+T/2, tile.y+T/2, T/3, 0, Math.PI*2); ctx.fill();
+      if (y >= 0 && y < state.map.length && x >= 0 && x < state.map[0].length) {
+        const tile = state.map[y][x];
+        drawTile(ctx, tile, assets);
       }
     }
   }
 
+  // ドロップアイテムの描画
   state.droppedItems.forEach(drop => {
-    const bob = Math.sin(state.gameTime / 10) * 5 + drop.bounceOffset;
-    ctx.shadowColor = drop.item.color; ctx.shadowBlur = 10;
-    ctx.fillStyle = '#8d6e63'; ctx.fillRect(drop.x + 8, drop.y + 8 + bob, 16, 16);
-    ctx.fillStyle = drop.item.color; ctx.fillRect(drop.x + 8, drop.y + 12 + bob, 16, 4);
-    ctx.font = '16px Arial'; ctx.textAlign = 'center'; ctx.fillText(drop.item.icon, drop.x + 16, drop.y + 4 + bob); ctx.shadowBlur = 0;
+    const bounce = Math.sin((state.gameTime + (drop.bounceOffset ?? 0)) * 0.1) * 5;
+    ctx.fillStyle = drop.color;
+    // 影
+    ctx.beginPath();
+    ctx.ellipse(drop.x + 16, drop.y + 32, 10, 4, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fill();
+    
+    // アイテム本体
+    ctx.font = '24px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(drop.item.icon, drop.x + 16, drop.y + 16 + bounce);
   });
 
-  const renderCharacter = (e: CombatEntity, icon?: string) => {
-    const vw = e.visualWidth || e.width, vh = e.visualHeight || e.height;
-    const centerX = e.x + e.width / 2, bottomY = e.y + e.height;
-    let imgKey: string | null = null;
-    
-    if (e.type === 'player') imgKey = `${(e as PlayerEntity).job}_${(e as PlayerEntity).gender}`;
-    else if (e.type === 'enemy') {
-       const race = (e as EnemyEntity).race;
-       if (race.includes('Slime')) imgKey = 'Slime';
-       else if (race.includes('Bandit')) imgKey = 'Bandit';
-       else if (race.includes('Zombie') || race.includes('Ghoul')) imgKey = 'Zombie';
-       else if (race.includes('Ant') || race.includes('Spider')) imgKey = 'Insect';
-       else if (race.includes('Imp') || race.includes('Demon')) imgKey = 'Demon';
-       else if (race.includes('Bat')) imgKey = 'Bat';
-       else if (race.includes('Dragon')) imgKey = 'Dragon';
-       else if (race.includes('Boar') || race.includes('Wolf')) imgKey = race.includes('Wolf') ? 'Wolf' : 'Beast';
-       else if (race.includes('Ghost')) imgKey = 'Ghost';
-    }
-
-    ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath();
-    ctx.ellipse(centerX, bottomY - 2, e.width/2 * (['flying','ghost'].includes(e.shape || '') ? 0.8 : 1.2), 4, 0, 0, Math.PI*2); ctx.fill();
-
-    if (imgKey && images[imgKey]) {
-      const isMoving = Math.abs(e.vx || 0) > 0.1 || Math.abs(e.vy || 0) > 0.1;
-      const bounce = isMoving ? Math.sin(state.gameTime / 2) : 0;
-      const scaleX = (isMoving ? 1 + bounce * 0.1 : 1) * (e.isAttacking ? 1.2 : 1) * (e.direction === 2 ? -1 : 1);
-      const scaleY = (isMoving ? 1 - bounce * 0.1 : 1) * (e.isAttacking ? 0.8 : 1);
-      ctx.save(); ctx.translate(centerX, bottomY + (bounce > 0 ? -bounce * 5 : 0));
-      ctx.scale(scaleX, scaleY); ctx.drawImage(images[imgKey], -vw / 2, -vh, vw, vh); ctx.restore();
-    } else {
-      const bob = Math.sin(state.gameTime / 3) * ((Math.abs(e.vx||0)>0.1 || Math.abs(e.vy||0)>0.1) ? 2 : 0);
-      ctx.fillStyle = e.color; if (e.shape === 'ghost') ctx.globalAlpha = 0.6;
-      ctx.fillRect(e.x + (e.width-vw)/2, e.y + e.height - vh + bob, vw, vh); ctx.globalAlpha = 1.0;
-      if (icon) { ctx.font = `${Math.min(vw, vh) * 0.6}px Arial`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#fff'; ctx.fillText(icon, e.x+e.width/2, e.y+e.height-vh/2+bob); }
-    }
-    
-    if (e.type === 'enemy' && e.hp < e.maxHp) {
-      const barX = centerX - vw/2, barY = bottomY - vh - 12;
-      ctx.fillStyle='#000'; ctx.fillRect(barX, barY, vw, 4); ctx.fillStyle='#f44336'; ctx.fillRect(barX, barY, vw * (e.hp/e.maxHp), 4);
-    }
-  };
-
-  [...state.enemies, state.player].sort((a,b)=>(a.y+a.height)-(b.y+b.height)).forEach(e => {
-    if (e.dead) return;
-    const icon = e.type==='player' ? JOB_DATA[(e as PlayerEntity).job]?.icon : ENEMY_TYPES.find(t=>t.name===(e as EnemyEntity).race)?.icon;
-    renderCharacter(e as CombatEntity, icon);
+  // 敵の描画
+  state.enemies.forEach(enemy => {
+    drawEntity(ctx, enemy);
+    drawHealthBar(ctx, enemy);
   });
 
-  if (state.player.isAttacking) {
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath();
-    const radius = Math.max(0, 60 * Math.min(Math.max((Date.now() - state.player.lastAttackTime) / 200, 0), 1));
-    ctx.arc(state.player.x + state.player.width/2, state.player.y + state.player.height/2, radius, 0, Math.PI*2); ctx.stroke();
+  // プレイヤーの描画
+  drawEntity(ctx, state.player);
+  
+  // エフェクト・パーティクルの描画 (もしあれば)
+  
+  // フローティングテキストの描画
+  state.floatingTexts.forEach(text => {
+    ctx.globalAlpha = Math.max(0, text.life / 30);
+    ctx.fillStyle = text.color;
+    ctx.font = 'bold 20px sans-serif';
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 3;
+    ctx.strokeText(text.text, text.x, text.y);
+    ctx.fillText(text.text, text.x, text.y);
+    ctx.globalAlpha = 1.0;
+  });
+
+  ctx.restore();
+};
+
+const drawTile = (ctx: CanvasRenderingContext2D, tile: Tile, assets: Record<string, HTMLImageElement>) => {
+  const size = GAME_CONFIG.TILE_SIZE;
+  
+  // 基本的な背景色
+  let color = '#22c55e'; // grass
+  if (tile.type === 'dirt') color = '#78350f';
+  if (tile.type === 'rock') color = '#57534e';
+  if (tile.type === 'sand') color = '#fcd34d';
+  if (tile.type === 'snow') color = '#f1f5f9';
+  if (tile.type === 'water') color = '#3b82f6';
+  if (tile.type === 'floor') color = '#475569';
+  if (tile.type === 'wall') color = '#1e293b';
+  
+  ctx.fillStyle = color;
+  ctx.fillRect(tile.x, tile.y, size, size);
+
+  // タイルの装飾（簡易的）
+  if (tile.type === 'tree') {
+     ctx.fillStyle = '#14532d'; // dark green
+     ctx.beginPath();
+     ctx.moveTo(tile.x + size/2, tile.y + 2);
+     ctx.lineTo(tile.x + size - 2, tile.y + size - 5);
+     ctx.lineTo(tile.x + 2, tile.y + size - 5);
+     ctx.fill();
+  }
+  
+  // 出入り口のハイライト
+  if (tile.type === 'portal_out' || tile.type === 'town_entrance' || tile.type === 'dungeon_entrance') {
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(tile.x + 2, tile.y + 2, size - 4, size - 4);
+    
+    // 簡易的な渦巻きエフェクト
+    ctx.fillStyle = 'rgba(59, 130, 246, 0.3)';
+    ctx.beginPath();
+    ctx.arc(tile.x + size/2, tile.y + size/2, size/3, 0, Math.PI*2);
+    ctx.fill();
   }
 
-  state.floatingTexts.forEach(t => {
-    ctx.font = 'bold 16px monospace'; ctx.fillStyle = 'black'; ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.textAlign = 'center';
-    ctx.strokeText(t.text, t.x, t.y); ctx.fillStyle = t.color; ctx.fillText(t.text, t.x, t.y);
-  });
-  ctx.restore();
+  if (tile.solid && tile.type === 'wall') {
+     ctx.fillStyle = 'rgba(0,0,0,0.2)';
+     ctx.fillRect(tile.x, tile.y + size - 5, size, 5); // 影
+  }
+};
+
+const drawEntity = (ctx: CanvasRenderingContext2D, entity: CombatEntity) => {
+  const vw = entity.visualWidth || entity.width;
+  const vh = entity.visualHeight || entity.height;
+  const cx = entity.x + entity.width/2;
+  const cy = entity.y + entity.height/2;
+
+  // 影
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(cx, entity.y + entity.height - 2, entity.width/2, entity.width/4, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // 本体（簡易的な矩形描画、またはアセットがあればそれを使う）
+  // ここでは色付きの矩形 + アイコン的な表現
+  
+  ctx.fillStyle = entity.color;
+  // 向きに応じて反転などを入れたいが、とりあえず矩形
+  ctx.fillRect(cx - vw/2, cy - vh/2, vw, vh);
+
+  // 目の描画（向き表現）
+  ctx.fillStyle = 'white';
+  const eyeOffX = entity.direction === 0 ? 4 : entity.direction === 2 ? -4 : 0;
+  const eyeOffY = entity.direction === 1 ? 2 : entity.direction === 3 ? -2 : 0;
+  
+  ctx.fillRect(cx - vw/2 + 8 + eyeOffX, cy - vh/2 + 8 + eyeOffY, 4, 4);
+  ctx.fillRect(cx + vw/2 - 12 + eyeOffX, cy - vh/2 + 8 + eyeOffY, 4, 4);
+  
+  // 攻撃時のエフェクト（簡易）
+  // @ts-ignore
+  if (entity.type === 'player' && entity.isAttacking) {
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const angle = entity.direction === 0 ? 0 : entity.direction === 1 ? Math.PI/2 : entity.direction === 2 ? Math.PI : -Math.PI/2;
+      ctx.arc(cx, cy, 40, angle - 0.5, angle + 0.5);
+      ctx.stroke();
+  }
+};
+
+const drawHealthBar = (ctx: CanvasRenderingContext2D, entity: CombatEntity) => {
+  const barWidth = entity.width * 1.5;
+  const barHeight = 4;
+  const x = entity.x + entity.width/2 - barWidth/2;
+  const y = entity.y - 10;
+
+  ctx.fillStyle = '#333';
+  ctx.fillRect(x, y, barWidth, barHeight);
+
+  const hpPercent = Math.max(0, entity.hp / entity.maxHp);
+  ctx.fillStyle = hpPercent > 0.5 ? '#22c55e' : hpPercent > 0.2 ? '#eab308' : '#ef4444';
+  ctx.fillRect(x, y, barWidth * hpPercent, barHeight);
 };
