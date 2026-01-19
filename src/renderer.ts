@@ -44,7 +44,7 @@ export const renderGame = (
 
   const renderList: { y: number, draw: () => void }[] = [];
 
-  // プレイヤーの描画（アニメーション適用）
+  // プレイヤーの描画
   renderList.push({
     y: player.y + player.height,
     draw: () => {
@@ -65,12 +65,13 @@ export const renderGame = (
       ctx.translate(dx + player.width/2, dy + player.height);
       ctx.scale(scaleX, 1);
       ctx.fillStyle = player.color;
+      // 足元をtranslateの中心にしているため、y座標は-height
       ctx.fillRect(-player.width/2, -player.height - bob, player.width, player.height);
       ctx.restore();
 
       // 攻撃エフェクト
       if (player.isAttacking) {
-        ctx.strokeStyle = '#fff';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
         ctx.lineWidth = 4;
         ctx.beginPath();
         const cx = dx + player.width/2;
@@ -82,7 +83,7 @@ export const renderGame = (
             case 2: startAngle = 3*Math.PI/4; break;
             case 3: startAngle = -3*Math.PI/4; break;
         }
-        ctx.arc(cx, cy, 40, startAngle, startAngle + Math.PI/2);
+        ctx.arc(cx, cy, 45, startAngle, startAngle + Math.PI/2);
         ctx.stroke();
       }
     }
@@ -97,18 +98,25 @@ export const renderGame = (
         const dy = enemy.y - camera.y;
         const bob = enemy.isMoving ? Math.abs(Math.sin(enemy.animFrame || 0)) * 4 : 0;
 
+        // 影
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
         ctx.beginPath();
         ctx.ellipse(dx + enemy.width/2, dy + enemy.height, enemy.width/2, 4, 0, 0, Math.PI*2);
         ctx.fill();
 
+        // 本体
         ctx.fillStyle = enemy.color;
+        if (enemy.rank === 'Boss') {
+            ctx.shadowColor = enemy.color;
+            ctx.shadowBlur = 15;
+        }
         ctx.fillRect(dx, dy - bob, enemy.width, enemy.height);
+        ctx.shadowBlur = 0;
 
         // HPバー
-        const hpRatio = enemy.hp / enemy.maxHp;
-        ctx.fillStyle = '#f00'; ctx.fillRect(dx, dy - 10, enemy.width, 3);
-        ctx.fillStyle = '#0f0'; ctx.fillRect(dx, dy - 10, enemy.width * hpRatio, 3);
+        const hpRatio = Math.max(0, enemy.hp / enemy.maxHp);
+        ctx.fillStyle = '#f00'; ctx.fillRect(dx, dy - 12, enemy.width, 4);
+        ctx.fillStyle = '#0f0'; ctx.fillRect(dx, dy - 12, enemy.width * hpRatio, 4);
       }
     });
   });
@@ -116,7 +124,8 @@ export const renderGame = (
   renderList.sort((a, b) => a.y - b.y).forEach(obj => obj.draw());
 
   state.floatingTexts.forEach((text: any) => {
-      ctx.font = 'bold 16px sans-serif';
+      ctx.font = 'bold 18px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
       ctx.fillStyle = text.color;
       ctx.fillText(text.text, text.x - camera.x, text.y - camera.y);
   });
