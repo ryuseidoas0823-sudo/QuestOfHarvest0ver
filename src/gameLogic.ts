@@ -12,14 +12,66 @@ export const updateSurvival = (player: PlayerEntity, delta: number): PlayerEntit
   updated.energy = Math.max(0, updated.energy - decayRate * 0.3);
 
   let damage = 0;
-  if (updated.hunger <= 0) damage += 1;
-  if (updated.thirst <= 0) damage += 2;
+  if (updated.hunger <= 0) damage += 0.1;
+  if (updated.thirst <= 0) damage += 0.2;
 
   if (damage > 0) {
     updated.hp = Math.max(0, updated.hp - damage);
   }
 
   return updated;
+};
+
+/**
+ * モンスターのAI更新（リアルタイム）
+ */
+export const updateEnemyAI = (
+  enemy: EnemyEntity, 
+  player: PlayerEntity, 
+  worldMap: number[][], 
+  currentTime: number,
+  delta: number
+): { enemy: EnemyEntity, damageToPlayer: number } => {
+  const updatedEnemy = { ...enemy };
+  let damageToPlayer = 0;
+
+  const dx = player.x - enemy.x;
+  const dy = player.y - enemy.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+
+  if (distance <= enemy.visionRange) {
+    updatedEnemy.behavior = 'chase';
+  } else {
+    updatedEnemy.behavior = 'idle';
+  }
+
+  if (updatedEnemy.behavior === 'chase') {
+    if (distance <= enemy.attackRange) {
+      updatedEnemy.isMoving = false;
+      if (currentTime - updatedEnemy.lastAttackTime > updatedEnemy.attackCooldown) {
+        damageToPlayer = Math.max(1, enemy.stats.str - (player.stats.vit / 2));
+        updatedEnemy.lastAttackTime = currentTime;
+      }
+    } else {
+      updatedEnemy.isMoving = true;
+      if (currentTime % 500 < delta) { 
+        if (Math.abs(dx) > Math.abs(dy)) {
+          const moveX = dx > 0 ? 1 : -1;
+          if (worldMap[enemy.y] && worldMap[enemy.y][enemy.x + moveX] === 0) {
+            updatedEnemy.x += moveX;
+            updatedEnemy.direction = moveX > 0 ? 'right' : 'left';
+          }
+        } else {
+          const moveY = dy > 0 ? 1 : -1;
+          if (worldMap[enemy.y + moveY] && worldMap[enemy.y + moveY][enemy.x] === 0) {
+            updatedEnemy.y += moveY;
+          }
+        }
+      }
+    }
+  }
+
+  return { enemy: updatedEnemy, damageToPlayer };
 };
 
 /**
@@ -30,50 +82,11 @@ export const generateWorldMap = (width: number, height: number): number[][] => {
   for (let y = 0; y < height; y++) {
     const row: number[] = [];
     for (let x = 0; x < width; x++) {
-      // 10%の確率で水(1)、それ以外は草地(0)
       row.push(Math.random() > 0.1 ? 0 : 1);
     }
     map.push(row);
   }
   return map;
-};
-
-/**
- * モンスターの配置
- * マップ上の有効な（水ではない）タイルにモンスターを配置します
- */
-export const spawnMonsters = (worldMap: number[][], count: number, playerLevel: number): EnemyEntity[] => {
-  const enemies: EnemyEntity[] = [];
-  const height = worldMap.length;
-  const width = worldMap[0].length;
-
-  for (let i = 0; i < count; i++) {
-    let x, y;
-    let attempts = 0;
-    // 水タイルを避けて配置を試行する
-    do {
-      x = Math.floor(Math.random() * width);
-      y = Math.floor(Math.random() * height);
-      attempts++;
-    } while (worldMap[y][x] === 1 && attempts < 100);
-
-    if (attempts < 100) {
-      enemies.push(generateEnemy(playerLevel, x, y));
-    }
-  }
-  return enemies;
-};
-
-/**
- * シンボルエンカウントのチェック
- * プレイヤーと同じタイル座標にいるモンスターを返します
- */
-export const checkSymbolEncounter = (player: PlayerEntity, enemies: EnemyEntity[]): EnemyEntity | null => {
-  return enemies.find(enemy => enemy.x === player.x && enemy.y === player.y) || null;
-};
-
-export const calculateRequiredExp = (level: number): number => {
-  return Math.floor(100 * Math.pow(1.2, level - 1));
 };
 
 /**
@@ -92,7 +105,6 @@ export const generateEnemy = (level: number, x: number = 0, y: number = 0): Enem
     multiplier = 2;
   }
 
-  // バリエーションを増やすための種類リスト
   const monsterTypes = ['Slime', 'Goblin', 'Wolf', 'Bat'];
   const type = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
 
@@ -106,7 +118,7 @@ export const generateEnemy = (level: number, x: number = 0, y: number = 0): Enem
     maxHp: 50 * level * multiplier,
     mp: 20 * level,
     maxMp: 20 * level,
-    stats: { str: 5, dex: 5, int: 5, vit: 5, agi: 5, luk: 5 },
+    stats: { str: 5 + level, dex: 5, int: 5, vit: 5 + level, agi: 5, luk: 5 },
     x,
     y,
     width: 48,
@@ -116,6 +128,35 @@ export const generateEnemy = (level: number, x: number = 0, y: number = 0): Enem
     isMoving: false,
     animFrame: 0,
     direction: 'right',
-    lootTable: []
+    lootTable: [],
+    behavior: 'idle',
+    visionRange: 6,
+    attackRange: 1.2,
+    attackCooldown: 1500,
+    lastAttackTime: 0
   };
+};
+
+/**
+ * モンスターの配置
+ */
+export const spawnMonsters = (worldMap: number[][], count: number, playerLevel: number): EnemyEntity[] => {
+  const enemies: EnemyEntity[] = [];
+  const height = worldMap.length;
+  const width = worldMap[0].length;
+
+  for (let i = 0; i < count; i++) {
+    let x, y;
+    let attempts = 0;
+    do {
+      x = Math.floor(Math.random() * width);
+      y = Math.floor(Math.random() * height);
+      attempts++;
+    } while (worldMap[y][x] === 1 && attempts < 100);
+
+    if (attempts < 100) {
+      enemies.push(generateEnemy(playerLevel, x, y));
+    }
+  }
+  return enemies;
 };
