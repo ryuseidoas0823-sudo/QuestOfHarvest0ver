@@ -1,13 +1,11 @@
 export type JobType = 'Swordsman' | 'Warrior' | 'Archer' | 'Mage';
-// 既存コードとの互換性のためのエイリアス
 export type Job = JobType;
 export type Gender = 'male' | 'female';
-export type ResolutionMode = 'Low' | 'High';
+export type ResolutionMode = 'auto' | '800x600' | 'Low' | 'High';
 export type Biome = 'Grass' | 'Water' | 'Forest' | 'Mountain';
 
 export type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary';
 export type ItemType = 'Weapon' | 'Shield' | 'Head' | 'Body' | 'Legs' | 'Accessory' | 'Consumable' | 'Material';
-// 既存コードとの互換性
 export type EquipmentType = ItemType;
 
 export interface Stats {
@@ -18,7 +16,6 @@ export interface Stats {
   agi: number;
   luk: number;
 }
-// 既存コードとの互換性
 export type Attributes = Stats;
 
 export interface Entity {
@@ -32,7 +29,6 @@ export interface Entity {
   stats: Stats;
   x: number;
   y: number;
-  // レンダラーやユーティリティが必要とするプロパティ
   width: number;
   height: number;
   visualWidth: number;
@@ -40,7 +36,6 @@ export interface Entity {
   isMoving: boolean;
   animFrame: number;
   direction: 'left' | 'right';
-  color?: string;
 }
 
 export interface PlayerEntity extends Entity {
@@ -96,9 +91,11 @@ export interface GameState {
   worldMap: number[][];
   dayCount: number;
   gameTime: number;
-  // レンダラーが必要とする追加プロパティ（オプション）
   droppedItems?: any[];
   particles?: any[];
   floatingTexts?: any[];
   camera?: { x: number, y: number };
 }
+
+export type TileType = number;
+export interface Tile { type: TileType; x: number; y: number; }
