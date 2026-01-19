@@ -16,6 +16,9 @@ import { JobSelectScreen } from './components/JobSelectScreen';
 import { GameHUD } from './components/GameHUD';
 import { InventoryMenu } from './components/InventoryMenu';
 
+// グローバル変数の宣言（ビルドエラー TS2304 の解消）
+declare const __initial_auth_token: string | undefined;
+
 export default function App() {
   const [screen, setScreen] = useState<'auth' | 'title' | 'game' | 'job_select'>('auth');
   const [saveData, setSaveData] = useState<any>(null);
@@ -63,6 +66,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // authが未定義の場合は処理を中断
     if (!auth) {
       setScreen('title');
       return;
@@ -71,11 +75,14 @@ export default function App() {
     // 認証初期化
     const initAuth = async () => {
       try {
-        // @ts-ignore
+        // 型安全を確保するために非nullアサーションを使用、またはローカル変数にコピー
+        const firebaseAuth = auth!;
+        
+        // グローバル変数の存在チェック
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
+          await signInWithCustomToken(firebaseAuth, __initial_auth_token);
         } else {
-          await signInAnonymously(auth);
+          await signInAnonymously(firebaseAuth);
         }
       } catch (e) {
         console.error("Auth initialization failed:", e);
@@ -92,8 +99,8 @@ export default function App() {
         // ログイン成功時にセーブデータを確認
         checkSaveData(u.uid);
       } else {
-        // ログインしていない場合はタイトル画面へ（接続中画面で止まるのを防ぐ）
-        if (screen === 'auth') setScreen('title');
+        // ログインしていない場合はタイトル画面へ
+        setScreen(prev => prev === 'auth' ? 'title' : prev);
       }
     });
 
@@ -141,8 +148,7 @@ export default function App() {
       if (snap.exists()) {
         setSaveData(snap.data());
       }
-      // セーブデータ確認が終わったらタイトルへ
-      if (screen === 'auth') setScreen('title');
+      setScreen(prev => prev === 'auth' ? 'title' : prev);
     } catch (e) {
       console.error("Failed to fetch save data:", e);
       setScreen('title');
@@ -159,7 +165,6 @@ export default function App() {
         locationId = saveData.locationId || 'world';
       } else {
         player = createPlayer(job, gender); 
-        // 初期スポーン位置（タウン内）
         player.x = 15 * 32; 
         player.y = 15 * 32;
       }
@@ -237,7 +242,6 @@ export default function App() {
     
     renderGame(ctx, state, loadedAssets);
     
-    // UI情報の定期的な同期
     if (state.gameTime % 10 === 0) {
       setUiState({ ...state.player });
     }
@@ -254,7 +258,6 @@ export default function App() {
     };
   }, [screen]);
 
-  // 設定エラー時の表示
   if (!isConfigValid) {
     return (
       <div className="w-full h-screen bg-slate-900 flex items-center justify-center text-white">
@@ -269,7 +272,6 @@ export default function App() {
     );
   }
 
-  // 認証待機中の表示
   if (screen === 'auth') {
     return (
       <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
@@ -280,7 +282,6 @@ export default function App() {
     );
   }
 
-  // タイトル、職業選択、ゲーム画面の切り替え
   return (
     <div className="w-full h-screen bg-black flex items-center justify-center overflow-hidden relative font-sans">
       {screen === 'title' && (
