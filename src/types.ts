@@ -96,7 +96,7 @@ export interface Item {
 export interface GameState {
   player: PlayerEntity;
   enemies: EnemyEntity[];
-  worldMap: number[][];
+  worldMap: number[][]; // renderer.ts で map ではなくこちらを使用
   dayCount: number;
   gameTime: number;
   droppedItems?: any[];
@@ -113,6 +113,6 @@ export interface Tile {
   solid?: boolean; 
 }
 
-// アセット用
+// アセット用。各アセットファイルで使用されるヘルパー
 export type JobAssets = Record<JobType, { male: any; female: any }>;
-export const svgToUrl = (svg: string) => `data:image/svg+xml;base64,${btoa(svg)}`;
+export const svgToUrl = (svg: string) => `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
