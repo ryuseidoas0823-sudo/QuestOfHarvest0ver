@@ -1,4 +1,4 @@
-import { GameState, TileType, PlayerEntity, EnemyEntity } from './types';
+import { GameState, TileType } from './types';
 import { THEME, GAME_CONFIG } from './config';
 
 const pseudoRandom = (x: number, y: number) => {
@@ -9,7 +9,7 @@ const pseudoRandom = (x: number, y: number) => {
 export const renderGame = (
   ctx: CanvasRenderingContext2D,
   state: GameState,
-  assets: Record<string, HTMLImageElement>
+  _assets: Record<string, HTMLImageElement>
 ) => {
   const { width, height } = ctx.canvas;
   const tileSize = GAME_CONFIG.TILE_SIZE;
@@ -37,7 +37,7 @@ export const renderGame = (
         const tile = map[r][c];
         const x = (c - startCol) * tileSize + offsetX;
         const y = (r - startRow) * tileSize + offsetY;
-        drawTile(ctx, tile.type, x, y, tileSize, c, r, state.gameTime);
+        drawTile(ctx, tile.type, x, y, tileSize, c, r);
       }
     }
   }
@@ -51,11 +51,8 @@ export const renderGame = (
       const dx = player.x - camera.x;
       const dy = player.y - camera.y;
       
-      // 移動アニメーション：上下ボビングとスケール
-      // @ts-ignore
-      const bob = player.isMoving ? Math.abs(Math.sin(player.animFrame)) * 6 : 0;
-      // @ts-ignore
-      const scaleX = player.isMoving ? 1 + Math.sin(player.animFrame) * 0.1 : 1;
+      const bob = player.isMoving ? Math.abs(Math.sin(player.animFrame || 0)) * 6 : 0;
+      const scaleX = player.isMoving ? 1 + Math.sin(player.animFrame || 0) * 0.1 : 1;
 
       // 影
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
@@ -98,8 +95,7 @@ export const renderGame = (
       draw: () => {
         const dx = enemy.x - camera.x;
         const dy = enemy.y - camera.y;
-        // @ts-ignore
-        const bob = enemy.isMoving ? Math.abs(Math.sin(enemy.animFrame)) * 4 : 0;
+        const bob = enemy.isMoving ? Math.abs(Math.sin(enemy.animFrame || 0)) * 4 : 0;
 
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
         ctx.beginPath();
@@ -126,14 +122,30 @@ export const renderGame = (
   });
 };
 
-const drawTile = (ctx: CanvasRenderingContext2D, type: TileType, x: number, y: number, size: number, gridX: number, gridY: number, time: number) => {
-    const baseColor = THEME.colors.tiles[type] || '#ff00ff';
+const drawTile = (ctx: CanvasRenderingContext2D, type: TileType, x: number, y: number, size: number, gridX: number, gridY: number) => {
+    // THEME.colorsに直通のプロパティがないため、マップ形式で解決
+    const colorMap: Record<string, string> = {
+      grass: THEME.colors.grass,
+      dirt: THEME.colors.ground,
+      floor: THEME.colors.townFloor,
+      wall: THEME.colors.wall,
+      water: THEME.colors.water,
+      rock: '#334155',
+      tree: '#064e3b',
+      sand: '#fef08a',
+      snow: '#f8fafc',
+      town_entrance: '#fbbf24',
+      dungeon_entrance: '#7c2d12',
+      portal_out: '#6366f1'
+    };
+
+    const baseColor = colorMap[type] || '#ff00ff';
     ctx.fillStyle = baseColor;
     ctx.fillRect(x, y, size, size);
 
     const rand = pseudoRandom(gridX, gridY);
     if (type === 'grass' && rand > 0.8) {
-        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
         ctx.fillRect(x + rand * size, y + (1-rand) * size, 2, 2);
     }
     if (type === 'dirt') {
