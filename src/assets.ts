@@ -1,169 +1,31 @@
-import React, { useState, useEffect } from 'react';
-import { Shield, Sparkles, User, Sword, Heart, Zap } from 'lucide-react';
+/**
+ * SVG Assets for the game
+ * Characters, Monsters, and UI elements defined as raw SVG strings.
+ */
 
-// 画像生成APIを使用して、イラストレベルのビジュアルを取得するロジックのデモンストレーション
-const App = () => {
-  const [images, setImages] = useState({
-    maleSwordsman: null,
-    femaleSwordsman: null
-  });
-  const [loading, setLoading] = useState(true);
-  const apiKey = ""; // 実行環境から自動提供
+export const ASSETS_SVG: Record<string, string> = {
+  // Player Jobs - Male
+  Swordsman_Male: `<svg viewBox="0 0 32 56" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="44" width="6" height="12" fill="#334155"/><rect x="18" y="44" width="6" height="12" fill="#334155"/><rect x="6" y="20" width="20" height="24" fill="#64748b"/><rect x="8" y="4" width="16" height="16" fill="#ffdbac"/><rect x="2" y="22" width="4" height="12" fill="#ffdbac"/><rect x="26" y="22" width="4" height="12" fill="#ffdbac"/><rect x="24" y="10" width="10" height="2" fill="#94a3b8" transform="rotate(-45 24 10)"/></svg>`,
+  Warrior_Male: `<svg viewBox="0 0 32 56" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="44" width="6" height="12" fill="#450a0a"/><rect x="18" y="44" width="6" height="12" fill="#450a0a"/><rect x="6" y="20" width="20" height="24" fill="#991b1b"/><rect x="8" y="4" width="16" height="16" fill="#d2b48c"/><rect x="22" y="10" width="12" height="4" fill="#475569"/></svg>`,
+  Archer_Male: `<svg viewBox="0 0 32 56" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="44" width="6" height="12" fill="#064e3b"/><rect x="18" y="44" width="6" height="12" fill="#064e3b"/><rect x="6" y="20" width="20" height="24" fill="#166534"/><rect x="8" y="4" width="16" height="16" fill="#ffdbac"/><path d="M26 15 Q 32 28 26 41" stroke="#78350f" fill="none" stroke-width="2"/></svg>`,
+  Mage_Male: `<svg viewBox="0 0 32 56" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="44" width="6" height="12" fill="#1e1b4b"/><rect x="18" y="44" width="6" height="12" fill="#1e1b4b"/><rect x="6" y="20" width="20" height="24" fill="#3730a3"/><rect x="8" y="4" width="16" height="16" fill="#ffdbac"/><rect x="26" y="12" width="2" height="20" fill="#78350f"/><circle cx="27" cy="10" r="3" fill="#fbbf24"/></svg>`,
 
-  const generateCharacters = async () => {
-    setLoading(true);
-    const prompts = {
-      maleSwordsman: "Full body game character illustration of a handsome cool male knight, silver plate armor with gold highlights, long blue cape, sharp blue eyes, high fantasy anime style, detailed muscle lines and anatomy, heroic pose, white background",
-      femaleSwordsman: "Full body game character illustration of a beautiful cute female swordsman, light blue and white fantasy armor, mini-skirt armor design, red ribbon in blonde ponytail, sexy and athletic silhouette, detailed facial features, heroic yet charming pose, white background"
-    };
+  // Player Jobs - Female
+  Swordsman_Female: `<svg viewBox="0 0 32 56" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="44" width="6" height="12" fill="#334155"/><rect x="18" y="44" width="6" height="12" fill="#334155"/><rect x="6" y="20" width="20" height="24" fill="#94a3b8"/><rect x="8" y="4" width="16" height="16" fill="#ffdbac"/><rect x="24" y="10" width="10" height="2" fill="#94a3b8" transform="rotate(-45 24 10)"/></svg>`,
+  Warrior_Female: `<svg viewBox="0 0 32 56" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="44" width="6" height="12" fill="#450a0a"/><rect x="18" y="44" width="6" height="12" fill="#450a0a"/><rect x="6" y="20" width="20" height="24" fill="#ef4444"/><rect x="8" y="4" width="16" height="16" fill="#ffdbac"/><rect x="22" y="10" width="12" height="4" fill="#475569"/></svg>`,
+  Archer_Female: `<svg viewBox="0 0 32 56" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="44" width="6" height="12" fill="#064e3b"/><rect x="18" y="44" width="6" height="12" fill="#064e3b"/><rect x="6" y="20" width="20" height="24" fill="#22c55e"/><rect x="8" y="4" width="16" height="16" fill="#ffdbac"/><path d="M26 15 Q 32 28 26 41" stroke="#78350f" fill="none" stroke-width="2"/></svg>`,
+  Mage_Female: `<svg viewBox="0 0 32 56" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="44" width="6" height="12" fill="#1e1b4b"/><rect x="18" y="44" width="6" height="12" fill="#1e1b4b"/><rect x="6" y="20" width="20" height="24" fill="#6366f1"/><rect x="8" y="4" width="16" height="16" fill="#ffdbac"/><rect x="26" y="12" width="2" height="20" fill="#78350f"/><circle cx="27" cy="10" r="3" fill="#fbbf24"/></svg>`,
 
-    const fetchImage = async (prompt) => {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`;
-      const payload = {
-        instances: [{ prompt }],
-        parameters: { sampleCount: 1 }
-      };
-
-      try {
-        const response = await fetch(url, {
-          method: 'POST',
-          body: JSON.stringify(payload)
-        });
-        const result = await response.json();
-        return `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
-      } catch (error) {
-        console.error("Image generation failed", error);
-        return null;
-      }
-    };
-
-    const maleImg = await fetchImage(prompts.maleSwordsman);
-    const femaleImg = await fetchImage(prompts.femaleSwordsman);
-
-    setImages({ maleSwordsman: maleImg, femaleSwordsman: femaleImg });
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    generateCharacters();
-  }, []);
-
-  return (
-    <div className="min-h-screen bg-slate-950 text-white p-8 font-sans">
-      <div className="max-w-6xl mx-auto">
-        <header className="mb-12 text-center">
-          <h1 className="text-4xl font-black tracking-tighter text-yellow-500 mb-4 flex items-center justify-center gap-3">
-            <Sparkles className="animate-pulse" /> キャラクター・ビジュアル・アップグレード
-          </h1>
-          <p className="text-slate-400 max-w-2xl mx-auto">
-            ドット絵から「画像レベル」のイラストへの進化。ボディライン、顔立ち、質感を極限まで高めた次世代の『Quest of Harvest』の姿です。
-          </p>
-        </header>
-
-        {loading ? (
-          <div className="flex flex-col items-center justify-center h-96 gap-4">
-            <div className="w-16 h-16 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-yellow-500 font-bold animate-pulse">イラストを生成中...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* 男性剣士カード */}
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl transition-transform hover:scale-[1.02]">
-              <div className="aspect-[3/4] relative bg-slate-800">
-                {images.maleSwordsman ? (
-                  <img src={images.maleSwordsman} alt="Male Swordsman" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-slate-500">画像生成に失敗しました</div>
-                )}
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900 p-6">
-                  <span className="bg-blue-600 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">Cool & Strong</span>
-                  <h2 className="text-3xl font-black mt-2">SWORDSMAN <span className="text-blue-400 font-normal">(MALE)</span></h2>
-                </div>
-              </div>
-              <div className="p-6 space-y-4">
-                <div className="flex gap-4">
-                  <div className="flex-1 bg-slate-800 p-3 rounded-xl border border-slate-700 flex items-center gap-3">
-                    <User className="text-blue-400" />
-                    <div>
-                      <div className="text-[10px] text-slate-500 uppercase">Face Detail</div>
-                      <div className="text-sm font-bold text-slate-200">精悍な顔立ち</div>
-                    </div>
-                  </div>
-                  <div className="flex-1 bg-slate-800 p-3 rounded-xl border border-slate-700 flex items-center gap-3">
-                    <Shield className="text-blue-400" />
-                    <div>
-                      <div className="text-[10px] text-slate-500 uppercase">Armor Style</div>
-                      <div className="text-sm font-bold text-slate-200">重厚な銀の甲冑</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 女性剣士カード */}
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl transition-transform hover:scale-[1.02]">
-              <div className="aspect-[3/4] relative bg-slate-800">
-                {images.femaleSwordsman ? (
-                  <img src={images.femaleSwordsman} alt="Female Swordsman" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-slate-500">画像生成に失敗しました</div>
-                )}
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900 p-6">
-                  <span className="bg-pink-600 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">Cute & Sexy</span>
-                  <h2 className="text-3xl font-black mt-2">SWORDSMAN <span className="text-pink-400 font-normal">(FEMALE)</span></h2>
-                </div>
-              </div>
-              <div className="p-6 space-y-4">
-                <div className="flex gap-4">
-                  <div className="flex-1 bg-slate-800 p-3 rounded-xl border border-slate-700 flex items-center gap-3">
-                    <Heart className="text-pink-400" />
-                    <div>
-                      <div className="text-[10px] text-slate-500 uppercase">Silhouette</div>
-                      <div className="text-sm font-bold text-slate-200">美麗な曲線美</div>
-                    </div>
-                  </div>
-                  <div className="flex-1 bg-slate-800 p-3 rounded-xl border border-slate-700 flex items-center gap-3">
-                    <Zap className="text-pink-400" />
-                    <div>
-                      <div className="text-[10px] text-slate-500 uppercase">Hair Detail</div>
-                      <div className="text-sm font-bold text-slate-200">ポニーテール & リボン</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="mt-12 bg-slate-900/50 border border-slate-800 p-8 rounded-3xl">
-          <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-yellow-500"><Sword /> 実装へのステップ</h3>
-          <ul className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm text-slate-300">
-            <li className="space-y-2">
-              <div className="font-bold text-white border-b border-slate-700 pb-1">1. 全職業の生成</div>
-              <p>戦士、狩人、魔術師も同様のプロンプトで最高レベルのイラストを生成し、アセット化します。</p>
-            </li>
-            <li className="space-y-2">
-              <div className="font-bold text-white border-b border-slate-700 pb-1">2. スプライトシート化</div>
-              <p>イラストから背景を除去し、ゲーム内の移動アニメーション（歩行、攻撃）に合わせた各ポーズを作成します。</p>
-            </li>
-            <li className="space-y-2">
-              <div className="font-bold text-white border-b border-slate-700 pb-1">3. レンダリング更新</div>
-              <p><code>renderer.ts</code> を修正し、従来の矩形描画の代わりに、高精細な <code>drawImage</code> を実行するように変更します。</p>
-            </li>
-          </ul>
-        </div>
-        
-        <div className="mt-8 text-center">
-            <button 
-                onClick={generateCharacters}
-                className="px-8 py-3 bg-yellow-600 hover:bg-yellow-500 text-black font-black rounded-full transition-all shadow-xl active:scale-95"
-            >
-                別パターンのビジュアルを生成する
-            </button>
-        </div>
-      </div>
-    </div>
-  );
+  // Monsters
+  Monster_Slime: `<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path d="M4 24 Q 4 10 16 10 Q 28 10 28 24 L 28 28 L 4 28 Z" fill="#22c55e"/><circle cx="10" cy="18" r="2" fill="white"/><circle cx="22" cy="18" r="2" fill="white"/></svg>`,
+  Monster_Bat: `<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path d="M16 10 L 4 4 L 8 16 L 16 12 L 24 16 L 28 4 Z" fill="#1e293b"/><circle cx="13" cy="10" r="1" fill="#ef4444"/><circle cx="19" cy="10" r="1" fill="#ef4444"/></svg>`,
+  Monster_Skeleton: `<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="4" width="12" height="12" rx="2" fill="#f1f5f9"/><rect x="12" y="18" width="8" height="12" fill="#f1f5f9"/><rect x="11" y="8" width="3" height="3" fill="#000"/><rect x="18" y="8" width="3" height="3" fill="#000"/></svg>`,
+  Monster_Dragon: `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M10 50 Q 10 10 40 10 L 55 25 L 40 40 Q 30 45 10 50" fill="#b91c1c"/><path d="M40 10 L 30 0 L 20 10" fill="#7f1d1d"/><circle cx="45" cy="20" r="3" fill="#facc15"/></svg>`
 };
 
-export default App;
+/**
+ * Converts SVG string to a Data URL that can be used as an img src.
+ */
+export const svgToUrl = (svg: string): string => {
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
+};
