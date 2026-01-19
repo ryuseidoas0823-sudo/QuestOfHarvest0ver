@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { JobType, Gender, Stats } from '../types';
+import { JobType, Gender } from '../types';
 import { INITIAL_PLAYER_STATS } from '../data';
 
 interface JobSelectScreenProps {
   onSelect: (job: JobType, gender: Gender) => void;
   onBack: () => void;
-  // 以前の不整合なプロパティを削除またはオプショナルに
   loadedAssets?: any; 
 }
 
