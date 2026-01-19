@@ -1,66 +1,86 @@
-import { useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
-import { Job, Gender } from '../types';
-import { JOB_DATA } from '../data';
+import React, { useState } from 'react';
+import { JobType, Gender, Stats } from '../types';
+import { INITIAL_PLAYER_STATS } from '../data';
 
 interface JobSelectScreenProps {
+  onSelect: (job: JobType, gender: Gender) => void;
   onBack: () => void;
-  onSelect: (job: Job, gender: Gender) => void;
-  loadedAssets: Record<string, HTMLImageElement>;
+  // 以前の不整合なプロパティを削除またはオプショナルに
+  loadedAssets?: any; 
 }
 
-export const JobSelectScreen = ({ onBack, onSelect, loadedAssets }: JobSelectScreenProps) => {
-  const [selectedGender, setSelectedGender] = useState<Gender>('Male');
-  const [selectedJob, setSelectedJob] = useState<Job>('Swordsman');
-  const jobInfo = JOB_DATA[selectedJob];
-  const previewImg = loadedAssets[`${selectedJob}_${selectedGender}`];
+export const JobSelectScreen: React.FC<JobSelectScreenProps> = ({ onSelect, onBack }) => {
+  const [selectedJob, setSelectedJob] = useState<JobType>('Swordsman');
+  const [selectedGender, setSelectedGender] = useState<Gender>('male');
+
+  const jobs: JobType[] = ['Swordsman', 'Warrior', 'Archer', 'Mage'];
+  const stats = INITIAL_PLAYER_STATS[selectedJob];
+
+  const StatRow = ({ label, value }: { label: string, value: number }) => (
+    <div className="flex justify-between items-center py-1 border-b border-white/10">
+      <span className="text-gray-400 text-sm">{label}</span>
+      <span className="text-white font-bold">{value}</span>
+    </div>
+  );
 
   return (
-    <div className="w-full h-screen bg-slate-950 text-white flex overflow-hidden">
-      <div className="w-1/3 bg-slate-900 border-r border-slate-800 relative flex flex-col p-8 shadow-2xl z-10">
-        <button onClick={onBack} className="absolute top-6 left-6 text-slate-500 hover:text-white flex items-center gap-2 transition-colors"><ArrowLeft size={20} /> <span className="text-sm font-bold uppercase">Back</span></button>
-        <div className="mt-12 flex-1 flex flex-col items-center justify-center relative">
-          <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none"><div className="text-[200px]">{jobInfo.icon}</div></div>
-          <div className="relative mb-8 transform scale-150 animate-float">
-             <div className="absolute -inset-4 bg-gradient-to-t from-black/50 to-transparent blur-lg rounded-full"></div>
-             {previewImg ? <img src={previewImg.src} className="w-32 h-32 pixel-art drop-shadow-2xl" /> : <div className="text-9xl">{jobInfo.icon}</div>}
-          </div>
-          <h2 className="text-4xl font-black uppercase tracking-wider mb-2" style={{ color: jobInfo.color }}>{selectedJob}</h2>
-          <div className="flex items-center gap-2 mb-6"><span className={`px-3 py-1 rounded text-xs font-bold bg-slate-800 border ${selectedGender === 'Male' ? 'border-blue-500 text-blue-400' : 'border-pink-500 text-pink-400'}`}>{selectedGender === 'Male' ? 'MALE' : 'FEMALE'}</span></div>
-          <p className="text-center text-slate-400 text-sm leading-relaxed max-w-xs mb-8">{jobInfo.desc}</p>
-          <div className="w-full space-y-3 max-w-xs">
-            {[{ label: 'STR', val: jobInfo.attributes.strength, max: 20, col: 'bg-red-500' }, { label: 'VIT', val: jobInfo.attributes.vitality, max: 20, col: 'bg-green-500' }, { label: 'INT', val: jobInfo.attributes.intelligence, max: 20, col: 'bg-purple-500' }, { label: 'DEX', val: jobInfo.attributes.dexterity, max: 20, col: 'bg-yellow-500' }].map(s => (
-              <div key={s.label} className="flex items-center gap-3 text-xs font-bold"><div className="w-8 text-slate-500 flex justify-end">{s.label}</div><div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden"><div className={`h-full ${s.col}`} style={{ width: `${(s.val / s.max) * 100}%` }}></div></div><div className="w-4 text-right text-slate-300">{s.val}</div></div>
-            ))}
-          </div>
+    <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center p-8">
+      <h2 className="text-3xl font-bold text-white mb-8">SELECT YOUR CLASS</h2>
+      
+      <div className="flex gap-8 max-w-4xl w-full">
+        <div className="flex-1 space-y-4">
+          {jobs.map(job => (
+            <button
+              key={job}
+              onClick={() => setSelectedJob(job)}
+              className={`w-full p-4 rounded-lg border-2 transition-all ${
+                selectedJob === job ? 'bg-blue-600 border-white text-white' : 'bg-slate-800 border-transparent text-gray-400 hover:bg-slate-700'
+              }`}
+            >
+              <div className="text-xl font-black">{job.toUpperCase()}</div>
+            </button>
+          ))}
         </div>
-        <button onClick={() => onSelect(selectedJob, selectedGender)} className="w-full py-4 mt-8 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black font-black uppercase tracking-widest text-lg shadow-[0_0_20px_rgba(234,179,8,0.3)] hover:shadow-[0_0_30px_rgba(234,179,8,0.6)] transition-all transform hover:-translate-y-1 rounded">Start Adventure</button>
-      </div>
-      <div className="w-2/3 bg-slate-950 p-12 overflow-y-auto">
-        <div className="max-w-4xl mx-auto">
-          <h3 className="text-xl font-bold text-slate-500 mb-6 uppercase tracking-widest">Select Gender</h3>
-          <div className="flex gap-4 mb-12">
-             {['Male', 'Female'].map((g) => (<button key={g} onClick={() => setSelectedGender(g as Gender)} className={`flex-1 py-4 border-2 rounded-lg transition-all flex items-center justify-center gap-3 ${selectedGender === g ? 'border-yellow-500 bg-yellow-500/10 text-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.2)]' : 'border-slate-800 bg-slate-900 text-slate-500 hover:border-slate-600 hover:text-slate-300'}`}><span className="text-lg font-bold uppercase">{g}</span></button>))}
+
+        <div className="w-80 bg-slate-800 p-6 rounded-xl border border-white/20">
+          <h3 className="text-xl font-bold text-blue-400 mb-4">{selectedJob} Stats</h3>
+          <div className="space-y-1 mb-6">
+            <StatRow label="Strength" value={stats.str} />
+            <StatRow label="Dexterity" value={stats.dex} />
+            <StatRow label="Intelligence" value={stats.int} />
+            <StatRow label="Vitality" value={stats.vit} />
+            <StatRow label="Agility" value={stats.agi} />
+            <StatRow label="Luck" value={stats.luk} />
           </div>
-          <h3 className="text-xl font-bold text-slate-500 mb-6 uppercase tracking-widest">Select Class</h3>
-          <div className="grid grid-cols-2 gap-4">
-            {(Object.keys(JOB_DATA) as Job[]).map(job => (
-              <button key={job} onClick={() => setSelectedJob(job)} className={`relative p-6 rounded-lg border-2 text-left transition-all group overflow-hidden ${selectedJob === job ? 'border-white bg-slate-800 shadow-xl scale-[1.02]' : 'border-slate-800 bg-slate-900/50 hover:border-slate-600 hover:bg-slate-900'}`}>
-                <div className={`absolute top-0 right-0 p-4 opacity-20 text-6xl transition-transform group-hover:scale-110 group-hover:rotate-12 duration-500 ${selectedJob === job ? 'opacity-40' : ''}`}>{JOB_DATA[job].icon}</div>
-                <div className="relative z-10">
-                  <h4 className={`text-xl font-black uppercase mb-1 ${selectedJob === job ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`}>{job}</h4>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-500 mt-4">
-                    <div className="flex justify-between"><span>ATK</span> <span className={selectedJob===job ? 'text-white' : ''}>{'★'.repeat(Math.min(5, Math.ceil(JOB_DATA[job].attributes.strength / 4)))}</span></div>
-                    <div className="flex justify-between"><span>DEF</span> <span className={selectedJob===job ? 'text-white' : ''}>{'★'.repeat(Math.min(5, Math.ceil(JOB_DATA[job].attributes.endurance / 4)))}</span></div>
-                    <div className="flex justify-between"><span>SPD</span> <span className={selectedJob===job ? 'text-white' : ''}>{'★'.repeat(Math.min(5, Math.ceil(JOB_DATA[job].attributes.dexterity / 4)))}</span></div>
-                    <div className="flex justify-between"><span>MAG</span> <span className={selectedJob===job ? 'text-white' : ''}>{'★'.repeat(Math.min(5, Math.ceil(JOB_DATA[job].attributes.intelligence / 4)))}</span></div>
-                  </div>
-                </div>
-              </button>
-            ))}
+
+          <h3 className="text-lg font-bold text-white mb-3">GENDER</h3>
+          <div className="flex gap-2 mb-8">
+            <button
+              onClick={() => setSelectedGender('male')}
+              className={`flex-1 py-2 rounded font-bold ${selectedGender === 'male' ? 'bg-white text-slate-900' : 'bg-slate-700 text-gray-400'}`}
+            >
+              MALE
+            </button>
+            <button
+              onClick={() => setSelectedGender('female')}
+              className={`flex-1 py-2 rounded font-bold ${selectedGender === 'female' ? 'bg-pink-500 text-white' : 'bg-slate-700 text-gray-400'}`}
+            >
+              FEMALE
+            </button>
           </div>
+
+          <button
+            onClick={() => onSelect(selectedJob, selectedGender)}
+            className="w-full py-4 bg-green-500 hover:bg-green-400 text-white font-black rounded-lg shadow-lg transform active:scale-95 transition-all"
+          >
+            START ADVENTURE
+          </button>
         </div>
       </div>
+
+      <button onClick={onBack} className="mt-8 text-gray-500 hover:text-white underline">
+        BACK TO TITLE
+      </button>
     </div>
   );
 };
