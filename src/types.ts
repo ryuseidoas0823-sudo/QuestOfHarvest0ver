@@ -1,6 +1,14 @@
 export type JobType = 'Swordsman' | 'Warrior' | 'Archer' | 'Mage';
+// 既存コードとの互換性のためのエイリアス
+export type Job = JobType;
+export type Gender = 'male' | 'female';
+export type ResolutionMode = 'Low' | 'High';
+export type Biome = 'Grass' | 'Water' | 'Forest' | 'Mountain';
+
 export type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary';
 export type ItemType = 'Weapon' | 'Shield' | 'Head' | 'Body' | 'Legs' | 'Accessory' | 'Consumable' | 'Material';
+// 既存コードとの互換性
+export type EquipmentType = ItemType;
 
 export interface Stats {
   str: number;
@@ -10,6 +18,8 @@ export interface Stats {
   agi: number;
   luk: number;
 }
+// 既存コードとの互換性
+export type Attributes = Stats;
 
 export interface Entity {
   id: string;
@@ -22,10 +32,20 @@ export interface Entity {
   stats: Stats;
   x: number;
   y: number;
+  // レンダラーやユーティリティが必要とするプロパティ
+  width: number;
+  height: number;
+  visualWidth: number;
+  visualHeight: number;
+  isMoving: boolean;
+  animFrame: number;
+  direction: 'left' | 'right';
+  color?: string;
 }
 
 export interface PlayerEntity extends Entity {
   job: JobType;
+  gender: Gender;
   exp: number;
   maxExp: number;
   statPoints: number;
@@ -38,17 +58,17 @@ export interface PlayerEntity extends Entity {
     legs: Item | null;
     accessory: Item | null;
   };
-  // サバイバルステータス (0-100)
   hunger: number;
   thirst: number;
   energy: number;
-  gender: 'male' | 'female';
 }
 
 export interface EnemyEntity extends Entity {
   type: string;
   rarity: 'Normal' | 'Elite' | 'Boss';
   lootTable: string[];
+  dead?: boolean;
+  race?: string;
 }
 
 export interface Item {
@@ -59,7 +79,8 @@ export interface Item {
   stats?: Partial<Stats>;
   description: string;
   value: number;
-  // 消費アイテム用：回復量
+  icon?: string;
+  color?: string;
   restore?: {
     hp?: number;
     mp?: number;
@@ -72,7 +93,12 @@ export interface Item {
 export interface GameState {
   player: PlayerEntity;
   enemies: EnemyEntity[];
-  worldMap: number[][]; // 0: Grass, 1: Water, 2: Forest, etc.
+  worldMap: number[][];
   dayCount: number;
-  gameTime: number; // 0-2400 (分単位)
+  gameTime: number;
+  // レンダラーが必要とする追加プロパティ（オプション）
+  droppedItems?: any[];
+  particles?: any[];
+  floatingTexts?: any[];
+  camera?: { x: number, y: number };
 }
