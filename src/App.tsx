@@ -4,12 +4,11 @@ import { onAuthStateChanged, signInAnonymously, signInWithCustomToken, User as F
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 import { auth, db, isConfigValid, appId } from './config';
-import { PlayerEntity, Job, Gender, MenuType, ResolutionMode, Biome, ChunkData } from './types';
+import { PlayerEntity, Job, Gender, MenuType, ResolutionMode, Biome } from './types';
 import { ASSETS_SVG, svgToUrl } from './assets';
-import { createPlayer, generateWorldMap, getMapData, updatePlayerStats, generateTownMap } from './gameLogic';
-import { resolveMapCollision, checkCollision } from './utils';
+import { createPlayer, generateWorldMap, updatePlayerStats, generateTownMap } from './gameLogic';
+import { resolveMapCollision } from './utils';
 import { renderGame } from './renderer';
-import { BIOME_NAMES } from './data';
 
 import { TitleScreen } from './components/TitleScreen';
 import { JobSelectScreen } from './components/JobSelectScreen';
@@ -19,13 +18,13 @@ import { InventoryMenu } from './components/InventoryMenu';
 export default function App() {
   const [screen, setScreen] = useState<'auth' | 'title' | 'game' | 'job_select'>('auth');
   const [saveData, setSaveData] = useState<any>(null);
-  const [loadingProgress, setLoadingProgress] = useState(0); 
+  const loadingProgress = 0; // 未使用の setter を削除し定数化、または将来のために保持
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameState = useRef<any>(null);
   const reqRef = useRef<number>();
   const input = useRef({ keys: {} as Record<string, boolean>, mouse: {x:0, y:0, down: false} });
   const [uiState, setUiState] = useState<PlayerEntity | null>(null);
-  const [worldInfo, setWorldInfo] = useState<{x:number, y:number, biome:Biome}>({x:0, y:0, biome:'WorldMap'});
+  const worldInfo = {x:0, y:0, biome:'WorldMap' as Biome}; // 未使用の setter を削除
   const [activeMenu, setActiveMenu] = useState<MenuType>('none');
   const [message, setMessage] = useState<string | null>(null);
   const [viewportSize, setViewportSize] = useState({ width: window.innerWidth, height: window.innerHeight });
