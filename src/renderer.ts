@@ -30,22 +30,20 @@ export const renderGame = (
   ctx.fillRect(0, 0, width, height);
 
   // 3. タイルマップ描画の最適化（画面内のみ）
-  const startCol = Math.floor(camera.x / tileSize);
-  const endCol = startCol + Math.ceil(width / tileSize) + 1;
-  const startRow = Math.floor(camera.y / tileSize);
-  const endRow = startRow + Math.ceil(height / tileSize) + 1;
+  const startCol = Math.max(0, Math.floor(camera.x / tileSize));
+  const endCol = Math.min(map[0].length, startCol + Math.ceil(width / tileSize) + 1);
+  const startRow = Math.max(0, Math.floor(camera.y / tileSize));
+  const endRow = Math.min(map.length, startRow + Math.ceil(height / tileSize) + 1);
   
   const offsetX = -camera.x;
   const offsetY = -camera.y;
 
   for (let r = startRow; r < endRow; r++) {
     for (let c = startCol; c < endCol; c++) {
-      if (r >= 0 && r < map.length && c >= 0 && c < map[0].length) {
-        const tile = map[r][c];
-        const x = c * tileSize + offsetX;
-        const y = r * tileSize + offsetY;
-        drawTile(ctx, tile.type, x, y, tileSize, c, r, state.gameTime);
-      }
+      const tile = map[r][c];
+      const x = c * tileSize + offsetX;
+      const y = r * tileSize + offsetY;
+      drawTile(ctx, tile.type, x, y, tileSize, c, r, state.gameTime);
     }
   }
 
@@ -61,13 +59,11 @@ export const renderGame = (
         const dy = drop.y + offsetY;
         const floatY = Math.sin(state.gameTime * 0.1) * 4;
         
-        // 影
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
         ctx.beginPath();
         ctx.ellipse(dx + drop.width / 2, dy + drop.height, drop.width / 3, 4, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // アイコン
         ctx.font = '20px serif';
         ctx.textAlign = 'center';
         ctx.fillText(drop.item.icon, dx + drop.width / 2, dy + drop.height / 2 + floatY);
@@ -85,33 +81,20 @@ export const renderGame = (
         const dy = enemy.y + offsetY;
         const bob = enemy.isMoving ? Math.abs(Math.sin(enemy.animFrame)) * 5 : 0;
 
-        // 影
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
         ctx.beginPath();
         ctx.ellipse(dx + enemy.width / 2, dy + enemy.height, enemy.width / 2, 4, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // 本体（画像があれば画像、なければ色付きの矩形＋顔）
-        const assetKey = enemy.shape; // または種族名
+        // アセットキーの改善: Monster_Slime, Monster_Dragon などに対応
+        const assetKey = `Monster_${enemy.race}`;
         if (assets[assetKey]) {
           ctx.drawImage(assets[assetKey], dx, dy - bob, enemy.visualWidth, enemy.visualHeight);
         } else {
+          // フォールバック描画
           ctx.fillStyle = enemy.color;
-          // 角丸の矩形で少しキャラっぽく
           drawRoundedRect(ctx, dx, dy - bob, enemy.width, enemy.height, 4);
           ctx.fill();
-          
-          // 目（方向に応じて配置）
-          ctx.fillStyle = '#000';
-          const eyeSize = 3;
-          if (enemy.direction === 0) { // 右
-            ctx.fillRect(dx + enemy.width - 6, dy - bob + 6, eyeSize, eyeSize);
-          } else if (enemy.direction === 2) { // 左
-            ctx.fillRect(dx + 3, dy - bob + 6, eyeSize, eyeSize);
-          } else { // 前後
-            ctx.fillRect(dx + 5, dy - bob + 6, eyeSize, eyeSize);
-            ctx.fillRect(dx + enemy.width - 8, dy - bob + 6, eyeSize, eyeSize);
-          }
         }
 
         // HPバー
@@ -133,28 +116,24 @@ export const renderGame = (
       const bob = player.isMoving ? Math.abs(Math.sin(player.animFrame)) * 6 : 0;
       const scaleX = player.isMoving ? 1 + Math.sin(player.animFrame) * 0.05 : 1;
 
-      // 影
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.beginPath();
       ctx.ellipse(dx + player.width / 2, dy + player.height, player.width / 2, 4, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // 本体
       ctx.save();
       ctx.translate(dx + player.width / 2, dy + player.height);
       ctx.scale(scaleX, 1);
       
-      // 画像描画
-      const jobKey = player.job.toLowerCase();
+      // 修正: assets.ts のキー (Job_Gender) と一致させる
+      const jobKey = `${player.job}_${player.gender}`;
       if (assets[jobKey]) {
+          // 左右反転対応（左向きの場合）
+          if (player.direction === 2) ctx.scale(-1, 1);
           ctx.drawImage(assets[jobKey], -player.visualWidth / 2, -player.visualHeight - bob, player.visualWidth, player.visualHeight);
       } else {
           ctx.fillStyle = player.color;
           ctx.fillRect(-player.width / 2, -player.height - bob, player.width, player.height);
-          // 簡易的な目
-          ctx.fillStyle = '#fff';
-          ctx.fillRect(-player.width / 4, -player.height - bob + 5, 4, 4);
-          ctx.fillRect(player.width / 8, -player.height - bob + 5, 4, 4);
       }
       ctx.restore();
 
@@ -167,12 +146,11 @@ export const renderGame = (
         const cx = dx + player.width / 2;
         const cy = dy + player.height / 2;
         let startAngle = 0;
-        // プレイヤーの向きに合わせて円弧の開始位置を調整
         switch(player.direction) {
-            case 0: startAngle = -Math.PI / 4; break; // 右
-            case 1: startAngle = Math.PI / 4; break;  // 下
-            case 2: startAngle = 3 * Math.PI / 4; break; // 左
-            case 3: startAngle = -3 * Math.PI / 4; break; // 上
+            case 0: startAngle = -Math.PI / 4; break;
+            case 1: startAngle = Math.PI / 4; break;
+            case 2: startAngle = 3 * Math.PI / 4; break;
+            case 3: startAngle = -3 * Math.PI / 4; break;
         }
         ctx.arc(cx, cy, 40, startAngle, startAngle + Math.PI / 2);
         ctx.stroke();
@@ -180,7 +158,6 @@ export const renderGame = (
     }
   });
 
-  // パーティクル
   state.particles.forEach(p => {
     renderList.push({
       y: p.y,
@@ -197,10 +174,8 @@ export const renderGame = (
     });
   });
 
-  // ソートして描画
   renderList.sort((a, b) => a.y - b.y).forEach(obj => obj.draw());
 
-  // フローティングテキスト
   state.floatingTexts.forEach(text => {
     ctx.font = 'bold 16px sans-serif';
     ctx.fillStyle = text.color;
@@ -213,7 +188,6 @@ export const renderGame = (
 };
 
 const drawTile = (ctx: CanvasRenderingContext2D, type: TileType, x: number, y: number, size: number, gridX: number, gridY: number, _time: number) => {
-    // THEME.colorsにタイル専用のプロパティがない場合のフォールバックを含むマップ
     const colorMap: Record<string, string> = {
       grass: THEME.colors.grass,
       dirt: THEME.colors.ground,
@@ -233,13 +207,12 @@ const drawTile = (ctx: CanvasRenderingContext2D, type: TileType, x: number, y: n
     ctx.fillStyle = baseColor;
     ctx.fillRect(x, y, size, size);
 
-    // タイルごとのディテール描画
     const rand = pseudoRandom(gridX, gridY);
     if (type === 'grass' && rand > 0.7) {
-        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
         ctx.fillRect(x + rand * (size - 2), y + (1 - rand) * (size - 2), 2, 2);
     } else if (type === 'water') {
-        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
         const wave = Math.sin(_time * 0.05 + rand * 10) * 2;
         ctx.fillRect(x + 2, y + size / 2 + wave, size - 4, 1);
     }
