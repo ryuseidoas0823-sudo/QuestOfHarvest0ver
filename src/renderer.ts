@@ -89,7 +89,7 @@ export const renderGame = (
   });
 
   // 敵の描画
-  state.enemies.forEach(enemy => {
+  state.enemies.forEach((enemy: any) => {
     renderList.push({
       y: enemy.y + enemy.height,
       draw: () => {
@@ -115,7 +115,7 @@ export const renderGame = (
 
   renderList.sort((a, b) => a.y - b.y).forEach(obj => obj.draw());
 
-  state.floatingTexts.forEach(text => {
+  state.floatingTexts.forEach((text: any) => {
       ctx.font = 'bold 16px sans-serif';
       ctx.fillStyle = text.color;
       ctx.fillText(text.text, text.x - camera.x, text.y - camera.y);
@@ -123,7 +123,6 @@ export const renderGame = (
 };
 
 const drawTile = (ctx: CanvasRenderingContext2D, type: TileType, x: number, y: number, size: number, gridX: number, gridY: number) => {
-    // THEME.colorsに直通のプロパティがないため、マップ形式で解決
     const colorMap: Record<string, string> = {
       grass: THEME.colors.grass,
       dirt: THEME.colors.ground,
