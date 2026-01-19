@@ -16,7 +16,7 @@ import { JobSelectScreen } from './components/JobSelectScreen';
 import { GameHUD } from './components/GameHUD';
 import { InventoryMenu } from './components/InventoryMenu';
 
-// グローバル変数の宣言（ビルドエラー TS2304 の解消）
+// グローバル変数の宣言
 declare const __initial_auth_token: string | undefined;
 
 export default function App() {
@@ -36,7 +36,7 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // モーション対応のアセット読み込みロジックの改善（エラー対策強化）
+  // アセット読み込みロジックの改善
   const loadedAssets = useMemo(() => {
     const images: Record<string, HTMLImageElement> = {};
     const allAssets = { ...(HERO_ASSETS || {}), ...(MONSTER_ASSETS || {}) };
@@ -45,7 +45,6 @@ export default function App() {
       if (!value) return;
 
       if (typeof value === 'string') {
-        // 単一のSVG文字列の場合
         try {
           const img = new Image(); 
           img.src = svgToUrl(value); 
@@ -54,33 +53,27 @@ export default function App() {
           console.error(`Failed to load asset: ${key}`, e);
         }
       } else if (typeof value === 'object' && value !== null) {
-        // オブジェクト形式（モーション）の場合
         const motions = value as Record<string, unknown>;
         
         Object.entries(motions).forEach(([motion, svg]) => {
-          // svgが確実に文字列であることを確認してから変換
           if (typeof svg === 'string') {
             try {
               const img = new Image();
               img.src = svgToUrl(svg);
+              // "Swordsman_Male_idle" のようなキーで保存
               images[`${key}_${motion}`] = img;
+              
+              // 互換性：idle の場合は "Swordsman_Male" というベースキーでも保存
+              if (motion === 'idle') {
+                const baseImg = new Image();
+                baseImg.src = svgToUrl(svg);
+                images[key] = baseImg;
+              }
             } catch (e) {
               console.error(`Failed to load motion asset: ${key}_${motion}`, e);
             }
           }
         });
-
-        // デフォルト画像として 'idle' を登録
-        const idleSvg = motions.idle;
-        if (typeof idleSvg === 'string') {
-          try {
-            const img = new Image();
-            img.src = svgToUrl(idleSvg);
-            images[key] = img;
-          } catch (e) {
-            console.error(`Failed to load default idle asset: ${key}`, e);
-          }
-        }
       }
     });
     return images;
@@ -92,7 +85,6 @@ export default function App() {
       return;
     }
 
-    // 認証初期化
     const initAuth = async () => {
       try {
         const firebaseAuth = auth!;
@@ -102,20 +94,20 @@ export default function App() {
           await signInAnonymously(firebaseAuth);
         }
       } catch (e) {
-        console.error("Auth initialization failed:", e);
+        // Firebase Authの設定ミス(Anonymous無効など)があってもゲームを遊べるようにタイトルへ飛ばす
+        console.warn("Auth initialization failed - fallback to Title:", e);
         setScreen('title');
       }
     };
 
     initAuth();
 
-    // 認証状態の監視
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
       if (u) {
         checkSaveData(u.uid);
       } else {
-        setScreen(prev => prev === 'auth' ? 'title' : prev);
+        if (screen === 'auth') setScreen('title');
       }
     });
 
@@ -165,9 +157,37 @@ export default function App() {
       }
       setScreen(prev => prev === 'auth' ? 'title' : prev);
     } catch (e) {
-      console.error("Failed to fetch save data:", e);
       setScreen('title');
     }
+  };
+
+  const handleTeleport = (dest: string) => {
+    const state = gameState.current;
+    if (!state) return;
+
+    let newChunk;
+    if (dest === 'world') {
+      newChunk = generateWorldMap();
+      state.player.x = 60 * 32; // ワールドマップの街入り口付近へ
+      state.player.y = 60 * 32;
+      setMessage("ワールドマップへ出ました");
+    } else if (dest === 'town_start') {
+      newChunk = generateTownMap('town_start');
+      state.player.x = 15 * 32;
+      state.player.y = 15 * 32;
+      setMessage("街へ入りました");
+    } else {
+      return;
+    }
+
+    state.map = newChunk.map;
+    state.enemies = newChunk.enemies;
+    state.droppedItems = newChunk.droppedItems;
+    state.currentBiome = newChunk.biome;
+    state.locationId = dest;
+    
+    setWorldInfo({ x: state.player.x, y: state.player.y, biome: newChunk.biome });
+    setTimeout(() => setMessage(null), 2000);
   };
 
   const startGame = async (job: Job, gender: Gender = 'Male', load = false) => {
@@ -187,28 +207,16 @@ export default function App() {
       const currentChunk = locationId === 'world' ? worldChunk : generateTownMap(locationId);
       
       gameState.current = {
-        worldX: 0,
-        worldY: 0,
-        currentBiome: currentChunk.biome,
+        worldX: 0, worldY: 0, currentBiome: currentChunk.biome,
         savedChunks: { [locationId]: currentChunk, world: worldChunk }, 
-        map: currentChunk.map,
-        player,
-        enemies: currentChunk.enemies,
-        droppedItems: currentChunk.droppedItems,
-        locationId,
-        projectiles: [],
-        particles: [],
-        floatingTexts: [],
-        camera: { x: 0, y: 0 },
-        gameTime: 0,
-        isPaused: false
+        map: currentChunk.map, player, enemies: currentChunk.enemies, droppedItems: currentChunk.droppedItems, locationId,
+        projectiles: [], particles: [], floatingTexts: [], camera: { x: 0, y: 0 }, gameTime: 0, isPaused: false
       };
 
       setWorldInfo({ x: player.x, y: player.y, biome: currentChunk.biome });
       setUiState({ ...player });
       setScreen('game');
     } catch (e) {
-      console.error("Failed to start game:", e);
       setMessage("ゲームの起動に失敗しました。");
       setScreen('title');
     }
@@ -251,6 +259,14 @@ export default function App() {
         const nextPos = resolveMapCollision(p, dx, dy, state.map);
         p.x = nextPos.x;
         p.y = nextPos.y;
+
+        // ポータル（マップ切り替え）の検知
+        const gx = Math.floor((p.x + p.width/2) / 32);
+        const gy = Math.floor((p.y + p.height/2) / 32);
+        const tile = state.map[gy]?.[gx];
+        if (tile?.teleportTo) {
+            handleTeleport(tile.teleportTo);
+        }
       }
       state.gameTime++;
     }
@@ -259,6 +275,7 @@ export default function App() {
     
     if (state.gameTime % 10 === 0) {
       setUiState({ ...state.player });
+      setWorldInfo(prev => ({ ...prev, x: state.player.x, y: state.player.y }));
     }
     
     reqRef.current = requestAnimationFrame(gameLoop);
@@ -275,13 +292,12 @@ export default function App() {
 
   if (!isConfigValid) {
     return (
-      <div className="w-full h-screen bg-slate-900 flex items-center justify-center text-white">
-        <div className="bg-red-900/20 p-6 rounded-lg border border-red-500/50 flex items-center">
-          <AlertTriangle className="mr-3 text-red-500" size={32} />
-          <div>
-            <h1 className="text-xl font-bold">Firebase設定エラー</h1>
-            <p className="text-sm opacity-70">設定を確認してください。</p>
-          </div>
+      <div className="w-full h-screen bg-slate-900 flex items-center justify-center text-white p-8">
+        <div className="bg-red-900/20 p-8 rounded-2xl border border-red-500/50 max-w-lg">
+          <AlertTriangle className="mb-4 text-red-500" size={48} />
+          <h1 className="text-2xl font-bold mb-2">Firebase Configuration Error</h1>
+          <p className="opacity-70 mb-4">Firebaseの設定が正しくありません。Firebase ConsoleでAuthenticationを有効にし、Anonymous(匿名)ログインを許可してください。</p>
+          <button onClick={() => window.location.reload()} className="px-6 py-2 bg-red-600 rounded-lg font-bold">Retry</button>
         </div>
       </div>
     );
@@ -291,8 +307,7 @@ export default function App() {
     return (
       <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
         <Loader className="animate-spin text-yellow-500 mb-4" size={48} />
-        <h2 className="text-xl font-bold tracking-widest">CONNECTING TO WORLD...</h2>
-        <p className="text-xs opacity-50 mt-2">Authenticating your hero...</p>
+        <h2 className="text-xl font-bold tracking-widest uppercase">Initializing World...</h2>
       </div>
     );
   }
@@ -344,56 +359,40 @@ export default function App() {
                           player: gameState.current.player, 
                           locationId: gameState.current.locationId 
                         });
-                        setMessage("冒険の記録を保存しました。");
+                        setMessage("保存完了！");
                       } catch (e) {
-                        setMessage("保存に失敗しました。");
+                        setMessage("保存失敗（匿名ログインが必要です）");
                       } finally {
                         setIsSaving(false);
                         setTimeout(() => setMessage(null), 2000);
                       }
                     }} 
                     disabled={isSaving} 
-                    className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded mb-4 flex items-center justify-center gap-2 transition-colors"
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded mb-4 flex items-center justify-center gap-2"
                   >
                     {isSaving ? <Loader size={16} className="animate-spin" /> : <Save size={16} />} 
-                    セーブする
+                    セーブ
                   </button>
-                  <button 
-                    onClick={() => setActiveMenu('none')} 
-                    className="w-full py-2 bg-slate-700 hover:bg-slate-600 rounded transition-colors"
-                  >
-                    閉じる
-                  </button>
+                  <button onClick={() => setActiveMenu('none')} className="w-full py-2 bg-slate-700 hover:bg-slate-600 rounded">閉じる</button>
                 </div>
               )}
 
               {activeMenu === 'stats' && uiState && (
                 <div className="bg-slate-900 border border-slate-700 p-8 rounded-lg text-white shadow-2xl max-w-md w-full">
                   <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-black text-yellow-500 italic uppercase tracking-tighter">Character Stats</h2>
-                    <div className="bg-yellow-600/20 text-yellow-500 px-3 py-1 rounded-full text-xs font-bold border border-yellow-500/30">
-                      Points: {uiState.statPoints}
-                    </div>
+                    <h2 className="text-2xl font-black text-yellow-500 italic uppercase">Stats</h2>
+                    <div className="text-xs font-bold text-yellow-500">Points: {uiState.statPoints}</div>
                   </div>
                   <div className="space-y-4">
-                    {[
-                      { id: 'strength', label: '腕力 (STR)', val: uiState.attributes.strength, desc: '物理攻撃力に影響' },
-                      { id: 'vitality', label: '体力 (VIT)', val: uiState.attributes.vitality, desc: '最大HPに影響' },
-                      { id: 'dexterity', label: '器用 (DEX)', val: uiState.attributes.dexterity, desc: '攻撃力と移動速度に影響' },
-                      { id: 'intelligence', label: '知力 (INT)', val: uiState.attributes.intelligence, desc: '最大MPに影響' },
-                      { id: 'endurance', label: '忍耐 (END)', val: uiState.attributes.endurance, desc: '物理防御力に影響' }
-                    ].map(attr => (
-                      <div key={attr.id} className="flex items-center justify-between bg-slate-800/50 p-3 rounded border border-slate-700 hover:border-slate-500 transition-colors">
-                        <div>
-                          <div className="text-sm font-bold text-slate-200">{attr.label}</div>
-                          <div className="text-[10px] text-slate-500 uppercase font-mono">{attr.desc}</div>
-                        </div>
+                    {['strength', 'vitality', 'dexterity', 'intelligence', 'endurance'].map(attr => (
+                      <div key={attr} className="flex items-center justify-between bg-slate-800/50 p-3 rounded">
+                        <span className="text-sm font-bold uppercase">{attr}</span>
                         <div className="flex items-center gap-4">
-                          <span className="text-xl font-mono text-yellow-400 font-bold">{attr.val}</span>
+                          <span className="text-xl font-mono text-yellow-400">{(uiState.attributes as any)[attr]}</span>
                           <button 
                             disabled={uiState.statPoints <= 0}
-                            onClick={() => upgradeStat(attr.id as any)}
-                            className={`p-1 rounded-full transition-all ${uiState.statPoints > 0 ? 'text-yellow-500 hover:bg-yellow-500/20 hover:scale-110 active:scale-90' : 'text-slate-700 cursor-not-allowed opacity-30'}`}
+                            onClick={() => upgradeStat(attr as any)}
+                            className="text-yellow-500 disabled:opacity-30"
                           >
                             <PlusCircle size={24} />
                           </button>
@@ -401,12 +400,7 @@ export default function App() {
                       </div>
                     ))}
                   </div>
-                  <button 
-                    onClick={() => setActiveMenu('none')} 
-                    className="mt-8 w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded transition-colors uppercase tracking-widest text-sm border border-slate-700"
-                  >
-                    Close Status
-                  </button>
+                  <button onClick={() => setActiveMenu('none')} className="mt-8 w-full py-3 bg-slate-800 rounded">閉じる</button>
                 </div>
               )}
 
@@ -424,11 +418,8 @@ export default function App() {
       )}
 
       {message && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white px-8 py-3 rounded-full border border-yellow-500/50 shadow-2xl z-[100] animate-in fade-in slide-in-from-top-4 duration-300">
-          <p className="text-sm font-bold flex items-center gap-2">
-            <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-            {message}
-          </p>
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white px-8 py-3 rounded-full border border-yellow-500/50 shadow-2xl z-[100]">
+          {message}
         </div>
       )}
     </div>
