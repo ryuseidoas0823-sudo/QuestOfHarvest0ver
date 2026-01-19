@@ -1,4 +1,4 @@
-import { GameState, PlayerEntity, EnemyEntity } from './types';
+import { GameState } from './types';
 
 /**
  * ゲーム画面の描画クラス
