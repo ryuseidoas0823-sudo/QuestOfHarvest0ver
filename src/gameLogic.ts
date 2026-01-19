@@ -1,27 +1,6 @@
-import { Job, Gender, PlayerEntity, EnemyEntity, ChunkData, Tile, TileType, Item, Rarity, EquipmentType, WeaponStyle, Biome } from './types';
-import { JOB_DATA, ENEMY_TYPES, RARITY_MULTIPLIERS, ENCHANT_SLOTS, ITEM_BASE_NAMES, ICONS } from './data';
+import { Job, Gender, PlayerEntity, EnemyEntity, ChunkData, Tile, TileType, Item, Rarity, WeaponStyle } from './types';
+import { JOB_DATA, ENEMY_TYPES } from './data';
 import { THEME, GAME_CONFIG } from './config';
-
-class SeededRandom {
-  private seed: number;
-  constructor(seed: number) {
-    this.seed = seed % 2147483647;
-    if (this.seed <= 0) this.seed += 2147483646;
-  }
-  next(): number {
-    this.seed = (this.seed * 16807) % 2147483647;
-    return (this.seed - 1) / 2147483646;
-  }
-  range(min: number, max: number): number {
-    return Math.floor(this.next() * (max - min + 1)) + min;
-  }
-  pick<T>(array: T[]): T {
-    return array[this.range(0, array.length - 1)];
-  }
-  chance(probability: number): boolean {
-    return this.next() < probability;
-  }
-}
 
 export const getStarterItem = (job: Job): Item => {
   const id = crypto.randomUUID();
@@ -111,15 +90,12 @@ export const generateTownMap = (id: string): ChunkData => {
       else if (name === 'weapon_shop') addNPC(bx + Math.floor(bw/2), by + 1, 'WeaponMerchant', '#ef4444');
   };
 
-  // 建物を配置
-  placeBuilding(5, 5, 8, 7, 'home'); // 修正: スポーン地点（15, 15）から離した
+  placeBuilding(5, 5, 8, 7, 'home');
   placeBuilding(centerX - 10, centerY - 10, 8, 6, 'weapon_shop');
   
-  // 道の作成
   for(let y=5; y<height-1; y++) for(let dx=-1; dx<=1; dx++) map[y][centerX+dx].type = 'dirt';
   for(let x=5; x<width-5; x++) for(let dy=-1; dy<=1; dy++) map[centerY+dy][x].type = 'dirt';
 
-  // 修正: 最後にスポーン地点周辺を確実にクリアにする
   for (let sy = 13; sy <= 17; sy++) {
     for (let sx = 13; sx <= 17; sx++) {
         map[sy][sx].type = 'floor';
@@ -133,7 +109,6 @@ export const generateTownMap = (id: string): ChunkData => {
 export const updatePlayerStats = (player: PlayerEntity) => {
   const attr = player.attributes;
   let maxHp = (attr.vitality || 10) * 10;
-  let maxMp = (attr.intelligence || 10) * 5;
   let baseAtk = Math.floor((attr.strength || 10) * 1.5 + (attr.dexterity || 10) * 0.5);
   let baseDef = Math.floor((attr.endurance || 10) * 1.2);
   let baseSpd = 3.5 + ((attr.dexterity || 10) * 0.05);
@@ -145,7 +120,7 @@ export const updatePlayerStats = (player: PlayerEntity) => {
     } 
   });
   
-  player.calculatedStats = { maxHp: maxHp + equipHp, maxMp: maxMp, attack: baseAtk + equipAtk, defense: baseDef + equipDef, speed: baseSpd + equipSpd };
+  player.calculatedStats = { maxHp: maxHp + equipHp, maxMp: (attr.intelligence || 10) * 5, attack: baseAtk + equipAtk, defense: baseDef + equipDef, speed: baseSpd + equipSpd };
   Object.assign(player, player.calculatedStats);
   if (player.hp > player.maxHp) player.hp = player.maxHp; 
 };
@@ -153,7 +128,6 @@ export const updatePlayerStats = (player: PlayerEntity) => {
 export const generateWorldMap = (): ChunkData => {
   const width = 320, height = 200, tileSize = GAME_CONFIG.TILE_SIZE;
   const map: Tile[][] = Array(height).fill(null).map((_, y) => Array(width).fill(null).map((_, x) => ({ x: x * tileSize, y: y * tileSize, type: 'water', solid: true })));
-  // 地形生成の簡略版（本来はSeedベースの複雑なもの）
   for(let y=20; y<height-20; y++) for(let x=20; x<width-20; x++) { map[y][x].type = 'grass'; map[y][x].solid = false; }
   map[60][210].type = 'town_entrance'; map[60][210].teleportTo = 'town_start';
   return { map, enemies: [], droppedItems: [], biome: 'WorldMap', locationId: 'world' };
