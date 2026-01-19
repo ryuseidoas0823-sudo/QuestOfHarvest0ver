@@ -89,10 +89,13 @@ export const renderGame = (
         ctx.ellipse(dx + enemy.width / 2, dy + enemy.height, enemy.width / 2, 4, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // アセットフォルダ(src/assets/monsters.ts)内のキーと一致
-        const assetKey = `Monster_${enemy.race}`;
-        if (assets[assetKey]) {
-          ctx.drawImage(assets[assetKey], dx, dy - bob, enemy.visualWidth, enemy.visualHeight);
+        // アセットキー：モーション対応
+        const baseKey = `Monster_${enemy.race}`;
+        // 将来的に被ダメージ判定がある場合、`${baseKey}_damage` を優先表示
+        const sprite = assets[`${baseKey}_idle`] || assets[baseKey];
+
+        if (sprite) {
+          ctx.drawImage(sprite, dx, dy - bob, enemy.visualWidth, enemy.visualHeight);
         } else {
           ctx.fillStyle = enemy.color;
           drawRoundedRect(ctx, dx, dy - bob, enemy.width, enemy.height, 4);
@@ -127,21 +130,25 @@ export const renderGame = (
       ctx.translate(dx + player.width / 2, dy + player.height);
       ctx.scale(scaleX, 1);
       
-      // アセットフォルダ(src/assets/*.ts)内のキーと一致 (例: Swordsman_Male)
-      const jobKey = `${player.job}_${player.gender}`;
-      if (assets[jobKey]) {
-          // 左向き(direction=2)の場合に画像を反転
+      // モーション選択：攻撃中なら attack、そうでなければ idle
+      const isAttacking = (player as any).isAttacking;
+      const motion = isAttacking ? 'attack' : 'idle';
+      const baseKey = `${player.job}_${player.gender}`;
+      
+      // 特定のモーション画像があればそれを使用、なければベース画像
+      const sprite = assets[`${baseKey}_${motion}`] || assets[baseKey];
+
+      if (sprite) {
           if (player.direction === 2) ctx.scale(-1, 1);
-          ctx.drawImage(assets[jobKey], -player.visualWidth / 2, -player.visualHeight - bob, player.visualWidth, player.visualHeight);
+          ctx.drawImage(sprite, -player.visualWidth / 2, -player.visualHeight - bob, player.visualWidth, player.visualHeight);
       } else {
           ctx.fillStyle = player.color;
           ctx.fillRect(-player.width / 2, -player.height - bob, player.width, player.height);
       }
       ctx.restore();
 
-      // 攻撃エフェクトの描画 (isAttackingがtrueの場合)
-      // Note: types.ts に isAttacking プロパティの追加が必要
-      if ((player as any).isAttacking) {
+      // 攻撃エフェクトの描画
+      if (isAttacking) {
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
         ctx.lineWidth = 4;
         ctx.lineCap = 'round';
@@ -150,10 +157,10 @@ export const renderGame = (
         const cy = dy + player.height / 2;
         let startAngle = 0;
         switch(player.direction) {
-            case 0: startAngle = -Math.PI / 4; break;    // 右
-            case 1: startAngle = Math.PI / 4; break;     // 下
-            case 2: startAngle = 3 * Math.PI / 4; break; // 左
-            case 3: startAngle = -3 * Math.PI / 4; break;// 上
+            case 0: startAngle = -Math.PI / 4; break;
+            case 1: startAngle = Math.PI / 4; break;
+            case 2: startAngle = 3 * Math.PI / 4; break;
+            case 3: startAngle = -3 * Math.PI / 4; break;
         }
         ctx.arc(cx, cy, 40, startAngle, startAngle + Math.PI / 2);
         ctx.stroke();
@@ -181,7 +188,7 @@ export const renderGame = (
   // リストをソートして描画実行
   renderList.sort((a, b) => a.y - b.y).forEach(obj => obj.draw());
 
-  // ダメージ数値などのフローティングテキスト
+  // フローティングテキスト
   state.floatingTexts.forEach(text => {
     ctx.font = 'bold 16px sans-serif';
     ctx.fillStyle = text.color;
@@ -216,7 +223,6 @@ const drawTile = (ctx: CanvasRenderingContext2D, type: TileType, x: number, y: n
     ctx.fillStyle = baseColor;
     ctx.fillRect(x, y, size, size);
 
-    // タイルの装飾（草のドットや水面の揺れ）
     const rand = pseudoRandom(gridX, gridY);
     if (type === 'grass' && rand > 0.7) {
         ctx.fillStyle = 'rgba(255,255,255,0.05)';
