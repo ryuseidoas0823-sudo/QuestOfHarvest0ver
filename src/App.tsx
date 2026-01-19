@@ -146,7 +146,8 @@ export default function App() {
     else { state.player.x = (newChunk.map[0].length * 32) / 2; state.player.y = (newChunk.map.length * 32) - 96; }
 
     setWorldInfo({x: state.worldX, y: state.worldY, biome: state.currentBiome});
-    setMessage(`${BIOME_NAMES[state.currentBiome]} に移動しました`); setTimeout(() => setMessage(null), 2000);
+    const biomeDisplayName = BIOME_NAMES[state.currentBiome as keyof typeof BIOME_NAMES] || state.currentBiome;
+    setMessage(`${biomeDisplayName} に移動しました`); setTimeout(() => setMessage(null), 2000);
   };
 
   const gameLoop = () => {
@@ -191,12 +192,11 @@ export default function App() {
       }
 
       if (p.isAttacking) {
-        // ヒットボックスを寛大に設定
         let ax = p.x, ay = p.y, aw = 70, ah = 70;
-        if (p.direction === 0) { ax += p.width / 2; ay -= 23; } // 右
-        else if (p.direction === 2) { ax -= 58; ay -= 23; } // 左
-        else if (p.direction === 1) { ay += p.height / 2; ax -= 23; } // 下
-        else { ay -= 58; ax -= 23; } // 上
+        if (p.direction === 0) { ax += p.width / 2; ay -= 23; } 
+        else if (p.direction === 2) { ax -= 58; ay -= 23; } 
+        else if (p.direction === 1) { ay += p.height / 2; ax -= 23; } 
+        else { ay -= 58; ax -= 23; } 
         
         const attackRect = { x: ax, y: ay, width: aw, height: ah };
         state.enemies.forEach((e: any) => {
@@ -214,7 +214,6 @@ export default function App() {
         });
       }
 
-      // 敵AI
       state.enemies.forEach((e: any) => {
         if (e.dead || e.isNPC) return;
         const dist = Math.sqrt((p.x - e.x)**2 + (p.y - e.y)**2);
