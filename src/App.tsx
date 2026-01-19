@@ -3,9 +3,9 @@ import { TitleScreen } from './components/TitleScreen';
 import { JobSelectScreen } from './components/JobSelectScreen';
 import GameHUD from './components/GameHUD';
 import { InventoryMenu } from './components/InventoryMenu';
-import { GameState, JobType, PlayerEntity, ResolutionMode, Gender } from './types';
+import { GameState, JobType, PlayerEntity, ResolutionMode, Gender, EnemyEntity } from './types';
 import { INITIAL_PLAYER_STATS } from './data';
-import { generateWorldMap, updateSurvival } from './gameLogic';
+import { generateWorldMap, updateSurvival, spawnMonsters, updateEnemyAI } from './gameLogic';
 import * as Assets from './assets';
 
 const App: React.FC = () => {
@@ -16,7 +16,6 @@ const App: React.FC = () => {
   const [resolution, setResolution] = useState<ResolutionMode>('auto');
   const lastUpdateRef = useRef<number>(0);
 
-  // マップタイルの設定
   const TILE_SIZE = 48;
   const MAP_SIZE = 50;
 
@@ -43,20 +42,22 @@ const App: React.FC = () => {
       energy: 100,
       x: 25,
       y: 25,
-      // レンダラーやユーティリティが必要とする Entity プロパティ
       width: 64,
       height: 96,
       visualWidth: 64,
       visualHeight: 96,
       isMoving: false,
       animFrame: 0,
-      direction: 'right'
+      direction: 'right',
+      lastAttackTime: 0,
+      invincibleUntil: 0
     };
 
+    const worldMap = generateWorldMap(MAP_SIZE, MAP_SIZE);
     setGameState({
       player,
-      enemies: [],
-      worldMap: generateWorldMap(MAP_SIZE, MAP_SIZE),
+      enemies: spawnMonsters(worldMap, 15, 1),
+      worldMap: worldMap,
       dayCount: 1,
       gameTime: 480,
       droppedItems: [],
@@ -67,15 +68,13 @@ const App: React.FC = () => {
     setScreen('game');
   };
 
-  // 移動ロジック
   const movePlayer = useCallback((dx: number, dy: number) => {
     setGameState(prev => {
-      if (!prev) return null;
+      if (!prev || prev.player.hp <= 0) return prev;
       const newX = Math.max(0, Math.min(MAP_SIZE - 1, prev.player.x + dx));
       const newY = Math.max(0, Math.min(MAP_SIZE - 1, prev.player.y + dy));
       
       if (prev.worldMap[newY][newX] === 1) return prev;
-
       if (dx < 0) setDirection('left');
       if (dx > 0) setDirection('right');
 
@@ -92,22 +91,44 @@ const App: React.FC = () => {
       };
     });
     
-    // 移動停止フラグを一定時間後に戻す
     setTimeout(() => {
       setGameState(prev => prev ? { ...prev, player: { ...prev.player, isMoving: false } } : null);
     }, 200);
   }, []);
 
-  // 採取・インタラクト
+  // プレイヤーの攻撃アクション
+  const handlePlayerAttack = () => {
+    const now = Date.now();
+    setGameState(prev => {
+      if (!prev || prev.player.hp <= 0 || now - prev.player.lastAttackTime < 500) return prev;
+      
+      const player = prev.player;
+      // 前方1マスの敵にダメージ
+      const attackX = player.x + (player.direction === 'right' ? 1 : -1);
+      const attackY = player.y;
+
+      const hitEnemies = prev.enemies.map(enemy => {
+        if (enemy.x === attackX && enemy.y === attackY) {
+          const damage = Math.max(5, player.stats.str * 2);
+          return { ...enemy, hp: Math.max(0, enemy.hp - damage) };
+        }
+        return enemy;
+      }).filter(enemy => enemy.hp > 0); // 死亡判定
+
+      return {
+        ...prev,
+        enemies: hitEnemies,
+        player: { ...player, lastAttackTime: now }
+      };
+    });
+  };
+
   const handleInteract = () => {
     setGameState(prev => {
       if (!prev) return null;
       const tileType = prev.worldMap[prev.player.y][prev.player.x];
       const player = { ...prev.player };
-      
-      if (tileType === 0) {
-        player.hunger = Math.min(100, player.hunger + 5);
-      }
+      if (tileType === 0) player.hunger = Math.min(100, player.hunger + 5);
       
       const nearWater = [
         prev.worldMap[prev.player.y][prev.player.x],
@@ -117,18 +138,13 @@ const App: React.FC = () => {
         prev.worldMap[prev.player.y]?.[prev.player.x+1],
       ].includes(1);
 
-      if (nearWater) {
-        player.thirst = Math.min(100, player.thirst + 10);
-      }
-
+      if (nearWater) player.thirst = Math.min(100, player.thirst + 10);
       return { ...prev, player };
     });
   };
 
-  // キー入力
   useEffect(() => {
     if (screen !== 'game' || isInventoryOpen) return;
-
     const handleKeyDown = (e: KeyboardEvent) => {
       switch (e.key.toLowerCase()) {
         case 'w': case 'arrowup': movePlayer(0, -1); break;
@@ -137,9 +153,9 @@ const App: React.FC = () => {
         case 'd': case 'arrowright': movePlayer(1, 0); break;
         case 'e': handleInteract(); break;
         case 'i': setIsInventoryOpen(prev => !prev); break;
+        case ' ': handlePlayerAttack(); break;
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [screen, isInventoryOpen, movePlayer]);
@@ -154,7 +170,24 @@ const App: React.FC = () => {
       lastUpdateRef.current = timestamp;
 
       setGameState(prev => {
-        if (!prev) return null;
+        if (!prev || prev.player.hp <= 0) return prev;
+
+        const now = Date.now();
+        const updatedPlayer = updateSurvival(prev.player, delta);
+        
+        // 敵AIの更新
+        let totalDamageToPlayer = 0;
+        const updatedEnemies = prev.enemies.map(enemy => {
+          const { enemy: newEnemy, damageToPlayer } = updateEnemyAI(enemy, updatedPlayer, prev.worldMap, now, delta);
+          totalDamageToPlayer += damageToPlayer;
+          return newEnemy;
+        });
+
+        // プレイヤーへの被ダメージ（無敵時間チェック）
+        if (totalDamageToPlayer > 0 && now > updatedPlayer.invincibleUntil) {
+          updatedPlayer.hp = Math.max(0, updatedPlayer.hp - totalDamageToPlayer);
+          updatedPlayer.invincibleUntil = now + 1000; // 1秒間無敵
+        }
 
         const timeSpeed = 1; 
         let newTime = prev.gameTime + (delta / 1000) * timeSpeed;
@@ -164,11 +197,10 @@ const App: React.FC = () => {
           newDay += 1;
         }
 
-        const updatedPlayer = updateSurvival(prev.player, delta);
-
         return {
           ...prev,
           player: updatedPlayer,
+          enemies: updatedEnemies,
           gameTime: Math.floor(newTime),
           dayCount: newDay
         };
@@ -210,28 +242,18 @@ const App: React.FC = () => {
 
   if (screen === 'title') {
     return (
-      <TitleScreen 
-        onStart={() => setScreen('jobSelect')} 
-        onContinue={() => {}} 
-        canContinue={false}
-        resolution={resolution}
-        setResolution={setResolution}
-      />
+      <TitleScreen onStart={() => setScreen('jobSelect')} onContinue={() => {}} canContinue={false} resolution={resolution} setResolution={setResolution} />
     );
   }
 
   if (screen === 'jobSelect') {
     return (
-      <JobSelectScreen 
-        onSelect={startGame} 
-        onBack={() => setScreen('title')} 
-      />
+      <JobSelectScreen onSelect={startGame} onBack={() => setScreen('title')} />
     );
   }
   
   if (gameState) {
-    const { player, worldMap } = gameState;
-    
+    const { player, worldMap, enemies } = gameState;
     const viewWidth = 15;
     const viewHeight = 11;
     const startX = Math.max(0, Math.min(MAP_SIZE - viewWidth, player.x - Math.floor(viewWidth / 2)));
@@ -239,85 +261,49 @@ const App: React.FC = () => {
 
     return (
       <div className="relative w-full h-screen bg-slate-950 overflow-hidden flex items-center justify-center">
-        <div 
-          className="relative bg-green-900 border-4 border-slate-800 shadow-2xl overflow-hidden"
-          style={{ 
-            width: viewWidth * TILE_SIZE, 
-            height: viewHeight * TILE_SIZE 
-          }}
-        >
-          <div 
-            className="absolute transition-all duration-100 ease-out"
-            style={{ 
-              left: -(startX * TILE_SIZE), 
-              top: -(startY * TILE_SIZE),
-              display: 'grid',
-              gridTemplateColumns: `repeat(${MAP_SIZE}, ${TILE_SIZE}px)`
-            }}
-          >
+        <div className="relative bg-green-900 border-4 border-slate-800 shadow-2xl overflow-hidden" style={{ width: viewWidth * TILE_SIZE, height: viewHeight * TILE_SIZE }}>
+          {/* マップタイル */}
+          <div className="absolute transition-all duration-100 ease-out" style={{ left: -(startX * TILE_SIZE), top: -(startY * TILE_SIZE), display: 'grid', gridTemplateColumns: `repeat(${MAP_SIZE}, ${TILE_SIZE}px)` }}>
             {worldMap.map((row, y) => row.map((tile, x) => (
-              <div 
-                key={`${x}-${y}`} 
-                style={{ width: TILE_SIZE, height: TILE_SIZE }}
-                className={`
-                  border-[0.5px] border-black/5 flex items-center justify-center text-[10px]
-                  ${tile === 0 ? 'bg-emerald-800' : 'bg-blue-600'}
-                `}
-              >
-                {tile === 0 && Math.random() > 0.95 && <span className="opacity-30">🌿</span>}
-                {tile === 1 && <div className="w-full h-full bg-blue-500/30 animate-pulse" />}
+              <div key={`${x}-${y}`} style={{ width: TILE_SIZE, height: TILE_SIZE }} className={`border-[0.5px] border-black/5 ${tile === 0 ? 'bg-emerald-800' : 'bg-blue-600'}`}>
+                {tile === 0 && Math.random() > 0.98 && <span className="opacity-30 flex items-center justify-center h-full text-xs">🌿</span>}
               </div>
             )))}
           </div>
 
-          <div 
-            className="absolute transition-all duration-200 z-10"
-            style={{ 
-              left: (player.x - startX) * TILE_SIZE, 
-              top: (player.y - startY) * TILE_SIZE,
-              width: TILE_SIZE,
-              height: TILE_SIZE,
-              transform: direction === 'left' ? 'scaleX(-1)' : 'scaleX(1)'
-            }}
-          >
-            <svg 
-              viewBox="0 0 64 96" 
-              className="w-full h-full drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)]"
-              dangerouslySetInnerHTML={{ __html: getPlayerSVG() || '' }}
-            />
-            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-1 bg-black/40 rounded-full blur-[1px]" />
+          {/* 敵キャラクターの描画 */}
+          {enemies.map(enemy => (
+            <div key={enemy.id} className="absolute transition-all duration-300 z-5" style={{ left: (enemy.x - startX) * TILE_SIZE, top: (enemy.y - startY) * TILE_SIZE, width: TILE_SIZE, height: TILE_SIZE, transform: enemy.direction === 'left' ? 'scaleX(-1)' : 'scaleX(1)' }}>
+              <div className="w-full h-full flex flex-col items-center justify-center">
+                <div className="w-8 h-8 bg-red-600 rounded-full border-2 border-red-900 shadow-lg animate-bounce flex items-center justify-center text-[10px] text-white font-bold">!</div>
+                <div className="w-full h-1 bg-gray-800 rounded-full mt-1 overflow-hidden border border-black/50">
+                  <div className="h-full bg-red-500" style={{ width: `${(enemy.hp / enemy.maxHp) * 100}%` }} />
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* プレイヤー */}
+          <div className="absolute transition-all duration-200 z-10" style={{ left: (player.x - startX) * TILE_SIZE, top: (player.y - startY) * TILE_SIZE, width: TILE_SIZE, height: TILE_SIZE, transform: direction === 'left' ? 'scaleX(-1)' : 'scaleX(1)', opacity: Date.now() < player.invincibleUntil && Math.floor(Date.now() / 100) % 2 === 0 ? 0.5 : 1 }}>
+            <svg viewBox="0 0 64 96" className="w-full h-full drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)]" dangerouslySetInnerHTML={{ __html: getPlayerSVG() || '' }} />
+            {/* 攻撃エフェクト（簡易） */}
+            {Date.now() - player.lastAttackTime < 150 && (
+              <div className={`absolute top-0 ${player.direction === 'right' ? 'left-full' : 'right-full'} w-full h-full bg-blue-400/50 rounded-full animate-ping`} />
+            )}
           </div>
         </div>
 
         <div className="absolute bottom-4 left-4 text-white/50 text-xs font-mono bg-black/40 p-2 rounded">
-          [WASD] MOVE | [E] GATHER | [I] INVENTORY
+          [WASD] MOVE | [SPACE] ATTACK | [E] GATHER | [I] STATUS
         </div>
 
-        <GameHUD 
-          player={player} 
-          gameTime={gameState.gameTime} 
-          dayCount={gameState.dayCount} 
-          onOpenInventory={() => setIsInventoryOpen(true)}
-        />
-
-        {isInventoryOpen && (
-          <InventoryMenu 
-            player={player} 
-            onClose={() => setIsInventoryOpen(false)} 
-            onUpgradeStat={upgradeStat}
-          />
-        )}
+        <GameHUD player={player} gameTime={gameState.gameTime} dayCount={gameState.dayCount} onOpenInventory={() => setIsInventoryOpen(true)} />
+        {isInventoryOpen && <InventoryMenu player={player} onClose={() => setIsInventoryOpen(false)} onUpgradeStat={upgradeStat} />}
 
         {player.hp <= 0 && (
           <div className="absolute inset-0 bg-red-950/90 flex flex-col items-center justify-center text-white z-50 animate-in fade-in duration-1000">
             <h2 className="text-7xl font-black mb-4 tracking-tighter text-red-500">GAMEOVER</h2>
-            <p className="mb-8 text-xl text-red-200 font-serif italic">The harvest ends here...</p>
-            <button 
-              onClick={() => setScreen('title')}
-              className="px-10 py-4 bg-white text-red-950 font-bold rounded-full hover:bg-red-100 transition-colors shadow-xl"
-            >
-              TRY AGAIN
-            </button>
+            <button onClick={() => setScreen('title')} className="px-10 py-4 bg-white text-red-950 font-bold rounded-full hover:bg-red-100 transition-colors shadow-xl">TRY AGAIN</button>
           </div>
         )}
       </div>
