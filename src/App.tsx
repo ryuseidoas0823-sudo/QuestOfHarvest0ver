@@ -94,7 +94,6 @@ export default function App() {
           await signInAnonymously(firebaseAuth);
         }
       } catch (e) {
-        // Firebase Authの設定ミス(Anonymous無効など)があってもゲームを遊べるようにタイトルへ飛ばす
         console.warn("Auth initialization failed - fallback to Title:", e);
         setScreen('title');
       }
@@ -131,6 +130,12 @@ export default function App() {
       input.current.keys[key] = true;
       if (key === 'i') setActiveMenu(prev => prev === 'inventory' ? 'none' : 'inventory');
       if (key === 'c') setActiveMenu(prev => prev === 'stats' ? 'none' : 'stats');
+      if (key === ' ') {
+          if (gameState.current && !gameState.current.player.isAttacking) {
+              gameState.current.player.isAttacking = true;
+              setTimeout(() => { if(gameState.current) gameState.current.player.isAttacking = false; }, 300);
+          }
+      }
       if (e.key === 'Escape') setActiveMenu('none');
     };
     const handleKeyUp = (e: KeyboardEvent) => input.current.keys[e.key.toLowerCase()] = false;
@@ -165,14 +170,18 @@ export default function App() {
     const state = gameState.current;
     if (!state) return;
 
-    let newChunk;
+    // 以前のマップデータがあれば再利用、なければ生成
+    let newChunk = state.savedChunks[dest];
+    
     if (dest === 'world') {
-      newChunk = generateWorldMap();
-      state.player.x = 60 * 32; // ワールドマップの街入り口付近へ
+      if (!newChunk) newChunk = generateWorldMap();
+      // data.ts / gameLogic.ts の town_entrance 座標 (row: 60, col: 210) に合わせる
+      state.player.x = 210 * 32; 
       state.player.y = 60 * 32;
       setMessage("ワールドマップへ出ました");
     } else if (dest === 'town_start') {
-      newChunk = generateTownMap('town_start');
+      if (!newChunk) newChunk = generateTownMap('town_start');
+      // 街のスポーン地点
       state.player.x = 15 * 32;
       state.player.y = 15 * 32;
       setMessage("街へ入りました");
@@ -180,6 +189,7 @@ export default function App() {
       return;
     }
 
+    state.savedChunks[dest] = newChunk;
     state.map = newChunk.map;
     state.enemies = newChunk.enemies;
     state.droppedItems = newChunk.droppedItems;
@@ -307,7 +317,7 @@ export default function App() {
     return (
       <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
         <Loader className="animate-spin text-yellow-500 mb-4" size={48} />
-        <h2 className="text-xl font-bold tracking-widest uppercase">Initializing World...</h2>
+        <h2 className="text-xl font-bold tracking-widest uppercase text-center px-4">Connecting to World...</h2>
       </div>
     );
   }
@@ -418,7 +428,7 @@ export default function App() {
       )}
 
       {message && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white px-8 py-3 rounded-full border border-yellow-500/50 shadow-2xl z-[100]">
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white px-8 py-3 rounded-full border border-yellow-500/50 shadow-2xl z-[100] animate-pulse">
           {message}
         </div>
       )}
