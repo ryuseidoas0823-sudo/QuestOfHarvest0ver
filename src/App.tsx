@@ -27,7 +27,6 @@ const App: React.FC = () => {
 
   /**
    * ゲームの初期化
-   * 選択された職業と性別に基づき、プレイヤーとワールドを生成します。
    */
   const startGame = (job: JobType, gender: Gender) => {
     const initialStats = INITIAL_PLAYER_STATS[job];
@@ -66,10 +65,10 @@ const App: React.FC = () => {
     const worldMap = generateWorldMap(MAP_SIZE, MAP_SIZE);
     setGameState({
       player,
-      enemies: spawnMonsters(worldMap, 20, 1), // モンスター密度を調整
+      enemies: spawnMonsters(worldMap, 20, 1),
       worldMap: worldMap,
       dayCount: 1,
-      gameTime: 480, // 朝8時からスタート
+      gameTime: 480,
       droppedItems: [],
       particles: [],
       floatingTexts: [],
@@ -80,7 +79,6 @@ const App: React.FC = () => {
 
   /**
    * プレイヤーの移動
-   * 衝突判定と向きの制御を行います。
    */
   const movePlayer = useCallback((dx: number, dy: number) => {
     setGameState(prev => {
@@ -88,7 +86,6 @@ const App: React.FC = () => {
       const newX = Math.max(0, Math.min(MAP_SIZE - 1, prev.player.x + dx));
       const newY = Math.max(0, Math.min(MAP_SIZE - 1, prev.player.y + dy));
       
-      // 水タイル(1)は進入不可
       if (prev.worldMap[newY][newX] === 1) return prev;
 
       return {
@@ -104,7 +101,6 @@ const App: React.FC = () => {
       };
     });
     
-    // 移動アニメーション停止用のタイマー
     setTimeout(() => {
       setGameState(prev => prev ? { ...prev, player: { ...prev.player, isMoving: false } } : null);
     }, 150);
@@ -112,7 +108,6 @@ const App: React.FC = () => {
 
   /**
    * 攻撃アクション
-   * プレイヤーの前方にいる敵を判定しダメージを与えます。
    */
   const handlePlayerAttack = () => {
     const now = Date.now();
@@ -124,13 +119,12 @@ const App: React.FC = () => {
       const attackY = player.y;
 
       const hitEnemies = prev.enemies.map(enemy => {
-        // 攻撃範囲判定
         if (enemy.x === attackX && enemy.y === attackY) {
           const damage = Math.max(5, Math.floor(player.stats.str * 1.5));
           return { ...enemy, hp: Math.max(0, enemy.hp - damage) };
         }
         return enemy;
-      }).filter(enemy => enemy.hp > 0); // 死亡した敵を除外
+      }).filter(enemy => enemy.hp > 0);
 
       return {
         ...prev,
@@ -142,7 +136,6 @@ const App: React.FC = () => {
 
   /**
    * 採取・インタラクション
-   * タイトル『Harvest』にちなみ、足元のタイルから資源を得ます。
    */
   const handleInteract = () => {
     setGameState(prev => {
@@ -151,12 +144,10 @@ const App: React.FC = () => {
       const tileType = prev.worldMap[y][x];
       const player = { ...prev.player };
 
-      // 草地での食料確保
       if (tileType === 0) {
         player.hunger = Math.min(100, player.hunger + 8);
       }
       
-      // 周囲に水があるかチェック
       const isNearWater = [
         prev.worldMap[y][x],
         prev.worldMap[y-1]?.[x],
@@ -173,7 +164,6 @@ const App: React.FC = () => {
     });
   };
 
-  // --- 入力リスナー ---
   useEffect(() => {
     if (screen !== 'game' || isInventoryOpen) return;
 
@@ -193,7 +183,6 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [screen, isInventoryOpen, movePlayer]);
 
-  // --- メインゲームループ ---
   useEffect(() => {
     if (screen !== 'game' || !gameState) return;
 
@@ -206,10 +195,8 @@ const App: React.FC = () => {
         if (!prev || prev.player.hp <= 0) return prev;
 
         const now = Date.now();
-        // 1. サバイバルステータス更新 (空腹/渇き/ダメージ)
         const updatedPlayer = updateSurvival(prev.player, delta);
         
-        // 2. 敵AI更新 (追跡/攻撃/プレイヤーへのダメージ)
         let totalDamageToPlayer = 0;
         const updatedEnemies = prev.enemies.map(enemy => {
           const { enemy: newEnemy, damageToPlayer } = updateEnemyAI(enemy, updatedPlayer, prev.worldMap, now, delta);
@@ -217,14 +204,12 @@ const App: React.FC = () => {
           return newEnemy;
         });
 
-        // 3. プレイヤーの被ダメージ処理 (無敵時間考慮)
         if (totalDamageToPlayer > 0 && now > updatedPlayer.invincibleUntil) {
           updatedPlayer.hp = Math.max(0, updatedPlayer.hp - totalDamageToPlayer);
-          updatedPlayer.invincibleUntil = now + 800; // 被弾後の無敵時間
+          updatedPlayer.invincibleUntil = now + 800;
         }
 
-        // 4. ゲーム内時間の進行
-        let newTime = prev.gameTime + (delta / 1000); // 1秒 = ゲーム内1分
+        let newTime = prev.gameTime + (delta / 1000); 
         let newDay = prev.dayCount;
         if (newTime >= 1440) {
           newTime = 0;
@@ -247,9 +232,6 @@ const App: React.FC = () => {
     return () => cancelAnimationFrame(animId);
   }, [screen, !!gameState]);
 
-  /**
-   * ステータスアップグレード
-   */
   const upgradeStat = (statName: keyof PlayerEntity['stats']) => {
     if (!gameState || gameState.player.statPoints <= 0) return;
     setGameState(prev => {
@@ -269,9 +251,6 @@ const App: React.FC = () => {
     });
   };
 
-  /**
-   * プレイヤーのSVGアセット取得
-   */
   const getPlayerSVG = () => {
     if (!gameState) return null;
     const { job, gender } = gameState.player;
@@ -280,8 +259,6 @@ const App: React.FC = () => {
     if (!assets) return null;
     return gender === 'male' ? assets.male.idle : assets.female.idle;
   };
-
-  // --- レンダリング分岐 ---
 
   if (screen === 'title') {
     return (
@@ -308,18 +285,15 @@ const App: React.FC = () => {
     const { player, worldMap, enemies } = gameState;
     const viewWidth = 15;
     const viewHeight = 11;
-    // プレイヤー中心にカメラを固定
     const startX = Math.max(0, Math.min(MAP_SIZE - viewWidth, player.x - Math.floor(viewWidth / 2)));
     const startY = Math.max(0, Math.min(MAP_SIZE - viewHeight, player.y - Math.floor(viewHeight / 2)));
 
     return (
       <div className="relative w-full h-screen bg-slate-950 overflow-hidden flex items-center justify-center">
-        {/* メインゲームワールド */}
         <div 
           className="relative bg-green-900 border-4 border-slate-800 shadow-2xl overflow-hidden" 
           style={{ width: viewWidth * TILE_SIZE, height: viewHeight * TILE_SIZE }}
         >
-          {/* マップレイヤー */}
           <div 
             className="absolute transition-all duration-100 ease-out" 
             style={{ 
@@ -340,7 +314,6 @@ const App: React.FC = () => {
             )))}
           </div>
 
-          {/* 敵レイヤー */}
           {enemies.map(enemy => (
             <div 
               key={enemy.id} 
@@ -354,13 +327,10 @@ const App: React.FC = () => {
               }}
             >
               <div className="w-full h-full flex flex-col items-center justify-center">
-                {/* 警戒アイコン */}
                 {enemy.behavior === 'chase' && (
                   <div className="absolute -top-4 w-6 h-6 bg-red-600 rounded-full border border-white flex items-center justify-center text-[10px] text-white font-bold animate-bounce">!</div>
                 )}
-                {/* 敵ビジュアル（簡易） */}
                 <div className={`w-8 h-8 rounded-lg shadow-lg ${enemy.rarity === 'Boss' ? 'bg-purple-600 scale-150' : 'bg-red-500'}`} />
-                {/* HPバー */}
                 <div className="w-full h-1 bg-gray-900 rounded-full mt-1 overflow-hidden">
                   <div className="h-full bg-red-500" style={{ width: `${(enemy.hp / enemy.maxHp) * 100}%` }} />
                 </div>
@@ -368,7 +338,6 @@ const App: React.FC = () => {
             </div>
           ))}
 
-          {/* プレイヤーレイヤー */}
           <div 
             className="absolute transition-all duration-200 z-10" 
             style={{ 
@@ -385,15 +354,12 @@ const App: React.FC = () => {
               className="w-full h-full drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]" 
               dangerouslySetInnerHTML={{ __html: getPlayerSVG() || '' }} 
             />
-            
-            {/* 攻撃エフェクト */}
             {Date.now() - player.lastAttackTime < 150 && (
               <div className={`absolute top-0 ${player.direction === 'right' ? 'left-full' : 'right-full'} w-full h-full bg-white/40 rounded-full animate-ping border-2 border-blue-400`} />
             )}
           </div>
         </div>
 
-        {/* UIレイヤー */}
         <div className="absolute bottom-6 left-6 text-white/60 text-[10px] font-mono bg-black/50 p-3 rounded-lg border border-white/10 backdrop-blur-sm space-y-1">
           <div className="flex items-center gap-2"><span className="bg-white/20 px-1 rounded text-white">WASD</span> MOVE</div>
           <div className="flex items-center gap-2"><span className="bg-white/20 px-1 rounded text-white">SPACE</span> ATTACK</div>
@@ -416,7 +382,6 @@ const App: React.FC = () => {
           />
         )}
 
-        {/* 死亡時オーバーレイ */}
         {player.hp <= 0 && (
           <div className="absolute inset-0 bg-red-950/90 flex flex-col items-center justify-center text-white z-50 animate-in fade-in duration-1000">
             <h2 className="text-8xl font-black mb-2 tracking-tighter text-red-600 drop-shadow-2xl">DEFEATED</h2>
