@@ -1,20 +1,10 @@
-/**
- * すべてのアセットを統合してエクスポートするエントリポイント
- */
-import { JobAssets } from './types';
-import { swordsman } from './swordsman';
-import { warrior } from './warrior';
-import { archer } from './archer';
-import { mage } from './mage';
-import { MONSTER_ASSETS } from './monsters';
+import { HERO_ASSETS as swordsmanAssets } from './swordsman';
+import { HERO_ASSETS as warriorAssets } from './warrior';
+import { HERO_ASSETS as archerAssets } from './archer';
+import { HERO_ASSETS as mageAssets } from './mage';
 
-export * from './types';
-
-export const HERO_ASSETS: Record<string, JobAssets> = {
-  Swordsman: swordsman,
-  Warrior: warrior,
-  Archer: archer,
-  Mage: mage,
-};
-
-export { MONSTER_ASSETS };
+// JobAssets 型の不整合を解消
+export const swordsman = { HERO_ASSETS: swordsmanAssets };
+export const warrior = { HERO_ASSETS: warriorAssets };
+export const archer = { HERO_ASSETS: archerAssets };
+export const mage = { HERO_ASSETS: mageAssets };
