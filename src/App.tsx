@@ -36,12 +36,28 @@ export default function App() {
   // 修正：統合されたアセットを読み込むロジック
   const loadedAssets = useMemo(() => {
     const images: Record<string, HTMLImageElement> = {};
-    const allAssets = { ...HERO_ASSETS, ...MONSTER_ASSETS };
+    const allAssets = { ...HERO_ASSETS, ...MONSTER_ASSETS } as any;
     
-    Object.entries(allAssets).forEach(([key, svg]) => { 
-      const img = new Image(); 
-      img.src = svgToUrl(svg); 
-      images[key] = img; 
+    Object.entries(allAssets).forEach(([key, value]) => { 
+      if (typeof value === 'string') {
+        // 従来の文字列形式（互換性維持）
+        const img = new Image(); 
+        img.src = svgToUrl(value); 
+        images[key] = img;
+      } else if (value && typeof value === 'object') {
+        // 新しいモーション形式：idle, attack, damage などを個別に読み込む
+        Object.entries(value).forEach(([motion, svg]) => {
+          const img = new Image();
+          img.src = svgToUrl(svg as string);
+          images[`${key}_${motion}`] = img;
+        });
+        // 後方互換性：idleがあれば、それをベースのキー（モーション接尾辞なし）でも登録しておく
+        if (value.idle) {
+          const img = new Image();
+          img.src = svgToUrl(value.idle as string);
+          images[key] = img;
+        }
+      }
     });
     return images;
   }, []);
