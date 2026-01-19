@@ -1,40 +1,36 @@
-import { GameState, PlayerEntity, EnemyEntity } from "./types";
-import { INITIAL_PLAYER_STATS } from "./data";
+import { PlayerEntity, EnemyEntity } from "./types";
 
 /**
  * サバイバルステータスの更新
- * @param player プレイヤー情報
- * @param delta 経過時間（ミリ秒）
  */
 export const updateSurvival = (player: PlayerEntity, delta: number): PlayerEntity => {
   const updated = { ...player };
-  
-  // 減少レート（ゲーム内時間1分あたり、または実時間ベースで調整）
-  // ここでは1秒あたり約0.1ポイント減少（約16分で0になる計算）
   const decayRate = delta / 10000; 
 
   updated.hunger = Math.max(0, updated.hunger - decayRate * 0.5);
-  updated.thirst = Math.max(0, updated.thirst - decayRate * 0.8); // 渇きは早め
+  updated.thirst = Math.max(0, updated.thirst - decayRate * 0.8);
   updated.energy = Math.max(0, updated.energy - decayRate * 0.3);
 
-  // ペナルティ判定
   let damage = 0;
   if (updated.hunger <= 0) damage += 1;
-  if (updated.thirst <= 0) damage += 2; // 渇きの方がダメージ大
+  if (updated.thirst <= 0) damage += 2;
 
   if (damage > 0) {
     updated.hp = Math.max(0, updated.hp - damage);
   }
 
-  // エネルギー不足による移動速度低下などはApp.tsx側のロジックで参照可能
   return updated;
 };
 
+/**
+ * ワールドマップ生成
+ */
 export const generateWorldMap = (width: number, height: number): number[][] => {
   const map: number[][] = [];
   for (let y = 0; y < height; y++) {
     const row: number[] = [];
     for (let x = 0; x < width; x++) {
+      // 10%の確率で水(1)、それ以外は草地(0)
       row.push(Math.random() > 0.1 ? 0 : 1);
     }
     map.push(row);
@@ -62,6 +58,7 @@ export const generateEnemy = (level: number): EnemyEntity => {
   return {
     id: crypto.randomUUID(),
     name: `${rarity === 'Normal' ? '' : rarity + ' '}Monster`,
+    type: 'Slime',
     level,
     rarity,
     hp: 50 * level * multiplier,
@@ -69,8 +66,15 @@ export const generateEnemy = (level: number): EnemyEntity => {
     mp: 20 * level,
     maxMp: 20 * level,
     stats: { str: 5, dex: 5, int: 5, vit: 5, agi: 5, luk: 5 },
-    x: Math.floor(Math.random() * 20),
-    y: Math.floor(Math.random() * 20),
+    x: 0,
+    y: 0,
+    width: 48,
+    height: 48,
+    visualWidth: 48,
+    visualHeight: 48,
+    isMoving: false,
+    animFrame: 0,
+    direction: 'right',
     lootTable: []
   };
 };
