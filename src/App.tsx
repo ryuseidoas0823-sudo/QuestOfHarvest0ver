@@ -5,7 +5,8 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 import { auth, db, isConfigValid, appId } from './config';
 import { PlayerEntity, Job, Gender, MenuType, ResolutionMode, Biome } from './types';
-import { ASSETS_SVG, svgToUrl } from './assets';
+// 修正：新しいアセット構成からのインポート
+import { HERO_ASSETS, MONSTER_ASSETS, svgToUrl } from './assets/index';
 import { createPlayer, generateWorldMap, updatePlayerStats, generateTownMap } from './gameLogic';
 import { resolveMapCollision } from './utils';
 import { renderGame } from './renderer';
@@ -18,13 +19,13 @@ import { InventoryMenu } from './components/InventoryMenu';
 export default function App() {
   const [screen, setScreen] = useState<'auth' | 'title' | 'game' | 'job_select'>('auth');
   const [saveData, setSaveData] = useState<any>(null);
-  const loadingProgress = 0; // 未使用の setter を削除し定数化、または将来のために保持
+  const loadingProgress = 0; 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameState = useRef<any>(null);
   const reqRef = useRef<number>();
   const input = useRef({ keys: {} as Record<string, boolean>, mouse: {x:0, y:0, down: false} });
   const [uiState, setUiState] = useState<PlayerEntity | null>(null);
-  const worldInfo = {x:0, y:0, biome:'WorldMap' as Biome}; // 未使用の setter を削除
+  const worldInfo = {x:0, y:0, biome:'WorldMap' as Biome}; 
   const [activeMenu, setActiveMenu] = useState<MenuType>('none');
   const [message, setMessage] = useState<string | null>(null);
   const [viewportSize, setViewportSize] = useState({ width: window.innerWidth, height: window.innerHeight });
@@ -32,9 +33,12 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // 修正：統合されたアセットを読み込むロジック
   const loadedAssets = useMemo(() => {
     const images: Record<string, HTMLImageElement> = {};
-    Object.entries(ASSETS_SVG).forEach(([key, svg]) => { 
+    const allAssets = { ...HERO_ASSETS, ...MONSTER_ASSETS };
+    
+    Object.entries(allAssets).forEach(([key, svg]) => { 
       const img = new Image(); 
       img.src = svgToUrl(svg); 
       images[key] = img; 
