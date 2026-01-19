@@ -1,220 +1,78 @@
-export type GameScreen = 'title' | 'game' | 'job_select' | 'auth';
-
-export type Job = 'Swordsman' | 'Warrior' | 'Archer' | 'Mage';
-export type Gender = 'Male' | 'Female';
-export type Biome = 'WorldMap' | 'Town' | 'Dungeon' | 'Plains' | 'Forest' | 'Desert' | 'Snow' | 'Wasteland';
-
-export interface Attributes {
-  vitality: number;
-  strength: number;
-  dexterity: number;
-  intelligence: number;
-  endurance: number;
-}
-
-export type EquipmentType = 'Weapon' | 'Helm' | 'Armor' | 'Shield' | 'Boots';
-export type WeaponStyle = 'OneHanded' | 'TwoHanded' | 'DualWield';
+export type JobType = 'Swordsman' | 'Warrior' | 'Archer' | 'Mage';
 export type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary';
+export type ItemType = 'Weapon' | 'Shield' | 'Head' | 'Body' | 'Legs' | 'Accessory' | 'Consumable' | 'Material';
 
-export interface ItemStats {
-  attack: number;
-  defense: number;
-  speed: number;
-  maxHp: number;
+export interface Stats {
+  str: number;
+  dex: number;
+  int: number;
+  vit: number;
+  agi: number;
+  luk: number;
 }
 
-export interface Enchantment {
-  type: 'Attack' | 'Defense' | 'Speed' | 'MaxHp';
-  value: number;
-  strength: 'Weak' | 'Medium' | 'Strong';
+export interface Entity {
+  id: string;
   name: string;
+  hp: number;
+  maxHp: number;
+  mp: number;
+  maxMp: number;
+  level: number;
+  stats: Stats;
+  x: number;
+  y: number;
+}
+
+export interface PlayerEntity extends Entity {
+  job: JobType;
+  exp: number;
+  maxExp: number;
+  statPoints: number;
+  inventory: Item[];
+  equipment: {
+    weapon: Item | null;
+    shield: Item | null;
+    head: Item | null;
+    body: Item | null;
+    legs: Item | null;
+    accessory: Item | null;
+  };
+  // サバイバルステータス (0-100)
+  hunger: number;
+  thirst: number;
+  energy: number;
+  gender: 'male' | 'female';
+}
+
+export interface EnemyEntity extends Entity {
+  type: string;
+  rarity: 'Normal' | 'Elite' | 'Boss';
+  lootTable: string[];
 }
 
 export interface Item {
   id: string;
   name: string;
-  type: EquipmentType;
-  subType?: WeaponStyle;
+  type: ItemType;
   rarity: Rarity;
-  level: number;
-  stats: ItemStats;
-  enchantments: Enchantment[];
-  icon: string;
-  color: string;
-}
-
-export interface Entity {
-  id: string;
-  type: 'player' | 'enemy' | 'npc';
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  visualWidth: number;
-  visualHeight: number;
-  color: string;
-  direction: number; // 0: right, 1: down, 2: left, 3: up
-  dead: boolean;
-  // アニメーション用プロパティを必須に（または確実に初期化されるように）
-  animFrame: number;
-  isMoving: boolean;
-  vx?: number;
-  vy?: number;
-}
-
-export interface PlayerEntity extends Entity {
-  type: 'player';
-  job: Job;
-  gender: Gender;
-  shape: 'humanoid';
-  hp: number;
-  maxHp: number;
-  mp: number;
-  maxMp: number;
-  attack: number;
-  defense: number;
-  speed: number;
-  level: number;
-  xp: number;
-  nextLevelXp: number;
-  gold: number;
-  statPoints: number;
-  attributes: Attributes;
-  lastAttackTime: number;
-  attackCooldown: number;
-  inventory: Item[];
-  equipment: {
-    mainHand?: Item;
-    offHand?: Item;
-    helm?: Item;
-    armor?: Item;
-    boots?: Item;
+  stats?: Partial<Stats>;
+  description: string;
+  value: number;
+  // 消費アイテム用：回復量
+  restore?: {
+    hp?: number;
+    mp?: number;
+    hunger?: number;
+    thirst?: number;
+    energy?: number;
   };
-  isAttacking?: boolean;
-  attackPhase?: number; // 攻撃の進行度を管理
-  calculatedStats: {
-    maxHp: number;
-    maxMp: number;
-    attack: number;
-    defense: number;
-    speed: number;
-  };
-}
-
-export interface EnemyEntity extends Entity {
-  type: 'enemy';
-  race: string;
-  rank: 'Normal' | 'Elite' | 'Boss';
-  shape: 'humanoid' | 'insect' | 'demon' | 'flying' | 'slime' | 'dragon' | 'beast' | 'ghost';
-  hp: number;
-  maxHp: number;
-  attack: number;
-  defense: number;
-  speed: number;
-  level: number;
-  lastAttackTime: number;
-  attackCooldown: number;
-  detectionRange: number;
-  xpValue: number;
-  // NPC判定・クエスト用
-  isNPC?: boolean;
-  npcRole?: string;
-}
-
-// 戦闘に使用可能なEntityの共用型
-export type CombatEntity = PlayerEntity | EnemyEntity;
-
-export type TileType = 'grass' | 'dirt' | 'rock' | 'water' | 'sand' | 'snow' | 'floor' | 'wall' | 'portal_in' | 'portal_out' | 'tree' | 'town_entrance' | 'dungeon_entrance';
-
-export interface Tile {
-  x: number;
-  y: number;
-  type: TileType;
-  solid: boolean;
-  teleportTo?: string;
-}
-
-export interface DroppedItem {
-  id: string;
-  type: 'drop';
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  color: string;
-  item: Item;
-  life: number;
-  dead: boolean;
-  vx?: number;
-  vy?: number;
-  bounceOffset?: number;
-}
-
-export interface Projectile {
-  id: string;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  color: string;
-  damage: number;
-  ownerId: string;
-}
-
-export interface Particle {
-  id: string;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  maxLife: number; // 描画の透明度計算に使用
-  color: string;
-  size: number;
-}
-
-export interface FloatingText {
-  id: string;
-  x: number;
-  y: number;
-  text: string;
-  color: string;
-  life: number;
-  type: 'text';
-  width: 0;
-  height: 0;
-  dead: boolean;
-}
-
-export interface ChunkData {
-  map: Tile[][];
-  enemies: EnemyEntity[];
-  droppedItems: DroppedItem[];
-  biome: Biome;
-  locationId: string;
 }
 
 export interface GameState {
-  worldX: number;
-  worldY: number;
-  currentBiome: Biome;
-  savedChunks: Record<string, ChunkData>;
-  map: Tile[][];
   player: PlayerEntity;
   enemies: EnemyEntity[];
-  droppedItems: DroppedItem[];
-  projectiles: Projectile[];
-  particles: Particle[];
-  floatingTexts: FloatingText[];
-  camera: { x: number; y: number };
-  gameTime: number;
-  isPaused: boolean;
-  wave: number;
-  locationId: string;
-  lastWorldPos?: { x: number; y: number };
-  lastTeleportTime?: number;
+  worldMap: number[][]; // 0: Grass, 1: Water, 2: Forest, etc.
+  dayCount: number;
+  gameTime: number; // 0-2400 (分単位)
 }
-
-export type MenuType = 'none' | 'inventory' | 'stats' | 'status';
-export type ResolutionMode = 'auto' | '800x600' | '1024x768' | '1280x720';
