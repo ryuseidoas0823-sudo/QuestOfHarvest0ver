@@ -1,22 +1,13 @@
 /**
- * キャラクター・アセットの共通型定義
+ * キャラクターのアクションごとのSVGアセット定義
  */
-
 export interface CharacterActionSet {
-  idle: string;    // 待機（基本）
-  move: string;    // 移動
-  attack: string;  // 攻撃
-  damage: string;  // 被ダメージ
-  death: string;   // 死亡
+  /** 待機状態 */
+  idle: string;
+  /** 攻撃時 */
+  attack: string;
+  /** 被弾時（ヒット）のアクションを追加 */
+  hit: string;
+  /** 死亡時のアクションを追加 */
+  die: string;
 }
-
-export interface JobAssets {
-  male: CharacterActionSet;
-  female: CharacterActionSet;
-}
-
-/**
- * SVGをURL形式に変換するヘルパー関数
- */
-export const svgToUrl = (s: string) => 
-  "data:image/svg+xml;charset=utf-8," + encodeURIComponent(s.trim());
