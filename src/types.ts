@@ -55,7 +55,7 @@ export interface Entity {
   color: string;
   direction: number; // 0: right, 1: down, 2: left, 3: up
   dead: boolean;
-  // アニメーション用
+  // アニメーション用プロパティ
   animFrame?: number;
   isMoving?: boolean;
 }
