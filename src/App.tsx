@@ -3,7 +3,7 @@ import { TitleScreen } from './components/TitleScreen';
 import { JobSelectScreen } from './components/JobSelectScreen';
 import GameHUD from './components/GameHUD';
 import { InventoryMenu } from './components/InventoryMenu';
-import { GameState, JobType, PlayerEntity } from './types';
+import { GameState, JobType, PlayerEntity, ResolutionMode, Gender } from './types';
 import { INITIAL_PLAYER_STATS } from './data';
 import { generateWorldMap, updateSurvival } from './gameLogic';
 import * as Assets from './assets';
@@ -13,17 +13,18 @@ const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [direction, setDirection] = useState<'left' | 'right'>('right');
+  const [resolution, setResolution] = useState<ResolutionMode>('auto');
   const lastUpdateRef = useRef<number>(0);
 
   // マップタイルの設定
   const TILE_SIZE = 48;
   const MAP_SIZE = 50;
 
-  const startGame = (job: JobType, name: string, gender: 'male' | 'female') => {
+  const startGame = (job: JobType, gender: Gender) => {
     const initialStats = INITIAL_PLAYER_STATS[job];
     const player: PlayerEntity = {
       id: 'player-1',
-      name: name || 'Hero',
+      name: 'Hero',
       job,
       gender,
       level: 1,
@@ -42,7 +43,7 @@ const App: React.FC = () => {
       energy: 100,
       x: 25,
       y: 25,
-      // Entity プロパティの初期化
+      // レンダラーやユーティリティが必要とする Entity プロパティ
       width: 64,
       height: 96,
       visualWidth: 64,
@@ -57,7 +58,11 @@ const App: React.FC = () => {
       enemies: [],
       worldMap: generateWorldMap(MAP_SIZE, MAP_SIZE),
       dayCount: 1,
-      gameTime: 480
+      gameTime: 480,
+      droppedItems: [],
+      particles: [],
+      floatingTexts: [],
+      camera: { x: 25, y: 25 }
     });
     setScreen('game');
   };
@@ -82,7 +87,8 @@ const App: React.FC = () => {
           y: newY,
           direction: dx < 0 ? 'left' : dx > 0 ? 'right' : prev.player.direction,
           isMoving: true
-        }
+        },
+        camera: { x: newX, y: newY }
       };
     });
     
@@ -202,8 +208,26 @@ const App: React.FC = () => {
     return gender === 'male' ? assets.male.idle : assets.female.idle;
   };
 
-  if (screen === 'title') return <TitleScreen onStart={() => setScreen('jobSelect')} />;
-  if (screen === 'jobSelect') return <JobSelectScreen onSelect={startGame} onBack={() => setScreen('title')} />;
+  if (screen === 'title') {
+    return (
+      <TitleScreen 
+        onStart={() => setScreen('jobSelect')} 
+        onContinue={() => {}} 
+        canContinue={false}
+        resolution={resolution}
+        setResolution={setResolution}
+      />
+    );
+  }
+
+  if (screen === 'jobSelect') {
+    return (
+      <JobSelectScreen 
+        onSelect={startGame} 
+        onBack={() => setScreen('title')} 
+      />
+    );
+  }
   
   if (gameState) {
     const { player, worldMap } = gameState;
