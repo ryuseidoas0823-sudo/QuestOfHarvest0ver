@@ -1,4 +1,4 @@
-export type GameScreen = 'title' | 'game';
+export type GameScreen = 'title' | 'game' | 'job_select' | 'auth';
 
 export type Job = 'Swordsman' | 'Warrior' | 'Archer' | 'Mage';
 export type Gender = 'Male' | 'Female';
@@ -54,7 +54,10 @@ export interface Entity {
   visualHeight?: number;
   color: string;
   direction: number; // 0: right, 1: down, 2: left, 3: up
-  dead: boolean; // Changed from 'false' to 'boolean' to allow true assignment
+  dead: boolean;
+  // アニメーション用
+  animFrame?: number;
+  isMoving?: boolean;
 }
 
 export interface PlayerEntity extends Entity {
@@ -88,6 +91,7 @@ export interface PlayerEntity extends Entity {
   vx?: number;
   vy?: number;
   isAttacking?: boolean;
+  attackPhase?: number;
   calculatedStats: {
     maxHp: number;
     maxMp: number;
@@ -114,9 +118,10 @@ export interface EnemyEntity extends Entity {
   vx?: number;
   vy?: number;
   xpValue: number;
+  // NPC判定用
+  isNPC?: boolean;
+  npcRole?: string;
 }
-
-export type CombatEntity = PlayerEntity | EnemyEntity;
 
 export type TileType = 'grass' | 'dirt' | 'rock' | 'water' | 'sand' | 'snow' | 'floor' | 'wall' | 'portal_in' | 'portal_out' | 'tree' | 'town_entrance' | 'dungeon_entrance';
 
@@ -206,7 +211,7 @@ export interface GameState {
   wave: number;
   locationId: string;
   lastWorldPos?: { x: number; y: number };
-  lastTeleportTime?: number; // Added property for teleport cooldown
+  lastTeleportTime?: number;
 }
 
 export type MenuType = 'none' | 'inventory' | 'stats' | 'status';
