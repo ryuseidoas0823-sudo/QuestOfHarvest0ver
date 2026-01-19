@@ -3,7 +3,7 @@ import { TitleScreen } from './components/TitleScreen';
 import { JobSelectScreen } from './components/JobSelectScreen';
 import GameHUD from './components/GameHUD';
 import { InventoryMenu } from './components/InventoryMenu';
-import { GameState, JobType, PlayerEntity, ResolutionMode, Gender, EnemyEntity } from './types';
+import { GameState, JobType, PlayerEntity, ResolutionMode, Gender } from './types';
 import { INITIAL_PLAYER_STATS } from './data';
 import { generateWorldMap, updateSurvival, spawnMonsters, updateEnemyAI } from './gameLogic';
 import * as Assets from './assets';
