@@ -1,45 +1,74 @@
-import { X } from 'lucide-react';
-import { PlayerEntity, Item } from '../types';
+import React from 'react';
+import { PlayerEntity, Stats } from '../types';
 
 interface InventoryMenuProps {
-  uiState: PlayerEntity;
-  onEquip: (item: Item) => void;
-  onUnequip: (slot: keyof PlayerEntity['equipment']) => void;
+  player: PlayerEntity; // ここが不足していた
   onClose: () => void;
+  onUpgradeStat: (statName: keyof Stats) => void;
 }
 
-export const InventoryMenu = ({ uiState, onEquip, onUnequip, onClose }: InventoryMenuProps) => (
-  <div className="bg-slate-900 border border-slate-600 rounded-lg w-full max-w-4xl h-[600px] flex text-white overflow-hidden shadow-2xl">
-    <div className="w-1/3 bg-slate-800/50 p-6 border-r border-slate-700 flex flex-col gap-4">
-      <h3 className="text-xl font-bold text-yellow-500 mb-2 border-b border-slate-700 pb-2">装備</h3>
-      {[{ slot: 'mainHand', label: '右手', icon: '⚔️' }, { slot: 'offHand', label: '左手', icon: '🛡️' }, { slot: 'helm', label: '頭', icon: '🪖' }, { slot: 'armor', label: '体', icon: '🛡️' }, { slot: 'boots', label: '足', icon: '👢' }].map((s) => {
-        const item = uiState.equipment[s.slot as keyof PlayerEntity['equipment']];
-        return (
-          <div key={s.slot} className="flex items-center gap-3 p-2 bg-slate-800 rounded border border-slate-700 relative group">
-            <div className="w-10 h-10 bg-slate-900 flex items-center justify-center text-2xl border border-slate-600 rounded">{item ? item.icon : s.icon}</div>
-            <div className="flex-1"><div className="text-xs text-slate-400 uppercase">{s.label}</div><div className={`font-bold text-sm ${item ? '' : 'text-slate-600'}`} style={{ color: item?.color }}>{item ? item.name : 'なし'}</div></div>
-            {item && (<button onClick={() => onUnequip(s.slot as keyof PlayerEntity['equipment'])} className="absolute right-2 top-2 p-1 hover:bg-red-900 rounded text-slate-400 hover:text-red-200"><X size={14} /></button>)}
+export const InventoryMenu: React.FC<InventoryMenuProps> = ({ player, onClose, onUpgradeStat }) => {
+  return (
+    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-40 flex items-center justify-center p-8">
+      <div className="bg-slate-900 border-2 border-white/20 rounded-2xl w-full max-w-4xl max-h-[80vh] flex flex-col overflow-hidden">
+        <div className="p-6 border-b border-white/10 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <h2 className="text-2xl font-black text-white">CHARACTER</h2>
+            <span className="text-blue-400 font-bold bg-blue-400/10 px-3 py-1 rounded text-sm uppercase">{player.job}</span>
           </div>
-        );
-      })}
-    </div>
-    <div className="flex-1 p-6 overflow-y-auto bg-slate-900">
-      <div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold text-white">持ち物 ({uiState.inventory.length})</h3><button onClick={onClose} className="p-1 hover:bg-slate-700 rounded"><X /></button></div>
-      <div className="grid grid-cols-2 gap-3">
-        {uiState.inventory.map((item: any) => (
-          <div key={item.id} onClick={() => onEquip(item)} className="flex gap-3 p-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-yellow-500 rounded cursor-pointer transition-colors group">
-            <div className="w-12 h-12 bg-slate-900 flex items-center justify-center text-2xl border border-slate-600 rounded shrink-0">{item.icon}</div>
-            <div className="flex-1 min-w-0">
-              <div className="font-bold truncate" style={{ color: item.color }}>{item.name}</div>
-              <div className="text-xs text-slate-400">{item.type} {item.subType ? `(${item.subType})` : ''}</div>
-              <div className="text-xs mt-1 grid grid-cols-2 gap-x-2 text-slate-300">
-                {item.stats.attack > 0 && <span>攻撃 +{item.stats.attack}</span>} {item.stats.defense > 0 && <span>防御 +{item.stats.defense}</span>}
-              </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">CLOSE [ESC]</button>
+        </div>
+        
+        <div className="flex-1 flex overflow-hidden">
+          {/* 左側: ステータス */}
+          <div className="w-1/3 p-6 border-r border-white/10 overflow-y-auto bg-slate-900/50">
+            <div className="mb-6">
+              <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Available Points</div>
+              <div className="text-3xl font-black text-white">{player.statPoints}</div>
+            </div>
+
+            <div className="space-y-4">
+              {(Object.keys(player.stats) as Array<keyof Stats>).map(key => (
+                <div key={key} className="group">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-gray-400 uppercase text-xs font-bold tracking-wider">{key}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-white font-mono text-lg">{player.stats[key]}</span>
+                      {player.statPoints > 0 && (
+                        <button 
+                          onClick={() => onUpgradeStat(key)}
+                          className="w-6 h-6 bg-blue-600 hover:bg-blue-500 text-white rounded shadow-lg shadow-blue-900/20 flex items-center justify-center font-bold transition-all active:scale-90"
+                        >
+                          +
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500/30" style={{ width: `${(player.stats[key] / 30) * 100}%` }} />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        ))}
-        {uiState.inventory.length === 0 && (<div className="col-span-2 text-center text-slate-500 py-10">アイテムがありません。</div>)}
+
+          {/* 右側: インベントリ */}
+          <div className="flex-1 p-6 overflow-y-auto">
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Inventory ({player.inventory.length}/50)</h3>
+            <div className="grid grid-cols-4 gap-4">
+              {player.inventory.map(item => (
+                <div key={item.id} className="aspect-square bg-slate-800 rounded-lg border border-white/5 p-2 flex flex-col items-center justify-center text-center group hover:border-blue-500/50 transition-all cursor-pointer">
+                  <span className="text-2xl mb-1 group-hover:scale-110 transition-transform">{item.icon || '📦'}</span>
+                  <span className="text-[10px] text-gray-400 leading-tight truncate w-full">{item.name}</span>
+                </div>
+              ))}
+              {Array.from({ length: Math.max(0, 12 - player.inventory.length) }).map((_, i) => (
+                <div key={i} className="aspect-square bg-slate-800/30 rounded-lg border border-white/5 border-dashed" />
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
