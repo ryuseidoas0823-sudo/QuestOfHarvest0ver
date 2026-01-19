@@ -50,14 +50,16 @@ export interface Entity {
   y: number;
   width: number;
   height: number;
-  visualWidth?: number;
-  visualHeight?: number;
+  visualWidth: number;
+  visualHeight: number;
   color: string;
   direction: number; // 0: right, 1: down, 2: left, 3: up
   dead: boolean;
-  // アニメーション用
-  animFrame?: number;
-  isMoving?: boolean;
+  // アニメーション用プロパティを必須に（または確実に初期化されるように）
+  animFrame: number;
+  isMoving: boolean;
+  vx?: number;
+  vy?: number;
 }
 
 export interface PlayerEntity extends Entity {
@@ -88,10 +90,8 @@ export interface PlayerEntity extends Entity {
     armor?: Item;
     boots?: Item;
   };
-  vx?: number;
-  vy?: number;
   isAttacking?: boolean;
-  attackPhase?: number;
+  attackPhase?: number; // 攻撃の進行度を管理
   calculatedStats: {
     maxHp: number;
     maxMp: number;
@@ -115,13 +115,14 @@ export interface EnemyEntity extends Entity {
   lastAttackTime: number;
   attackCooldown: number;
   detectionRange: number;
-  vx?: number;
-  vy?: number;
   xpValue: number;
-  // NPC判定用
+  // NPC判定・クエスト用
   isNPC?: boolean;
   npcRole?: string;
 }
+
+// 戦闘に使用可能なEntityの共用型
+export type CombatEntity = PlayerEntity | EnemyEntity;
 
 export type TileType = 'grass' | 'dirt' | 'rock' | 'water' | 'sand' | 'snow' | 'floor' | 'wall' | 'portal_in' | 'portal_out' | 'tree' | 'town_entrance' | 'dungeon_entrance';
 
@@ -168,6 +169,7 @@ export interface Particle {
   vx: number;
   vy: number;
   life: number;
+  maxLife: number; // 描画の透明度計算に使用
   color: string;
   size: number;
 }
