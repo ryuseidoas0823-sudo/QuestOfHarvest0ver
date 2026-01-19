@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Loader, Save, User, Monitor, AlertTriangle, X } from 'lucide-react';
+import { Loader, Save, AlertTriangle } from 'lucide-react';
 import { onAuthStateChanged, signInAnonymously, signInWithCustomToken, User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-import { auth, db, isConfigValid, appId, GAME_CONFIG } from './config';
-import { GameState, PlayerEntity, Job, Gender, MenuType, ResolutionMode, Biome, Item, Attributes, ChunkData } from './types';
+import { auth, db, isConfigValid, appId } from './config';
+import { PlayerEntity, Job, Gender, MenuType, ResolutionMode, Biome, ChunkData } from './types';
 import { ASSETS_SVG, svgToUrl } from './assets';
-import { createPlayer, generateRandomItem, generateWorldMap, getMapData, updatePlayerStats, generateEnemy, getStarterItem, generateTownMap, generateDungeonMap } from './gameLogic';
+import { createPlayer, generateWorldMap, getMapData, updatePlayerStats, generateTownMap } from './gameLogic';
 import { resolveMapCollision, checkCollision } from './utils';
 import { renderGame } from './renderer';
 import { BIOME_NAMES } from './data';
@@ -19,10 +19,10 @@ import { InventoryMenu } from './components/InventoryMenu';
 export default function App() {
   const [screen, setScreen] = useState<'auth' | 'title' | 'game' | 'job_select'>('auth');
   const [saveData, setSaveData] = useState<any>(null);
-  const [loadingMessage, setLoadingMessage] = useState('クラウドに接続中...');
+  const loadingMessage = 'クラウドに接続中...';
   const [loadingProgress, setLoadingProgress] = useState(0); 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const gameState = useRef<GameState | null>(null);
+  const gameState = useRef<any>(null);
   const reqRef = useRef<number>();
   const input = useRef({ keys: {} as Record<string, boolean>, mouse: {x:0, y:0, down: false} });
   const [uiState, setUiState] = useState<PlayerEntity | null>(null);
@@ -199,7 +199,7 @@ export default function App() {
         else { ay -= 58; ax -= 23; } // 上
         
         const attackRect = { x: ax, y: ay, width: aw, height: ah };
-        state.enemies.forEach(e => {
+        state.enemies.forEach((e: any) => {
           if (e.dead || e.isNPC) return;
           if (checkCollision(attackRect, e)) {
             const dmg = Math.max(1, Math.floor((p.attack - e.defense/2) * (0.9 + Math.random() * 0.2)));
@@ -215,7 +215,7 @@ export default function App() {
       }
 
       // 敵AI
-      state.enemies.forEach(e => {
+      state.enemies.forEach((e: any) => {
         if (e.dead || e.isNPC) return;
         const dist = Math.sqrt((p.x - e.x)**2 + (p.y - e.y)**2);
         if (dist < e.detectionRange) {
@@ -232,9 +232,9 @@ export default function App() {
         }
       });
 
-      state.enemies = state.enemies.filter(e => !e.dead);
-      state.floatingTexts.forEach(t => { t.y -= 1; t.life--; });
-      state.floatingTexts = state.floatingTexts.filter(t => t.life > 0);
+      state.enemies = state.enemies.filter((e: any) => !e.dead);
+      state.floatingTexts.forEach((t: any) => { t.y -= 1; t.life--; });
+      state.floatingTexts = state.floatingTexts.filter((t: any) => t.life > 0);
     }
     renderGame(ctx, state, loadedAssets);
     if (state.gameTime % 10 === 0) setUiState({...state.player});
