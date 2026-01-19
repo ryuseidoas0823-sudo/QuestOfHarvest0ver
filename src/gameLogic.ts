@@ -123,8 +123,7 @@ export const createPlayer = (job: Job, gender: Gender): PlayerEntity => {
     id: 'player', type: 'player', x: 0, y: 0, width: 24, height: 24, visualWidth: 32, visualHeight: 56, color: THEME.colors.player, job, gender, shape: 'humanoid',
     hp: 100, maxHp: 100, mp: 50, maxMp: 50, attack: 10, defense: 5, speed: 4, level: 1, xp: 0, nextLevelXp: 100, gold: 0, statPoints: 0, attributes: { ...baseAttrs },
     dead: false, lastAttackTime: 0, attackCooldown: 400, direction: 1, inventory: [], equipment: {}, calculatedStats: { maxHp: 100, maxMp: 50, attack: 10, defense: 5, speed: 4 },
-    // アニメーション用プロパティ
-    // @ts-ignore
+    // アニメーション用プロパティを初期化
     animFrame: 0, isMoving: false
   };
   
@@ -163,7 +162,6 @@ export const generateEnemy = (x: number, y: number, level: number, allowedTypes?
     defense: Math.floor(level * 1.5), 
     speed: type.spd || 2,
     level, direction: 1, dead: false, lastAttackTime: 0, attackCooldown: 1000 + Math.random() * 500, detectionRange: 350, xpValue: Math.floor((type.xp || 10) * scale * (rank === 'Boss' ? 5 : rank === 'Elite' ? 2 : 1)),
-    // @ts-ignore
     animFrame: 0, isMoving: false
   };
 };
@@ -307,7 +305,16 @@ export const generateTownMap = (id: string): ChunkData => {
 
   const centerX = Math.floor(width/2);
   const centerY = Math.floor(height/2);
+
+  // 安全なスポーン地点の確保（App.tsxで設定されている15, 15周辺を確実にクリアにする）
+  for (let sy = 12; sy <= 18; sy++) {
+    for (let sx = 12; sx <= 18; sx++) {
+        map[sy][sx].type = 'floor';
+        map[sy][sx].solid = false;
+    }
+  }
   
+  // 道の作成
   for(let y=5; y<height-1; y++) {
       for(let dx=-2; dx<=1; dx++) map[y][centerX+dx].type = 'dirt';
   }
@@ -315,6 +322,7 @@ export const generateTownMap = (id: string): ChunkData => {
       for(let dy=-1; dy<=1; dy++) map[centerY+dy][x].type = 'dirt';
   }
   
+  // 広場
   for(let y=centerY-3; y<=centerY+3; y++) {
       for(let x=centerX-3; x<=centerX+3; x++) map[y][x].type = 'dirt';
   }
@@ -332,7 +340,6 @@ export const generateTownMap = (id: string): ChunkData => {
           hp: 999, maxHp: 999, attack: 0, defense: 999, speed: 0, 
           level: 1, direction: 1, dead: false, lastAttackTime: 0, attackCooldown: 999999,
           detectionRange: 0, xpValue: 0, vx: 0, vy: 0,
-          // @ts-ignore
           animFrame: 0, isMoving: false
       };
       // @ts-ignore
@@ -371,6 +378,7 @@ export const generateTownMap = (id: string): ChunkData => {
       }
   };
 
+  // スポーン地点（15, 15）に被らないように建物を配置
   placeBuilding(8, 8, 10, 8, 'home');
   placeBuilding(centerX - 12, centerY - 10, 8, 6, 'weapon_shop');
   placeBuilding(centerX + 4, centerY - 10, 8, 6, 'armor_shop');
