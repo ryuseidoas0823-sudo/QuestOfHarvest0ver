@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import TitleScreen from './components/TitleScreen';
-import JobSelectScreen from './components/JobSelectScreen';
+import { TitleScreen } from './components/TitleScreen';
+import { JobSelectScreen } from './components/JobSelectScreen';
 import GameHUD from './components/GameHUD';
-import InventoryMenu from './components/InventoryMenu';
-import { GameState, JobType, PlayerEntity, Item } from './types';
+import { InventoryMenu } from './components/InventoryMenu';
+import { GameState, JobType, PlayerEntity } from './types';
 import { INITIAL_PLAYER_STATS } from './data';
 import { generateWorldMap, updateSurvival } from './gameLogic';
 import * as Assets from './assets';
@@ -40,8 +40,16 @@ const App: React.FC = () => {
       hunger: 100,
       thirst: 100,
       energy: 100,
-      x: 25, // 中央付近から開始
-      y: 25
+      x: 25,
+      y: 25,
+      // Entity プロパティの初期化
+      width: 64,
+      height: 96,
+      visualWidth: 64,
+      visualHeight: 96,
+      isMoving: false,
+      animFrame: 0,
+      direction: 'right'
     };
 
     setGameState({
@@ -49,7 +57,7 @@ const App: React.FC = () => {
       enemies: [],
       worldMap: generateWorldMap(MAP_SIZE, MAP_SIZE),
       dayCount: 1,
-      gameTime: 480 // 08:00 AM
+      gameTime: 480
     });
     setScreen('game');
   };
@@ -61,7 +69,6 @@ const App: React.FC = () => {
       const newX = Math.max(0, Math.min(MAP_SIZE - 1, prev.player.x + dx));
       const newY = Math.max(0, Math.min(MAP_SIZE - 1, prev.player.y + dy));
       
-      // 水（タイルタイプ1）は通行不可
       if (prev.worldMap[newY][newX] === 1) return prev;
 
       if (dx < 0) setDirection('left');
@@ -69,9 +76,20 @@ const App: React.FC = () => {
 
       return {
         ...prev,
-        player: { ...prev.player, x: newX, y: newY }
+        player: { 
+          ...prev.player, 
+          x: newX, 
+          y: newY,
+          direction: dx < 0 ? 'left' : dx > 0 ? 'right' : prev.player.direction,
+          isMoving: true
+        }
       };
     });
+    
+    // 移動停止フラグを一定時間後に戻す
+    setTimeout(() => {
+      setGameState(prev => prev ? { ...prev, player: { ...prev.player, isMoving: false } } : null);
+    }, 200);
   }, []);
 
   // 採取・インタラクト
@@ -81,13 +99,10 @@ const App: React.FC = () => {
       const tileType = prev.worldMap[prev.player.y][prev.player.x];
       const player = { ...prev.player };
       
-      // 水辺(1)の隣接チェックまたは足元チェック
-      // ここでは簡略化のため足元が水に近い（あるいは水タイルそのもの）場合
-      if (tileType === 0) { // 草地
-        player.hunger = Math.min(100, player.hunger + 5); // 野草を食べる
+      if (tileType === 0) {
+        player.hunger = Math.min(100, player.hunger + 5);
       }
       
-      // 近接タイルチェック
       const nearWater = [
         prev.worldMap[prev.player.y][prev.player.x],
         prev.worldMap[prev.player.y-1]?.[prev.player.x],
@@ -97,7 +112,7 @@ const App: React.FC = () => {
       ].includes(1);
 
       if (nearWater) {
-        player.thirst = Math.min(100, player.thirst + 10); // 水を飲む
+        player.thirst = Math.min(100, player.thirst + 10);
       }
 
       return { ...prev, player };
@@ -181,7 +196,6 @@ const App: React.FC = () => {
   const getPlayerSVG = () => {
     if (!gameState) return null;
     const { job, gender } = gameState.player;
-    // 職業ごとのアセットを選択
     const jobKey = job.toLowerCase() as keyof typeof Assets;
     const assets = (Assets as any)[jobKey]?.HERO_ASSETS;
     if (!assets) return null;
@@ -194,7 +208,6 @@ const App: React.FC = () => {
   if (gameState) {
     const { player, worldMap } = gameState;
     
-    // 描画範囲の計算（プレイヤーを中心に）
     const viewWidth = 15;
     const viewHeight = 11;
     const startX = Math.max(0, Math.min(MAP_SIZE - viewWidth, player.x - Math.floor(viewWidth / 2)));
@@ -202,7 +215,6 @@ const App: React.FC = () => {
 
     return (
       <div className="relative w-full h-screen bg-slate-950 overflow-hidden flex items-center justify-center">
-        {/* ワールドタイルグリッド */}
         <div 
           className="relative bg-green-900 border-4 border-slate-800 shadow-2xl overflow-hidden"
           style={{ 
@@ -210,7 +222,6 @@ const App: React.FC = () => {
             height: viewHeight * TILE_SIZE 
           }}
         >
-          {/* 地面タイルの描画 */}
           <div 
             className="absolute transition-all duration-100 ease-out"
             style={{ 
@@ -235,7 +246,6 @@ const App: React.FC = () => {
             )))}
           </div>
 
-          {/* プレイヤーの描画 */}
           <div 
             className="absolute transition-all duration-200 z-10"
             style={{ 
@@ -251,12 +261,10 @@ const App: React.FC = () => {
               className="w-full h-full drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)]"
               dangerouslySetInnerHTML={{ __html: getPlayerSVG() || '' }}
             />
-            {/* プレイヤー位置マーカー */}
             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-1 bg-black/40 rounded-full blur-[1px]" />
           </div>
         </div>
 
-        {/* 操作ガイド */}
         <div className="absolute bottom-4 left-4 text-white/50 text-xs font-mono bg-black/40 p-2 rounded">
           [WASD] MOVE | [E] GATHER | [I] INVENTORY
         </div>
@@ -276,7 +284,6 @@ const App: React.FC = () => {
           />
         )}
 
-        {/* 死亡オーバーレイ */}
         {player.hp <= 0 && (
           <div className="absolute inset-0 bg-red-950/90 flex flex-col items-center justify-center text-white z-50 animate-in fade-in duration-1000">
             <h2 className="text-7xl font-black mb-4 tracking-tighter text-red-500">GAMEOVER</h2>
