@@ -35,7 +35,11 @@ export default function App() {
 
   const loadedAssets = useMemo(() => {
     const images: Record<string, HTMLImageElement> = {};
-    Object.entries(ASSETS_SVG).forEach(([key, svg]) => { const img = new Image(); img.src = svgToUrl(svg); images[key] = img; });
+    Object.entries(ASSETS_SVG).forEach(([key, svg]) => { 
+      const img = new Image(); 
+      img.src = svgToUrl(svg); 
+      images[key] = img; 
+    });
     return images;
   }, []);
 
