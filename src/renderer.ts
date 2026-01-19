@@ -1,252 +1,112 @@
-import { GameState, TileType } from './types';
-import { THEME, GAME_CONFIG } from './config';
+import { GameState, PlayerEntity, EnemyEntity } from './types';
 
 /**
- * 決定論的乱数生成器
- * マップの装飾（草のドットなど）が再描画のたびに動かないようにするために使用
+ * ゲーム画面の描画クラス
+ * Canvas APIを使用してワールド、エンティティ、エフェクトを描画します。
  */
-const pseudoRandom = (x: number, y: number) => {
-  const sin = Math.sin(x * 12.9898 + y * 78.233);
-  return (sin * 43758.5453) - Math.floor(sin * 43758.5453);
-};
+export class GameRenderer {
+  private ctx: CanvasRenderingContext2D;
+  private canvas: HTMLCanvasElement;
+  private tileSize: number = 48;
 
-/**
- * ゲーム画面のメインレンダリング関数
- */
-export const renderGame = (
-  ctx: CanvasRenderingContext2D,
-  state: GameState,
-  assets: Record<string, HTMLImageElement>
-) => {
-  const { width, height } = ctx.canvas;
-  const tileSize = GAME_CONFIG.TILE_SIZE;
-  const { player, map, camera } = state;
-
-  // 1. カメラ追従の更新（プレイヤーを画面中央に）
-  const targetCamX = player.x + player.width / 2 - width / 2;
-  const targetCamY = player.y + player.height / 2 - height / 2;
-  camera.x += (targetCamX - camera.x) * 0.1;
-  camera.y += (targetCamY - camera.y) * 0.1;
-
-  // 2. 画面クリア
-  ctx.fillStyle = '#020617'; // ダークネイビーの背景
-  ctx.fillRect(0, 0, width, height);
-
-  // 3. タイルマップ描画（画面内のみを描画するカリング）
-  const startCol = Math.max(0, Math.floor(camera.x / tileSize));
-  const endCol = Math.min(map[0].length, startCol + Math.ceil(width / tileSize) + 1);
-  const startRow = Math.max(0, Math.floor(camera.y / tileSize));
-  const endRow = Math.min(map.length, startRow + Math.ceil(height / tileSize) + 1);
-  
-  const offsetX = -camera.x;
-  const offsetY = -camera.y;
-
-  for (let r = startRow; r < endRow; r++) {
-    for (let c = startCol; c < endCol; c++) {
-      const tile = map[r][c];
-      const x = c * tileSize + offsetX;
-      const y = r * tileSize + offsetY;
-      drawTile(ctx, tile.type, x, y, tileSize, c, r, state.gameTime);
-    }
+  constructor(canvas: HTMLCanvasElement) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d')!;
   }
 
-  // 4. オブジェクト描画リスト（Y軸ソートで重なりを表現）
-  const renderList: { y: number, draw: () => void }[] = [];
+  public render(state: GameState) {
+    const { ctx, canvas, tileSize } = this;
+    const { player, worldMap, enemies, camera } = state;
 
-  // ドロップアイテムの描画
-  state.droppedItems.forEach(drop => {
-    renderList.push({
-      y: drop.y + drop.height,
-      draw: () => {
-        const dx = drop.x + offsetX;
-        const dy = drop.y + offsetY;
-        const floatY = Math.sin(state.gameTime * 0.1) * 4;
-        
-        ctx.fillStyle = 'rgba(0,0,0,0.3)';
-        ctx.beginPath();
-        ctx.ellipse(dx + drop.width / 2, dy + drop.height, drop.width / 3, 4, 0, 0, Math.PI * 2);
-        ctx.fill();
+    // 背景クリア
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        ctx.font = '20px serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(drop.item.icon, dx + drop.width / 2, dy + drop.height / 2 + floatY);
-      }
-    });
-  });
+    // カメラオフセットの計算 (カメラが未定義の場合はプレイヤー中心)
+    const camX = camera?.x ?? player.x;
+    const camY = camera?.y ?? player.y;
+    const offsetX = canvas.width / 2 - camX * tileSize;
+    const offsetY = canvas.height / 2 - camY * tileSize;
 
-  // 敵キャラクターの描画
-  state.enemies.forEach(enemy => {
-    if (enemy.dead) return;
-    renderList.push({
-      y: enemy.y + enemy.height,
-      draw: () => {
-        const dx = enemy.x + offsetX;
-        const dy = enemy.y + offsetY;
-        const bob = enemy.isMoving ? Math.abs(Math.sin(enemy.animFrame)) * 5 : 0;
-
-        ctx.fillStyle = 'rgba(0,0,0,0.3)';
-        ctx.beginPath();
-        ctx.ellipse(dx + enemy.width / 2, dy + enemy.height, enemy.width / 2, 4, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // アセットキー：モーション対応
-        const baseKey = `Monster_${enemy.race}`;
-        // 将来的に被ダメージ判定がある場合、`${baseKey}_damage` を優先表示
-        const sprite = assets[`${baseKey}_idle`] || assets[baseKey];
-
-        if (sprite) {
-          ctx.drawImage(sprite, dx, dy - bob, enemy.visualWidth, enemy.visualHeight);
-        } else {
-          ctx.fillStyle = enemy.color;
-          drawRoundedRect(ctx, dx, dy - bob, enemy.width, enemy.height, 4);
-          ctx.fill();
+    // 1. ワールドマップ描画
+    if (worldMap) {
+      for (let y = 0; y < worldMap.length; y++) {
+        for (let x = 0; x < worldMap[y].length; x++) {
+          const tile = worldMap[y][x];
+          ctx.fillStyle = tile === 1 ? '#2563eb' : '#065f46';
+          ctx.fillRect(x * tileSize + offsetX, y * tileSize + offsetY, tileSize, tileSize);
+          
+          // グリッド線
+          ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+          ctx.strokeRect(x * tileSize + offsetX, y * tileSize + offsetY, tileSize, tileSize);
         }
-
-        // HPバーの表示
-        const hpRatio = Math.max(0, enemy.hp / enemy.maxHp);
-        ctx.fillStyle = '#1e293b';
-        ctx.fillRect(dx, dy - 12, enemy.width, 4);
-        ctx.fillStyle = hpRatio > 0.5 ? '#22c55e' : hpRatio > 0.2 ? '#eab308' : '#ef4444';
-        ctx.fillRect(dx, dy - 12, enemy.width * hpRatio, 4);
       }
-    });
-  });
+    }
 
-  // プレイヤーの描画
-  renderList.push({
-    y: player.y + player.height,
-    draw: () => {
-      const dx = player.x + offsetX;
-      const dy = player.y + offsetY;
-      const bob = player.isMoving ? Math.abs(Math.sin(player.animFrame)) * 6 : 0;
-      const scaleX = player.isMoving ? 1 + Math.sin(player.animFrame) * 0.05 : 1;
-
-      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    // 2. ドロップアイテム描画
+    state.droppedItems?.forEach(item => {
+      ctx.fillStyle = '#fbbf24';
       ctx.beginPath();
-      ctx.ellipse(dx + player.width / 2, dy + player.height, player.width / 2, 4, 0, 0, Math.PI * 2);
+      ctx.arc(item.x * tileSize + offsetX + tileSize / 2, item.y * tileSize + offsetY + tileSize / 2, 4, 0, Math.PI * 2);
       ctx.fill();
-
-      ctx.save();
-      ctx.translate(dx + player.width / 2, dy + player.height);
-      ctx.scale(scaleX, 1);
-      
-      // モーション選択：攻撃中なら attack、そうでなければ idle
-      const isAttacking = (player as any).isAttacking;
-      const motion = isAttacking ? 'attack' : 'idle';
-      const baseKey = `${player.job}_${player.gender}`;
-      
-      // 特定のモーション画像があればそれを使用、なければベース画像
-      const sprite = assets[`${baseKey}_${motion}`] || assets[baseKey];
-
-      if (sprite) {
-          if (player.direction === 2) ctx.scale(-1, 1);
-          ctx.drawImage(sprite, -player.visualWidth / 2, -player.visualHeight - bob, player.visualWidth, player.visualHeight);
-      } else {
-          ctx.fillStyle = player.color;
-          ctx.fillRect(-player.width / 2, -player.height - bob, player.width, player.height);
-      }
-      ctx.restore();
-
-      // 攻撃エフェクトの描画
-      if (isAttacking) {
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.lineWidth = 4;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        const cx = dx + player.width / 2;
-        const cy = dy + player.height / 2;
-        let startAngle = 0;
-        switch(player.direction) {
-            case 0: startAngle = -Math.PI / 4; break;
-            case 1: startAngle = Math.PI / 4; break;
-            case 2: startAngle = 3 * Math.PI / 4; break;
-            case 3: startAngle = -3 * Math.PI / 4; break;
-        }
-        ctx.arc(cx, cy, 40, startAngle, startAngle + Math.PI / 2);
-        ctx.stroke();
-      }
-    }
-  });
-
-  // エフェクトパーティクルの描画
-  state.particles.forEach(p => {
-    renderList.push({
-      y: p.y,
-      draw: () => {
-        const dx = p.x + offsetX;
-        const dy = p.y + offsetY;
-        ctx.globalAlpha = p.life / p.maxLife;
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(dx, dy, p.size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1.0;
-      }
     });
-  });
 
-  // リストをソートして描画実行
-  renderList.sort((a, b) => a.y - b.y).forEach(obj => obj.draw());
+    // 3. 敵キャラクター描画
+    enemies.forEach(enemy => {
+      this.drawEntity(ctx, enemy, offsetX, offsetY);
+    });
 
-  // フローティングテキスト
-  state.floatingTexts.forEach(text => {
-    ctx.font = 'bold 16px sans-serif';
-    ctx.fillStyle = text.color;
-    ctx.textAlign = 'center';
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 2;
-    ctx.strokeText(text.text, text.x + offsetX, text.y + offsetY);
-    ctx.fillText(text.text, text.x + offsetX, text.y + offsetY);
-  });
-};
+    // 4. プレイヤー描画
+    this.drawEntity(ctx, player, offsetX, offsetY);
 
-/**
- * タイル単体の描画
- */
-const drawTile = (ctx: CanvasRenderingContext2D, type: TileType, x: number, y: number, size: number, gridX: number, gridY: number, _time: number) => {
-    const colorMap: Record<string, string> = {
-      grass: THEME.colors.grass,
-      dirt: THEME.colors.ground,
-      floor: THEME.colors.townFloor,
-      wall: THEME.colors.wall,
-      water: THEME.colors.water,
-      rock: '#334155',
-      sand: '#fde047',
-      snow: '#f1f5f9',
-      tree: '#064e3b',
-      town_entrance: '#fbbf24',
-      dungeon_entrance: '#7c2d12',
-      portal_out: '#6366f1'
-    };
+    // 5. パーティクル
+    state.particles?.forEach(p => {
+      ctx.fillStyle = p.color || '#fff';
+      ctx.globalAlpha = p.life || 1;
+      ctx.fillRect(p.x * tileSize + offsetX, p.y * tileSize + offsetY, 2, 2);
+    });
+    ctx.globalAlpha = 1.0;
 
-    const baseColor = colorMap[type] || '#ff00ff';
-    ctx.fillStyle = baseColor;
-    ctx.fillRect(x, y, size, size);
+    // 6. フローティングテキスト
+    state.floatingTexts?.forEach(t => {
+      ctx.fillStyle = t.color || '#fff';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.fillText(t.text, t.x * tileSize + offsetX, t.y * tileSize + offsetY);
+    });
+  }
 
-    const rand = pseudoRandom(gridX, gridY);
-    if (type === 'grass' && rand > 0.7) {
-        ctx.fillStyle = 'rgba(255,255,255,0.05)';
-        ctx.fillRect(x + rand * (size - 2), y + (1 - rand) * (size - 2), 2, 2);
-    } else if (type === 'water') {
-        ctx.fillStyle = 'rgba(255,255,255,0.05)';
-        const wave = Math.sin(_time * 0.05 + rand * 10) * 2;
-        ctx.fillRect(x + 2, y + size / 2 + wave, size - 4, 1);
+  private drawEntity(ctx: CanvasRenderingContext2D, entity: any, offsetX: number, offsetY: number) {
+    const { tileSize } = this;
+    const x = entity.x * tileSize + offsetX;
+    const y = entity.y * tileSize + offsetY;
+
+    // 反転処理 (direction が 'left' の場合)
+    ctx.save();
+    if (entity.direction === 'left') {
+      ctx.translate(x + tileSize, y);
+      ctx.scale(-1, 1);
+      ctx.translate(-x, -y);
     }
-};
 
-/**
- * 角丸矩形の描画（フォールバック用）
- */
-const drawRoundedRect = (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) => {
-    ctx.beginPath();
-    ctx.moveTo(x + radius, y);
-    ctx.lineTo(x + width - radius, y);
-    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-    ctx.lineTo(x + width, y + height - radius);
-    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-    ctx.lineTo(x + radius, y + height);
-    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-    ctx.lineTo(x, y + radius);
-    ctx.quadraticCurveTo(x, y, x + radius, y);
-    ctx.closePath();
-};
+    // エンティティの本体 (プレースホルダーまたは色付き矩形)
+    ctx.fillStyle = entity.color || (entity.id === 'player-1' ? '#3b82f6' : '#ef4444');
+    const vWidth = entity.visualWidth || tileSize;
+    const vHeight = entity.visualHeight || tileSize;
+    ctx.fillRect(x + (tileSize - vWidth) / 2, y + (tileSize - vHeight), vWidth, vHeight);
+
+    ctx.restore();
+
+    // HPバー
+    if (entity.hp < entity.maxHp) {
+      const barW = tileSize * 0.8;
+      const barH = 4;
+      const barX = x + (tileSize - barW) / 2;
+      const barY = y - 10;
+      
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(barX, barY, barW * (entity.hp / entity.maxHp), barH);
+    }
+  }
+}
