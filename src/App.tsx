@@ -5,7 +5,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 import { auth, db, isConfigValid, appId } from './config';
 import { PlayerEntity, Job, Gender, MenuType, ResolutionMode, Biome } from './types';
-// 修正：新しいアセット構成からのインポート
+// 統合アセット構成からのインポート
 import { HERO_ASSETS, MONSTER_ASSETS, svgToUrl } from './assets/index';
 import { createPlayer, generateWorldMap, updatePlayerStats, generateTownMap } from './gameLogic';
 import { resolveMapCollision } from './utils';
@@ -33,28 +33,31 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // 修正：統合されたアセットを読み込むロジック
+  // モーション対応のアセット読み込みロジック
   const loadedAssets = useMemo(() => {
     const images: Record<string, HTMLImageElement> = {};
-    const allAssets = { ...HERO_ASSETS, ...MONSTER_ASSETS } as any;
+    const allAssets = { ...HERO_ASSETS, ...MONSTER_ASSETS };
     
     Object.entries(allAssets).forEach(([key, value]) => { 
       if (typeof value === 'string') {
-        // 従来の文字列形式（互換性維持）
+        // 単一のSVG文字列の場合
         const img = new Image(); 
         img.src = svgToUrl(value); 
         images[key] = img;
       } else if (value && typeof value === 'object') {
-        // 新しいモーション形式：idle, attack, damage などを個別に読み込む
-        Object.entries(value).forEach(([motion, svg]) => {
+        // 修正ポイント：Record<string, string> としてキャストしてアクセス
+        const motions = value as Record<string, string>;
+        
+        Object.entries(motions).forEach(([motion, svg]) => {
           const img = new Image();
-          img.src = svgToUrl(svg as string);
+          img.src = svgToUrl(svg);
           images[`${key}_${motion}`] = img;
         });
-        // 後方互換性：idleがあれば、それをベースのキー（モーション接尾辞なし）でも登録しておく
-        if (value.idle) {
+
+        // デフォルト画像として 'idle' を登録（モーション名なしのキーでもアクセス可能にする）
+        if (motions.idle) {
           const img = new Image();
-          img.src = svgToUrl(value.idle as string);
+          img.src = svgToUrl(motions.idle);
           images[key] = img;
         }
       }
