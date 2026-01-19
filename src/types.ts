@@ -36,7 +36,7 @@ export interface Entity {
   isMoving: boolean;
   animFrame: number;
   direction: 'left' | 'right';
-  color?: string; // レンダラー互換用
+  color?: string;
 }
 
 export interface PlayerEntity extends Entity {
@@ -57,7 +57,6 @@ export interface PlayerEntity extends Entity {
   hunger: number;
   thirst: number;
   energy: number;
-  // 戦闘用プロパティを確実に追加
   lastAttackTime: number;
   invincibleUntil: number;
 }
@@ -68,7 +67,6 @@ export interface EnemyEntity extends Entity {
   lootTable: string[];
   dead?: boolean;
   race?: string;
-  // AI/戦闘用プロパティを確実に追加
   behavior: 'idle' | 'chase' | 'attack';
   visionRange: number;
   attackRange: number;
@@ -108,4 +106,13 @@ export interface GameState {
 }
 
 export type TileType = number;
-export interface Tile { type: TileType; x: number; y: number; solid?: boolean; }
+export interface Tile { 
+  type: TileType; 
+  x: number; 
+  y: number; 
+  solid?: boolean; 
+}
+
+// アセット用
+export type JobAssets = Record<JobType, { male: any; female: any }>;
+export const svgToUrl = (svg: string) => `data:image/svg+xml;base64,${btoa(svg)}`;
