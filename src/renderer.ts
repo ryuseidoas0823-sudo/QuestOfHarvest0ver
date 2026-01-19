@@ -10,6 +10,9 @@ const pseudoRandom = (x: number, y: number) => {
   return (sin * 43758.5453) - Math.floor(sin * 43758.5453);
 };
 
+/**
+ * ゲーム画面のメインレンダリング関数
+ */
 export const renderGame = (
   ctx: CanvasRenderingContext2D,
   state: GameState,
@@ -26,10 +29,10 @@ export const renderGame = (
   camera.y += (targetCamY - camera.y) * 0.1;
 
   // 2. 画面クリア
-  ctx.fillStyle = '#020617'; // 背景色
+  ctx.fillStyle = '#020617'; // ダークネイビーの背景
   ctx.fillRect(0, 0, width, height);
 
-  // 3. タイルマップ描画の最適化（画面内のみ）
+  // 3. タイルマップ描画（画面内のみを描画するカリング）
   const startCol = Math.max(0, Math.floor(camera.x / tileSize));
   const endCol = Math.min(map[0].length, startCol + Math.ceil(width / tileSize) + 1);
   const startRow = Math.max(0, Math.floor(camera.y / tileSize));
@@ -47,10 +50,10 @@ export const renderGame = (
     }
   }
 
-  // 4. オブジェクト描画（Y軸ソートで奥行きを表現）
+  // 4. オブジェクト描画リスト（Y軸ソートで重なりを表現）
   const renderList: { y: number, draw: () => void }[] = [];
 
-  // ドロップアイテム
+  // ドロップアイテムの描画
   state.droppedItems.forEach(drop => {
     renderList.push({
       y: drop.y + drop.height,
@@ -71,7 +74,7 @@ export const renderGame = (
     });
   });
 
-  // 敵キャラクター
+  // 敵キャラクターの描画
   state.enemies.forEach(enemy => {
     if (enemy.dead) return;
     renderList.push({
@@ -86,18 +89,17 @@ export const renderGame = (
         ctx.ellipse(dx + enemy.width / 2, dy + enemy.height, enemy.width / 2, 4, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // アセットキーの改善: Monster_Slime, Monster_Dragon などに対応
+        // アセットフォルダ(src/assets/monsters.ts)内のキーと一致
         const assetKey = `Monster_${enemy.race}`;
         if (assets[assetKey]) {
           ctx.drawImage(assets[assetKey], dx, dy - bob, enemy.visualWidth, enemy.visualHeight);
         } else {
-          // フォールバック描画
           ctx.fillStyle = enemy.color;
           drawRoundedRect(ctx, dx, dy - bob, enemy.width, enemy.height, 4);
           ctx.fill();
         }
 
-        // HPバー
+        // HPバーの表示
         const hpRatio = Math.max(0, enemy.hp / enemy.maxHp);
         ctx.fillStyle = '#1e293b';
         ctx.fillRect(dx, dy - 12, enemy.width, 4);
@@ -107,7 +109,7 @@ export const renderGame = (
     });
   });
 
-  // プレイヤーキャラクター
+  // プレイヤーの描画
   renderList.push({
     y: player.y + player.height,
     draw: () => {
@@ -125,10 +127,10 @@ export const renderGame = (
       ctx.translate(dx + player.width / 2, dy + player.height);
       ctx.scale(scaleX, 1);
       
-      // 修正: assets.ts のキー (Job_Gender) と一致させる
+      // アセットフォルダ(src/assets/*.ts)内のキーと一致 (例: Swordsman_Male)
       const jobKey = `${player.job}_${player.gender}`;
       if (assets[jobKey]) {
-          // 左右反転対応（左向きの場合）
+          // 左向き(direction=2)の場合に画像を反転
           if (player.direction === 2) ctx.scale(-1, 1);
           ctx.drawImage(assets[jobKey], -player.visualWidth / 2, -player.visualHeight - bob, player.visualWidth, player.visualHeight);
       } else {
@@ -137,8 +139,9 @@ export const renderGame = (
       }
       ctx.restore();
 
-      // 攻撃エフェクト
-      if (player.isAttacking) {
+      // 攻撃エフェクトの描画 (isAttackingがtrueの場合)
+      // Note: types.ts に isAttacking プロパティの追加が必要
+      if ((player as any).isAttacking) {
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
         ctx.lineWidth = 4;
         ctx.lineCap = 'round';
@@ -147,10 +150,10 @@ export const renderGame = (
         const cy = dy + player.height / 2;
         let startAngle = 0;
         switch(player.direction) {
-            case 0: startAngle = -Math.PI / 4; break;
-            case 1: startAngle = Math.PI / 4; break;
-            case 2: startAngle = 3 * Math.PI / 4; break;
-            case 3: startAngle = -3 * Math.PI / 4; break;
+            case 0: startAngle = -Math.PI / 4; break;    // 右
+            case 1: startAngle = Math.PI / 4; break;     // 下
+            case 2: startAngle = 3 * Math.PI / 4; break; // 左
+            case 3: startAngle = -3 * Math.PI / 4; break;// 上
         }
         ctx.arc(cx, cy, 40, startAngle, startAngle + Math.PI / 2);
         ctx.stroke();
@@ -158,6 +161,7 @@ export const renderGame = (
     }
   });
 
+  // エフェクトパーティクルの描画
   state.particles.forEach(p => {
     renderList.push({
       y: p.y,
@@ -174,8 +178,10 @@ export const renderGame = (
     });
   });
 
+  // リストをソートして描画実行
   renderList.sort((a, b) => a.y - b.y).forEach(obj => obj.draw());
 
+  // ダメージ数値などのフローティングテキスト
   state.floatingTexts.forEach(text => {
     ctx.font = 'bold 16px sans-serif';
     ctx.fillStyle = text.color;
@@ -187,6 +193,9 @@ export const renderGame = (
   });
 };
 
+/**
+ * タイル単体の描画
+ */
 const drawTile = (ctx: CanvasRenderingContext2D, type: TileType, x: number, y: number, size: number, gridX: number, gridY: number, _time: number) => {
     const colorMap: Record<string, string> = {
       grass: THEME.colors.grass,
@@ -207,6 +216,7 @@ const drawTile = (ctx: CanvasRenderingContext2D, type: TileType, x: number, y: n
     ctx.fillStyle = baseColor;
     ctx.fillRect(x, y, size, size);
 
+    // タイルの装飾（草のドットや水面の揺れ）
     const rand = pseudoRandom(gridX, gridY);
     if (type === 'grass' && rand > 0.7) {
         ctx.fillStyle = 'rgba(255,255,255,0.05)';
@@ -218,6 +228,9 @@ const drawTile = (ctx: CanvasRenderingContext2D, type: TileType, x: number, y: n
     }
 };
 
+/**
+ * 角丸矩形の描画（フォールバック用）
+ */
 const drawRoundedRect = (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) => {
     ctx.beginPath();
     ctx.moveTo(x + radius, y);
