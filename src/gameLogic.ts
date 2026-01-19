@@ -38,11 +38,48 @@ export const generateWorldMap = (width: number, height: number): number[][] => {
   return map;
 };
 
+/**
+ * モンスターの配置
+ * マップ上の有効な（水ではない）タイルにモンスターを配置します
+ */
+export const spawnMonsters = (worldMap: number[][], count: number, playerLevel: number): EnemyEntity[] => {
+  const enemies: EnemyEntity[] = [];
+  const height = worldMap.length;
+  const width = worldMap[0].length;
+
+  for (let i = 0; i < count; i++) {
+    let x, y;
+    let attempts = 0;
+    // 水タイルを避けて配置を試行する
+    do {
+      x = Math.floor(Math.random() * width);
+      y = Math.floor(Math.random() * height);
+      attempts++;
+    } while (worldMap[y][x] === 1 && attempts < 100);
+
+    if (attempts < 100) {
+      enemies.push(generateEnemy(playerLevel, x, y));
+    }
+  }
+  return enemies;
+};
+
+/**
+ * シンボルエンカウントのチェック
+ * プレイヤーと同じタイル座標にいるモンスターを返します
+ */
+export const checkSymbolEncounter = (player: PlayerEntity, enemies: EnemyEntity[]): EnemyEntity | null => {
+  return enemies.find(enemy => enemy.x === player.x && enemy.y === player.y) || null;
+};
+
 export const calculateRequiredExp = (level: number): number => {
   return Math.floor(100 * Math.pow(1.2, level - 1));
 };
 
-export const generateEnemy = (level: number): EnemyEntity => {
+/**
+ * モンスター個体の生成
+ */
+export const generateEnemy = (level: number, x: number = 0, y: number = 0): EnemyEntity => {
   const rarityRoll = Math.random();
   let rarity: 'Normal' | 'Elite' | 'Boss' = 'Normal';
   let multiplier = 1;
@@ -55,10 +92,14 @@ export const generateEnemy = (level: number): EnemyEntity => {
     multiplier = 2;
   }
 
+  // バリエーションを増やすための種類リスト
+  const monsterTypes = ['Slime', 'Goblin', 'Wolf', 'Bat'];
+  const type = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
+
   return {
     id: crypto.randomUUID(),
-    name: `${rarity === 'Normal' ? '' : rarity + ' '}Monster`,
-    type: 'Slime',
+    name: `${rarity === 'Normal' ? '' : rarity + ' '}${type}`,
+    type: type,
     level,
     rarity,
     hp: 50 * level * multiplier,
@@ -66,8 +107,8 @@ export const generateEnemy = (level: number): EnemyEntity => {
     mp: 20 * level,
     maxMp: 20 * level,
     stats: { str: 5, dex: 5, int: 5, vit: 5, agi: 5, luk: 5 },
-    x: 0,
-    y: 0,
+    x,
+    y,
     width: 48,
     height: 48,
     visualWidth: 48,
