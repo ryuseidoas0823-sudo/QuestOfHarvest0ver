@@ -1,244 +1,169 @@
-/**
- * 超高解像度版(64x96) キャラクター・モンスターSVGアセット
- * 主人公：男性(Cool/精悍)、女性(Cute/Sexy/曲線美)
- * モンスター：低ランク(Kawaii/ぷにぷに)、高ランク(Epic/禍々しい)
- */
-export const ASSETS_SVG = {
-  // --- Swordsman (剣士) ---
-  Swordsman_Male: `
-  <svg viewBox="0 0 64 96" xmlns="http://www.w3.org/2000/svg">
-    <!-- 影 -->
-    <ellipse cx="32" cy="88" rx="20" ry="6" fill="rgba(0,0,0,0.2)" />
-    <!-- マント -->
-    <path d="M16 32 L8 48 L12 80 L32 84 L52 80 L56 48 L48 32 Z" fill="#1a237e" />
-    <path d="M20 32 L14 50 L18 78 L32 80 L46 78 L50 50 L44 32 Z" fill="#283593" />
-    <!-- 鎧(脚) -->
-    <path d="M22 64h8v24h-8zm12 0h8v24h-8z" fill="#78909c" />
-    <path d="M22 64h8v4h-8zm12 0h8v4h-8z" fill="#b0bec5" />
-    <!-- 鎧(胴体) -->
-    <path d="M18 32h28v36H18z" fill="#455a64" />
-    <path d="M22 34h20v28H22z" fill="#90a4ae" />
-    <path d="M22 34h20v4H22z" fill="#ffca28" /> <!-- 装飾 -->
-    <path d="M28 42h8v4h-8z" fill="#cfd8dc" /> <!-- 胸当てのハイライト -->
-    <!-- 腕 -->
-    <path d="M14 34h4v24h-4zm46 34h4v24h-4z" fill="#90a4ae" />
-    <!-- 頭部 -->
-    <path d="M24 10h16v18H24z" fill="#ffe0b2" />
-    <path d="M22 6h20v14H22z" fill="#cfd8dc" /> <!-- 銀髪 -->
-    <path d="M22 14 L26 6 L38 6 L42 14 Z" fill="#eceff1" />
-    <path d="M28 18h3v2h-3zm6 0h3v2h-3z" fill="#0d47a1" /> <!-- 鋭い瞳 -->
-    <!-- 聖剣 -->
-    <path d="M48 20h4v48h-4z" fill="#eceff1" />
-    <path d="M46 60h8v4h-8z" fill="#5d4037" />
-    <circle cx="50" cy="66" r="3" fill="#ffd700" />
-  </svg>`,
+import React, { useState, useEffect } from 'react';
+import { Shield, Sparkles, User, Sword, Heart, Zap } from 'lucide-react';
 
-  Swordsman_Female: `
-  <svg viewBox="0 0 64 96" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="32" cy="88" rx="20" ry="5" fill="rgba(0,0,0,0.15)" />
-    <!-- 髪(ロングポニーテール) -->
-    <path d="M22 8h20v24H22z" fill="#ffb300" />
-    <path d="M42 20h12v40 L48 50 L42 55 Z" fill="#ffa000" />
-    <path d="M30 4h4v6h-4z" fill="#d32f2f" /> <!-- リボン -->
-    <!-- 顔 -->
-    <path d="M25 12h14v18H25z" fill="#fff3e0" />
-    <path d="M28 20h3v3h-3zm6 0h3v3h-3z" fill="#333" />
-    <path d="M30 25h4v1H30z" fill="#ff8a80" /> <!-- チーク -->
-    <!-- 胴体(キュートなアーマー) -->
-    <path d="M22 32h20v8H22z" fill="#1e88e5" />
-    <path d="M24 40h16v10H24z" fill="#fff" /> <!-- インナー -->
-    <path d="M20 50h24v12H20z" fill="#1565c0" /> <!-- スカート -->
-    <path d="M20 50h24v2H20z" fill="#ffd700" />
-    <!-- 脚(ニーハイ) -->
-    <path d="M24 62h6v26h-6zm10 0h6v26h-6z" fill="#212121" />
-    <path d="M24 62h6v6h-6zm10 0h6v6h-6z" fill="#fff3e0" /> <!-- 絶対領域 -->
-    <!-- 靴 -->
-    <path d="M22 84h10v4h-10zm10 0h10v4h-10z" fill="#424242" />
-  </svg>`,
+// 画像生成APIを使用して、イラストレベルのビジュアルを取得するロジックのデモンストレーション
+const App = () => {
+  const [images, setImages] = useState({
+    maleSwordsman: null,
+    femaleSwordsman: null
+  });
+  const [loading, setLoading] = useState(true);
+  const apiKey = ""; // 実行環境から自動提供
 
-  // --- Warrior (戦士) ---
-  Warrior_Male: `
-  <svg viewBox="0 0 64 96" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="32" cy="88" rx="24" ry="7" fill="rgba(0,0,0,0.25)" />
-    <!-- 赤髪 -->
-    <path d="M20 4h24v16H20z" fill="#b71c1c" />
-    <path d="M22 2h20v4H22z" fill="#f44336" />
-    <!-- 筋肉質な肉体 -->
-    <path d="M22 20h20v14H22z" fill="#ffccaa" />
-    <path d="M16 34h32v16H16z" fill="#ffccaa" /> <!-- 胸筋ライン -->
-    <path d="M28 38h8v2h-8zm0 4h8v2h-8z" fill="#e0a080" /> <!-- 腹筋 -->
-    <!-- レザーアーマー -->
-    <path d="M20 44h24v12H20z" fill="#3e2723" />
-    <path d="M16 34h4v10h-4zm28 0h4v10h-4z" fill="#5d4037" />
-    <!-- 脚 -->
-    <path d="M22 56h8v32h-8zm12 0h8v32h-8z" fill="#212121" />
-    <!-- 巨大な戦斧 -->
-    <path d="M48 10h12v20h-12z" fill="#757575" />
-    <path d="M48 18h12v4h-12z" fill="#bdbdbd" />
-    <path d="M52 30h4v50h-4z" fill="#4e342e" />
-  </svg>`,
+  const generateCharacters = async () => {
+    setLoading(true);
+    const prompts = {
+      maleSwordsman: "Full body game character illustration of a handsome cool male knight, silver plate armor with gold highlights, long blue cape, sharp blue eyes, high fantasy anime style, detailed muscle lines and anatomy, heroic pose, white background",
+      femaleSwordsman: "Full body game character illustration of a beautiful cute female swordsman, light blue and white fantasy armor, mini-skirt armor design, red ribbon in blonde ponytail, sexy and athletic silhouette, detailed facial features, heroic yet charming pose, white background"
+    };
 
-  Warrior_Female: `
-  <svg viewBox="0 0 64 96" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="32" cy="88" rx="20" ry="5" fill="rgba(0,0,0,0.2)" />
-    <!-- 金髪ロング -->
-    <path d="M18 10h28v60H18z" fill="#fdd835" />
-    <path d="M22 4h20v10H22z" fill="#fff176" />
-    <!-- 肌(セクシーな曲線) -->
-    <path d="M26 14h12v12H26z" fill="#ffdbbd" />
-    <path d="M20 26h24v10H20z" fill="#ffdbbd" />
-    <path d="M22 30h8v4h-8zm12 0h8v4h-8z" fill="#90a4ae" /> <!-- ビキニトップ -->
-    <path d="M28 36h8v16H28z" fill="#ffdbbd" /> <!-- くびれ -->
-    <path d="M24 52h16v8H24z" fill="#90a4ae" /> <!-- ボトム -->
-    <!-- 脚(美脚ライン) -->
-    <path d="M24 60h7v28h-7zm9 0h7v28h-7z" fill="#ffdbbd" />
-    <path d="M22 80h11v8h-11zm9 0h11v8h-11z" fill="#b71c1c" />
-    <!-- マフラー -->
-    <path d="M20 22h24v6H20z" fill="#d32f2f" />
-    <path d="M42 28 L50 60 L44 60 L40 28 Z" fill="#b71c1c" />
-  </svg>`,
+    const fetchImage = async (prompt) => {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`;
+      const payload = {
+        instances: [{ prompt }],
+        parameters: { sampleCount: 1 }
+      };
 
-  // --- Archer (狩人) ---
-  Archer_Male: `
-  <svg viewBox="0 0 64 96" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="32" cy="88" rx="18" ry="5" fill="rgba(0,0,0,0.2)" />
-    <!-- フードとマスク -->
-    <path d="M20 6h24v22H20z" fill="#1b5e20" />
-    <path d="M22 20h20v12H22z" fill="#388e3c" /> <!-- マスク -->
-    <path d="M26 16h3v2h-3zm9 0h3v2h-3z" fill="#000" />
-    <!-- ハンターコート -->
-    <path d="M18 32h28v40H18z" fill="#1b5e20" />
-    <path d="M31 32h2v40h-2z" fill="#ffd700" opacity="0.3" /> <!-- センターライン -->
-    <!-- 脚 -->
-    <path d="M24 72h7v16h-7zm9 0h7v16h-7z" fill="#3e2723" />
-    <!-- 剛弓 -->
-    <path d="M52 20 C60 35 60 65 52 80" fill="none" stroke="#8d6e63" stroke-width="4" />
-    <path d="M52 20 L52 80" fill="none" stroke="#e0e0e0" stroke-width="1" />
-  </svg>`,
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        return `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
+      } catch (error) {
+        console.error("Image generation failed", error);
+        return null;
+      }
+    };
 
-  Archer_Female: `
-  <svg viewBox="0 0 64 96" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="32" cy="88" rx="18" ry="5" fill="rgba(0,0,0,0.15)" />
-    <!-- サイドポニーテール -->
-    <path d="M22 8h20v16H22z" fill="#6d4c41" />
-    <path d="M12 14h10v30 L16 30 L12 14 Z" fill="#5d4037" />
-    <!-- 顔 -->
-    <path d="M26 14h12v16H26z" fill="#ffdbbd" />
-    <path d="M29 22h2v2h-2zm4 0h2v2h-2z" fill="#000" />
-    <!-- アクティブウェア -->
-    <path d="M22 30h20v10H22z" fill="#4caf50" />
-    <path d="M24 40h16v12H24z" fill="#ffdbbd" /> <!-- 露出した腹部 -->
-    <path d="M22 52h20v8H22z" fill="#2e7d32" /> <!-- 短パン -->
-    <!-- 脚 -->
-    <path d="M24 60h7v28h-7zm9 0h7v28h-7z" fill="#ffdbbd" />
-    <path d="M22 75h11v13h-11zm9 0h11v13h-11z" fill="#4e342e" /> <!-- ブーツ -->
-  </svg>`,
+    const maleImg = await fetchImage(prompts.maleSwordsman);
+    const femaleImg = await fetchImage(prompts.femaleSwordsman);
 
-  // --- Mage (魔術師) ---
-  Mage_Male: `
-  <svg viewBox="0 0 64 96" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="32" cy="88" rx="20" ry="6" fill="rgba(0,0,0,0.2)" />
-    <!-- 魔導帽 -->
-    <path d="M24 2h16v8H24z" fill="#311b92" />
-    <path d="M12 10h40v4H12z" fill="#512da8" />
-    <!-- 顔 -->
-    <path d="M26 14h12v16H26z" fill="#ffe0b2" />
-    <path d="M28 22h8v2h-8z" fill="#000" opacity="0.4" /> <!-- インテリ眼鏡 -->
-    <!-- 魔導衣 -->
-    <path d="M16 30h32v54H16z" fill="#311b92" />
-    <path d="M20 30h24v54H20z" fill="#4527a0" />
-    <path d="M31 30h2v54h-2z" fill="#ffd700" />
-    <!-- 賢者の杖 -->
-    <path d="M52 20h4v68h-4z" fill="#5d4037" />
-    <path d="M50 10h8v10h-8z" fill="#00e5ff" />
-    <circle cx="54" cy="15" r="6" fill="#00e5ff" opacity="0.6">
-      <animate attributeName="opacity" values="0.3;0.7;0.3" dur="2s" repeatCount="indefinite" />
-    </circle>
-  </svg>`,
+    setImages({ maleSwordsman: maleImg, femaleSwordsman: femaleImg });
+    setLoading(false);
+  };
 
-  Mage_Female: `
-  <svg viewBox="0 0 64 96" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="32" cy="88" rx="20" ry="5" fill="rgba(0,0,0,0.15)" />
-    <!-- ウィッチハット -->
-    <path d="M28 2h8v10H28z" fill="#880e4f" />
-    <path d="M10 12h44v4H10z" fill="#ad1457" />
-    <!-- 桃色ロング髪 -->
-    <path d="M18 16h28v60H18z" fill="#f48fb1" />
-    <!-- セクシーローブ -->
-    <path d="M26 16h12v12H26z" fill="#ffdbbd" />
-    <path d="M20 28h24v8H20z" fill="#ffdbbd" /> <!-- デコルテ -->
-    <path d="M22 36h20v48H22z" fill="#880e4f" />
-    <path d="M34 50h8v34h-8z" fill="#ffdbbd" /> <!-- 脚のスリット見せ -->
-    <path d="M22 36h20v4H22z" fill="#4a148c" />
-    <!-- 宝石の杖 -->
-    <path d="M52 20h4v68h-4z" fill="#5d4037" />
-    <circle cx="54" cy="14" r="7" fill="#ea80fc" />
-  </svg>`,
+  useEffect(() => {
+    generateCharacters();
+  }, []);
 
-  // --- Monster: Low Rank (Kawaii/Weak) ---
-  Monster_Slime: `
-  <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="32" cy="58" rx="24" ry="6" fill="rgba(0,0,0,0.1)" />
-    <path d="M12 50 C12 20 52 20 52 50 C52 58 42 62 32 62 C22 62 12 58 12 50" fill="#4fc3f7" />
-    <path d="M20 40 C20 25 44 25 44 40 Z" fill="#81d4fa" opacity="0.6" />
-    <!-- 顔 -->
-    <circle cx="26" cy="45" r="3" fill="#fff" />
-    <circle cx="38" cy="45" r="3" fill="#fff" />
-    <path d="M28 52 Q32 56 36 52" fill="none" stroke="#fff" stroke-width="2" />
-    <circle cx="20" cy="48" r="4" fill="#ffab91" opacity="0.4" /> <!-- ほっぺ -->
-    <circle cx="44" cy="48" r="4" fill="#ffab91" opacity="0.4" />
-  </svg>`,
+  return (
+    <div className="min-h-screen bg-slate-950 text-white p-8 font-sans">
+      <div className="max-w-6xl mx-auto">
+        <header className="mb-12 text-center">
+          <h1 className="text-4xl font-black tracking-tighter text-yellow-500 mb-4 flex items-center justify-center gap-3">
+            <Sparkles className="animate-pulse" /> キャラクター・ビジュアル・アップグレード
+          </h1>
+          <p className="text-slate-400 max-w-2xl mx-auto">
+            ドット絵から「画像レベル」のイラストへの進化。ボディライン、顔立ち、質感を極限まで高めた次世代の『Quest of Harvest』の姿です。
+          </p>
+        </header>
 
-  Monster_Fungus: `
-  <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="32" cy="58" rx="16" ry="4" fill="rgba(0,0,0,0.1)" />
-    <path d="M24 40h16v20h-16z" fill="#f5f5f5" />
-    <!-- 毒々しくも可愛い傘 -->
-    <path d="M10 40 C10 15 54 15 54 40 Z" fill="#ef5350" />
-    <circle cx="20" cy="28" r="5" fill="#fff" opacity="0.5" />
-    <circle cx="42" cy="30" r="4" fill="#fff" opacity="0.5" />
-    <circle cx="32" cy="22" r="3" fill="#fff" opacity="0.5" />
-    <!-- 顔 -->
-    <circle cx="28" cy="50" r="2" fill="#333" />
-    <circle cx="36" cy="50" r="2" fill="#333" />
-  </svg>`,
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-96 gap-4">
+            <div className="w-16 h-16 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-yellow-500 font-bold animate-pulse">イラストを生成中...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* 男性剣士カード */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl transition-transform hover:scale-[1.02]">
+              <div className="aspect-[3/4] relative bg-slate-800">
+                {images.maleSwordsman ? (
+                  <img src={images.maleSwordsman} alt="Male Swordsman" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-slate-500">画像生成に失敗しました</div>
+                )}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900 p-6">
+                  <span className="bg-blue-600 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">Cool & Strong</span>
+                  <h2 className="text-3xl font-black mt-2">SWORDSMAN <span className="text-blue-400 font-normal">(MALE)</span></h2>
+                </div>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="flex gap-4">
+                  <div className="flex-1 bg-slate-800 p-3 rounded-xl border border-slate-700 flex items-center gap-3">
+                    <User className="text-blue-400" />
+                    <div>
+                      <div className="text-[10px] text-slate-500 uppercase">Face Detail</div>
+                      <div className="text-sm font-bold text-slate-200">精悍な顔立ち</div>
+                    </div>
+                  </div>
+                  <div className="flex-1 bg-slate-800 p-3 rounded-xl border border-slate-700 flex items-center gap-3">
+                    <Shield className="text-blue-400" />
+                    <div>
+                      <div className="text-[10px] text-slate-500 uppercase">Armor Style</div>
+                      <div className="text-sm font-bold text-slate-200">重厚な銀の甲冑</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-  // --- Monster: High Rank (Epic/Strong) ---
-  Monster_Dragon: `
-  <svg viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="48" cy="88" rx="32" ry="8" fill="rgba(0,0,0,0.2)" />
-    <!-- 巨大な翼 -->
-    <path d="M48 40 L10 10 L30 50 L10 70 L48 60 Z" fill="#4a148c" stroke="#121212" />
-    <path d="M48 40 L86 10 L66 50 L86 70 L48 60 Z" fill="#4a148c" stroke="#121212" />
-    <!-- 鱗の質感 -->
-    <path d="M32 30h32v50H32z" fill="#311b92" />
-    <path d="M36 34h24v42H36z" fill="#4527a0" />
-    <path d="M40 40h4v4h-4zm8 8h4v4h-4zm-8 8h4v4h-4z" fill="#7b1fa2" />
-    <!-- 頭部と角 -->
-    <path d="M40 10l-4-6h4l4 6zm12 0l4-6h-4l-4 6z" fill="#212121" />
-    <path d="M38 12h20v20H38z" fill="#311b92" />
-    <path d="M42 20h4v4h-4zm8 0h4v4h-4z" fill="#ffeb3b" /> <!-- 黄金の瞳 -->
-    <path d="M40 28h16v4h-16z" fill="#1a237e" />
-  </svg>`,
+            {/* 女性剣士カード */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl transition-transform hover:scale-[1.02]">
+              <div className="aspect-[3/4] relative bg-slate-800">
+                {images.femaleSwordsman ? (
+                  <img src={images.femaleSwordsman} alt="Female Swordsman" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-slate-500">画像生成に失敗しました</div>
+                )}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900 p-6">
+                  <span className="bg-pink-600 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">Cute & Sexy</span>
+                  <h2 className="text-3xl font-black mt-2">SWORDSMAN <span className="text-pink-400 font-normal">(FEMALE)</span></h2>
+                </div>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="flex gap-4">
+                  <div className="flex-1 bg-slate-800 p-3 rounded-xl border border-slate-700 flex items-center gap-3">
+                    <Heart className="text-pink-400" />
+                    <div>
+                      <div className="text-[10px] text-slate-500 uppercase">Silhouette</div>
+                      <div className="text-sm font-bold text-slate-200">美麗な曲線美</div>
+                    </div>
+                  </div>
+                  <div className="flex-1 bg-slate-800 p-3 rounded-xl border border-slate-700 flex items-center gap-3">
+                    <Zap className="text-pink-400" />
+                    <div>
+                      <div className="text-[10px] text-slate-500 uppercase">Hair Detail</div>
+                      <div className="text-sm font-bold text-slate-200">ポニーテール & リボン</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
-  Monster_DemonKnight: `
-  <svg viewBox="0 0 64 96" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="32" cy="88" rx="24" ry="7" fill="rgba(0,0,0,0.3)" />
-    <!-- ボロボロのマント -->
-    <path d="M12 28h40v50 L32 90 L12 78 Z" fill="#212121" />
-    <path d="M12 28h40v8H12z" fill="#b71c1c" />
-    <!-- 漆黒の鎧 -->
-    <path d="M18 24h28v48H18z" fill="#000" />
-    <path d="M22 28h20v40H22z" fill="#263238" />
-    <path d="M31 28h2v40h-2z" fill="#f44336" opacity="0.4" />
-    <!-- 髑髏の兜 -->
-    <path d="M22 6h20v20H22z" fill="#000" />
-    <path d="M26 14h12v4H26z" fill="#f44336" /> <!-- 殺意の眼光 -->
-    <!-- 魔剣エクリプス -->
-    <path d="M48 20h6v64l-3 6-3-6z" fill="#424242" />
-    <path d="M46 70h10v6H46z" fill="#212121" />
-    <circle cx="51" cy="73" r="3" fill="#f44336" />
-  </svg>`
+        <div className="mt-12 bg-slate-900/50 border border-slate-800 p-8 rounded-3xl">
+          <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-yellow-500"><Sword /> 実装へのステップ</h3>
+          <ul className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm text-slate-300">
+            <li className="space-y-2">
+              <div className="font-bold text-white border-b border-slate-700 pb-1">1. 全職業の生成</div>
+              <p>戦士、狩人、魔術師も同様のプロンプトで最高レベルのイラストを生成し、アセット化します。</p>
+            </li>
+            <li className="space-y-2">
+              <div className="font-bold text-white border-b border-slate-700 pb-1">2. スプライトシート化</div>
+              <p>イラストから背景を除去し、ゲーム内の移動アニメーション（歩行、攻撃）に合わせた各ポーズを作成します。</p>
+            </li>
+            <li className="space-y-2">
+              <div className="font-bold text-white border-b border-slate-700 pb-1">3. レンダリング更新</div>
+              <p><code>renderer.ts</code> を修正し、従来の矩形描画の代わりに、高精細な <code>drawImage</code> を実行するように変更します。</p>
+            </li>
+          </ul>
+        </div>
+        
+        <div className="mt-8 text-center">
+            <button 
+                onClick={generateCharacters}
+                className="px-8 py-3 bg-yellow-600 hover:bg-yellow-500 text-black font-black rounded-full transition-all shadow-xl active:scale-95"
+            >
+                別パターンのビジュアルを生成する
+            </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-export const svgToUrl = (s: string) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(s.trim());
+export default App;
