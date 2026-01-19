@@ -1,165 +1,163 @@
 /**
- * キャラクターのSVGアセット定義
- * 男性はカッコよく、女性は可愛らしさ・セクシーさを強調したドット構成
+ * 高解像度版(32x48) キャラクターSVGアセット
+ * 男性はクール・逞しく、女性はキュート・セクシーなシルエットを追求
  */
 export const ASSETS_SVG = {
   // --- Swordsman (剣士) ---
   Swordsman_Male: `
-  <svg viewBox="0 0 16 24" xmlns="http://www.w3.org/2000/svg">
+  <svg viewBox="0 0 32 48" xmlns="http://www.w3.org/2000/svg">
     <!-- 影 -->
-    <path d="M4 22h8v1H4z" fill="rgba(0,0,0,0.3)" />
-    <!-- 髪・兜 -->
-    <path d="M5 2h6v4H5z" fill="#90a4ae" />
-    <path d="M6 1h4v1H6z" fill="#cfd8dc" />
-    <!-- 肌 -->
-    <path d="M6 5h4v3H6z" fill="#ffccaa" />
-    <path d="M6 6h1v1H6zm4 0h1v1h-1z" fill="#000" />
+    <ellipse cx="16" cy="44" rx="10" ry="3" fill="rgba(0,0,0,0.2)" />
+    <!-- マント(裏) -->
+    <path d="M8 18h16v20L20 42l-4-2-4 2-4-4z" fill="#1a237e" />
+    <!-- 鎧(足) -->
+    <path d="M10 32h5v12h-5zm7 0h5v12h-5z" fill="#90a4ae" />
+    <path d="M10 32h5v2h-5zm7 0h5v2h-5z" fill="#cfd8dc" />
     <!-- 鎧(胴) -->
-    <path d="M4 8h8v6H4z" fill="#1565c0" />
-    <path d="M6 8h4v6H6z" fill="#1e88e5" />
-    <!-- マント -->
-    <path d="M3 8h1v8h1v-7h-1v-1z" fill="#b71c1c" />
-    <!-- 脚 -->
-    <path d="M5 14h2v6H5zm4 0h2v6H9z" fill="#37474f" />
-    <!-- 足先 -->
-    <path d="M5 20h2v1H5zm4 0h2v1H9z" fill="#212121" />
-    <!-- 剣 -->
-    <path d="M12 8h1v8h-1z" fill="#bdbdbd" />
-    <path d="M11 8h3v1h-3z" fill="#5d4037" />
+    <path d="M9 16h14v18H9z" fill="#455a64" />
+    <path d="M11 18h10v14H11z" fill="#90a4ae" />
+    <path d="M11 18h10v2H11z" fill="#ffd700" /> <!-- 金の縁取り -->
+    <!-- 腕 -->
+    <path d="M6 18h3v12H6zm23 18h3v12h-3z" fill="#90a4ae" />
+    <!-- 頭部 (銀髪) -->
+    <path d="M10 4h12v12H10z" fill="#ffccaa" /> <!-- 肌 -->
+    <path d="M9 2h14v8H9z" fill="#cfd8dc" /> <!-- 髪 -->
+    <path d="M12 10h2v2h-2zm6 0h2v2h-2z" fill="#1565c0" /> <!-- 瞳 -->
+    <!-- 剣 (背負い) -->
+    <path d="M24 10h2v24h-2z" fill="#bdbdbd" />
+    <path d="M23 30h4v2h-4z" fill="#5d4037" />
   </svg>`,
 
   Swordsman_Female: `
-  <svg viewBox="0 0 16 24" xmlns="http://www.w3.org/2000/svg">
-    <path d="M4 22h8v1H4z" fill="rgba(0,0,0,0.3)" />
-    <!-- 髪 (ポニーテール) -->
-    <path d="M5 2h7v6H5z" fill="#ffab00" />
-    <path d="M11 6h3v4h-1V7h-2z" fill="#ffab00" />
+  <svg viewBox="0 0 32 48" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="16" cy="44" rx="10" ry="3" fill="rgba(0,0,0,0.2)" />
+    <!-- 髪 (イエローポニーテール) -->
+    <path d="M10 4h14v12H10z" fill="#fdd835" />
+    <path d="M22 10h6v18l-4-4h-2z" fill="#fbc02d" />
+    <path d="M14 2h4v4h-4z" fill="#d32f2f" /> <!-- リボン -->
     <!-- 肌 -->
-    <path d="M6 5h5v3H6z" fill="#ffccaa" />
-    <path d="M7 6h1v1H7zm2 0h1v1H9z" fill="#000" />
-    <!-- 鎧 (ミニスカート風) -->
-    <path d="M5 8h6v3H5z" fill="#1565c0" />
-    <path d="M4 11h8v3H4z" fill="#1e88e5" />
-    <!-- 脚 (生足・ニーハイ) -->
-    <path d="M5 14h2v2H5zm4 14h2v2H9z" fill="#ffccaa" />
-    <path d="M5 16h2v4H5zm4 0h2v4H9z" fill="#0d47a1" />
-    <!-- 靴 -->
-    <path d="M5 20h2v1H5zm4 0h2v1H9z" fill="#424242" />
+    <path d="M12 8h10v10H12z" fill="#ffdbbd" />
+    <path d="M14 12h2v2h-2zm4 0h2v2h-2z" fill="#333" />
+    <!-- 衣装 (ミニスカ風アーマー) -->
+    <path d="M10 18h12v8H10z" fill="#1e88e5" />
+    <path d="M9 26h14v6H9z" fill="#cfd8dc" /> <!-- スカート部 -->
+    <!-- 脚 (ニーソックス) -->
+    <path d="M11 32h4v12h-4zm6 0h4v12h-4z" fill="#fff" />
+    <path d="M11 38h4v6h-4zm6 38h4v6h-4z" fill="#ffdbbd" /> <!-- 絶対領域 -->
+    <path d="M10 42h6v2h-6zm6 0h6v2h-6z" fill="#424242" />
   </svg>`,
 
   // --- Warrior (戦士) ---
   Warrior_Male: `
-  <svg viewBox="0 0 16 24" xmlns="http://www.w3.org/2000/svg">
-    <path d="M3 22h10v1H3z" fill="rgba(0,0,0,0.3)" />
-    <!-- 髪・バンダナ -->
-    <path d="M5 2h6v2H5z" fill="#b71c1c" />
-    <path d="M5 4h6v2H5z" fill="#5d4037" />
-    <!-- 肌 -->
-    <path d="M5 6h6v3H5z" fill="#ffccaa" />
-    <path d="M6 7h1v1H6zm4 0h1v1h-1z" fill="#000" />
-    <!-- 胴体 (筋肉質) -->
-    <path d="M3 9h10v5H3z" fill="#5d4037" />
-    <path d="M5 10h6v3H5z" fill="#d7ccc8" />
+  <svg viewBox="0 0 32 48" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="16" cy="44" rx="12" ry="4" fill="rgba(0,0,0,0.2)" />
+    <!-- 髪 (赤髪) -->
+    <path d="M8 2h16v10H8z" fill="#c62828" />
+    <path d="M10 1h12v1H10z" fill="#ef5350" />
+    <!-- 肌 (逞しい) -->
+    <path d="M10 8h12v8H10z" fill="#ffccaa" />
+    <path d="M7 16h18v10H7z" fill="#ffccaa" /> <!-- 裸の上半身部分 -->
+    <!-- レザーアーマー -->
+    <path d="M9 18h14v8H9z" fill="#5d4037" opacity="0.7" />
+    <path d="M12 26h8v12h-8z" fill="#3e2723" />
     <!-- 脚 -->
-    <path d="M4 14h3v6H4zm5 0h3v6H9z" fill="#212121" />
+    <path d="M10 38h5v6h-5zm7 0h5v6h-5z" fill="#212121" />
     <!-- 巨大な斧 -->
-    <path d="M13 4h2v6h-2z" fill="#757575" />
-    <path d="M14 10h1v10h-1z" fill="#5d4037" />
+    <path d="M22 10h8v12h-8z" fill="#757575" />
+    <path d="M25 10v30" stroke="#5d4037" stroke-width="2" />
   </svg>`,
 
   Warrior_Female: `
-  <svg viewBox="0 0 16 24" xmlns="http://www.w3.org/2000/svg">
-    <path d="M3 22h10v1H3z" fill="rgba(0,0,0,0.3)" />
-    <!-- 長い髪 -->
-    <path d="M4 2h8v10H4z" fill="#fdd835" />
-    <!-- 肌 (セクシーなビキニアーマー) -->
-    <path d="M6 5h5v3H6z" fill="#ffccaa" />
-    <path d="M5 9h6v1H5z" fill="#ffccaa" />
-    <path d="M5 10h2v1H5zm4 0h2v1H9z" fill="#cfd8dc" /> <!-- アーマーの一部 -->
-    <path d="M7 10h2v2H7z" fill="#ffccaa" />
-    <!-- 脚 -->
-    <path d="M5 14h2v2H5zm4 0h2v2H9z" fill="#ffccaa" />
-    <path d="M5 16h2v4H5zm4 0h2v4H9z" fill="#b71c1c" />
-    <!-- 斧 -->
-    <path d="M12 4h3v4h-3z" fill="#90a4ae" />
-    <path d="M13 8h1v10h-1z" fill="#5d4037" />
+  <svg viewBox="0 0 32 48" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="16" cy="44" rx="10" ry="3" fill="rgba(0,0,0,0.2)" />
+    <!-- ロング髪 (金髪) -->
+    <path d="M8 4h16v30H8z" fill="#fdd835" />
+    <path d="M10 2h12v4H10z" fill="#fff176" />
+    <!-- 肌 (セクシービキニアーマー) -->
+    <path d="M12 8h8v8H12z" fill="#ffdbbd" />
+    <path d="M10 16h12v4H10z" fill="#ffdbbd" />
+    <path d="M10 18h3v2h-3zm9 0h3v2h-3z" fill="#90a4ae" /> <!-- ブラ部分 -->
+    <path d="M14 20h4v6H14z" fill="#ffdbbd" /> <!-- 腹筋 -->
+    <path d="M11 26h10v4H11z" fill="#90a4ae" /> <!-- パンツ部分 -->
+    <!-- 脚 (高レッグ) -->
+    <path d="M11 30h4v14h-4zm6 0h4v14h-4z" fill="#ffdbbd" />
+    <path d="M10 40h6v4h-6zm6 0h6v4h-6z" fill="#90a4ae" />
+    <!-- マフラー -->
+    <path d="M10 14h12v3H10z" fill="#d32f2f" />
+    <path d="M21 15h2v15h-2z" fill="#b71c1c" />
   </svg>`,
 
   // --- Archer (狩人) ---
   Archer_Male: `
-  <svg viewBox="0 0 16 24" xmlns="http://www.w3.org/2000/svg">
-    <path d="M4 22h8v1H4z" fill="rgba(0,0,0,0.3)" />
-    <!-- フード -->
-    <path d="M5 2h6v5H5z" fill="#33691e" />
-    <!-- 肌 -->
-    <path d="M6 5h4v3H6z" fill="#ffccaa" />
-    <path d="M6 6h4v1H6z" fill="#000" opacity="0.6" /> <!-- 影 -->
-    <!-- 服 -->
-    <path d="M5 8h6v6H5z" fill="#558b2f" />
+  <svg viewBox="0 0 32 48" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="16" cy="44" rx="10" ry="3" fill="rgba(0,0,0,0.2)" />
+    <!-- フードとスカーフ -->
+    <path d="M10 4h12v12H10z" fill="#2e7d32" />
+    <path d="M12 14h8v4h-8z" fill="#558b2f" /> <!-- 顔を隠すスカーフ -->
+    <path d="M13 10h2v2h-2zm4 0h2v2h-2z" fill="#000" /> <!-- 目 -->
+    <!-- コート -->
+    <path d="M9 18h14v20H9z" fill="#1b5e20" />
+    <path d="M15 18h2v20h-2z" fill="#388e3c" />
     <!-- 脚 -->
-    <path d="M5 14h2v6H5zm4 0h2v6H9z" fill="#3e2723" />
+    <path d="M10 38h5v6h-5zm7 0h5v6h-5z" fill="#3e2723" />
     <!-- 弓 -->
-    <path d="M12 6h1v10h-1z" fill="#8d6e63" />
-    <path d="M11 6h1v1H11zm0 9h1v1H11z" fill="#8d6e63" />
+    <path d="M24 12c4 4 4 16 0 20" fill="none" stroke="#8d6e63" stroke-width="2" />
   </svg>`,
 
   Archer_Female: `
-  <svg viewBox="0 0 16 24" xmlns="http://www.w3.org/2000/svg">
-    <path d="M4 22h8v1H4z" fill="rgba(0,0,0,0.3)" />
-    <!-- 髪 (ショート) -->
-    <path d="M5 2h6v4H5z" fill="#a1887f" />
+  <svg viewBox="0 0 32 48" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="16" cy="44" rx="10" ry="3" fill="rgba(0,0,0,0.2)" />
+    <!-- 髪 (サイドポニテ) -->
+    <path d="M10 4h12v10H10z" fill="#8d6e63" />
+    <path d="M6 10h4v10h-2l-2-2z" fill="#6d4c41" />
     <!-- 肌 -->
-    <path d="M6 5h5v3H6z" fill="#ffccaa" />
-    <path d="M7 6h1v1H7zm2 0h1v1H9z" fill="#000" />
-    <!-- 服 (アクティブな軽装) -->
-    <path d="M5 8h6v3H5z" fill="#33691e" />
-    <path d="M4 11h8v1H4z" fill="#558b2f" />
-    <!-- 脚 (ニーハイ) -->
-    <path d="M5 12h2v4H5zm4 12h2v4H9z" fill="#ffccaa" />
-    <path d="M5 16h2v4H5zm4 16h2v4H9z" fill="#1b5e20" />
-    <!-- 弓 -->
-    <path d="M12 6h1v10h-1z" fill="#8d6e63" />
+    <path d="M12 8h8v8H12z" fill="#ffdbbd" />
+    <!-- 衣装 (アクティブ) -->
+    <path d="M10 16h12v8H10z" fill="#4caf50" />
+    <path d="M11 24h10v4H11z" fill="#2e7d32" /> <!-- ショーパン -->
+    <!-- 脚 -->
+    <path d="M11 28h4v16h-4zm6 0h4v16h-4z" fill="#ffdbbd" />
+    <path d="M10 38h6v6h-6zm6 0h6v6h-6z" fill="#4e342e" /> <!-- ブーツ -->
   </svg>`,
 
   // --- Mage (魔術師) ---
   Mage_Male: `
-  <svg viewBox="0 0 16 24" xmlns="http://www.w3.org/2000/svg">
-    <path d="M4 22h8v1H4z" fill="rgba(0,0,0,0.3)" />
-    <!-- 魔法使いの帽子 -->
-    <path d="M7 1h2v2H7z" fill="#311b92" />
-    <path d="M5 3h6v2H5z" fill="#311b92" />
-    <path d="M4 5h8v1H4z" fill="#512da8" />
+  <svg viewBox="0 0 32 48" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="16" cy="44" rx="10" ry="3" fill="rgba(0,0,0,0.2)" />
+    <!-- 大きな帽子 -->
+    <path d="M12 2h8v4h-8z" fill="#311b92" />
+    <path d="M6 6h20v2H6z" fill="#512da8" />
     <!-- 肌 -->
-    <path d="M6 6h4v3H6z" fill="#ffccaa" />
+    <path d="M12 8h8v8H12z" fill="#ffdbbd" />
+    <path d="M14 11h4v1H14z" fill="#000" opacity="0.3" /> <!-- 眼鏡風 -->
     <!-- ローブ -->
-    <path d="M4 9h8v11H4z" fill="#4527a0" />
-    <path d="M6 9h4v11H6z" fill="#673ab7" />
+    <path d="M8 16h16v24H8z" fill="#311b92" />
+    <path d="M10 16h12v24H10z" fill="#4527a0" />
+    <path d="M15 16h2v24h-2z" fill="#ffd700" opacity="0.5" /> <!-- 装飾 -->
     <!-- 杖 -->
-    <path d="M13 5h1v14h-1z" fill="#8d6e63" />
-    <path d="M12 4h3v2h-3z" fill="#ffeb3b" /> <!-- 宝石 -->
+    <path d="M26 10h2v30h-2z" fill="#5d4037" />
+    <path d="M25 6h4v4h-4z" fill="#00e5ff" />
   </svg>`,
 
   Mage_Female: `
-  <svg viewBox="0 0 16 24" xmlns="http://www.w3.org/2000/svg">
-    <path d="M4 22h8v1H4z" fill="rgba(0,0,0,0.3)" />
+  <svg viewBox="0 0 32 48" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="16" cy="44" rx="10" ry="3" fill="rgba(0,0,0,0.2)" />
     <!-- 帽子 -->
-    <path d="M7 1h2v3H7z" fill="#ad1457" />
-    <path d="M3 4h10v2H3z" fill="#ad1457" />
-    <!-- 長い髪 -->
-    <path d="M4 6h8v8H4z" fill="#f48fb1" />
-    <!-- 肌 (セクシーなオフショル) -->
-    <path d="M6 6h5v3H6z" fill="#ffccaa" />
-    <path d="M5 9h6v1H5z" fill="#ffccaa" />
-    <!-- ローブ (スリット入り) -->
-    <path d="M5 10h6v10H5z" fill="#880e4f" />
-    <path d="M9 14h2v6H9z" fill="#ffccaa" /> <!-- 脚のスリット -->
+    <path d="M14 1h4v6h-4z" fill="#880e4f" />
+    <path d="M6 7h20v2H6z" fill="#ad1457" />
+    <!-- 長い髪 (ピンク) -->
+    <path d="M8 9h16v24H8z" fill="#f48fb1" />
+    <!-- 肌 (セクシー・オフショル) -->
+    <path d="M12 10h8v8H12z" fill="#ffdbbd" />
+    <path d="M10 18h12v3H10z" fill="#ffdbbd" /> <!-- 肩 -->
+    <!-- ドレス・ローブ (スリット) -->
+    <path d="M10 21h12v20H10z" fill="#880e4f" />
+    <path d="M17 28h5v12h-5z" fill="#ffdbbd" /> <!-- 脚のスリット見せ -->
+    <path d="M11 41h10v2H11z" fill="#4a148c" />
     <!-- 杖 -->
-    <path d="M13 5h1v14h-1z" fill="#8d6e63" />
-    <path d="M12 4h3v2h-3z" fill="#00e676" /> <!-- 魔法の珠 -->
+    <path d="M26 10h2v30h-2z" fill="#5d4037" />
+    <circle cx="27" cy="8" r="3" fill="#ea80fc" />
   </svg>`
 };
 
-/**
- * SVG文字列をURL形式に変換
- */
 export const svgToUrl = (s: string) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(s.trim());
