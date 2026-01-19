@@ -36,29 +36,50 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // モーション対応のアセット読み込みロジックの改善
+  // モーション対応のアセット読み込みロジックの改善（エラー対策強化）
   const loadedAssets = useMemo(() => {
     const images: Record<string, HTMLImageElement> = {};
-    const allAssets = { ...HERO_ASSETS, ...MONSTER_ASSETS };
+    const allAssets = { ...(HERO_ASSETS || {}), ...(MONSTER_ASSETS || {}) };
     
     Object.entries(allAssets).forEach(([key, value]) => { 
+      if (!value) return;
+
       if (typeof value === 'string') {
-        const img = new Image(); 
-        img.src = svgToUrl(value); 
-        images[key] = img;
-      } else if (value && typeof value === 'object') {
-        const motions = value as Record<string, string>;
+        // 単一のSVG文字列の場合
+        try {
+          const img = new Image(); 
+          img.src = svgToUrl(value); 
+          images[key] = img;
+        } catch (e) {
+          console.error(`Failed to load asset: ${key}`, e);
+        }
+      } else if (typeof value === 'object' && value !== null) {
+        // オブジェクト形式（モーション）の場合
+        const motions = value as Record<string, unknown>;
+        
         Object.entries(motions).forEach(([motion, svg]) => {
-          const img = new Image();
-          img.src = svgToUrl(svg);
-          images[`${key}_${motion}`] = img;
+          // svgが確実に文字列であることを確認してから変換
+          if (typeof svg === 'string') {
+            try {
+              const img = new Image();
+              img.src = svgToUrl(svg);
+              images[`${key}_${motion}`] = img;
+            } catch (e) {
+              console.error(`Failed to load motion asset: ${key}_${motion}`, e);
+            }
+          }
         });
 
-        // 常に 'idle' をデフォルトとして登録しておく
-        if (motions.idle) {
-          const img = new Image();
-          img.src = svgToUrl(motions.idle);
-          images[key] = img;
+        // デフォルト画像として 'idle' を登録
+        const idleSvg = motions.idle;
+        if (typeof idleSvg === 'string') {
+          try {
+            const img = new Image();
+            img.src = svgToUrl(idleSvg);
+            images[key] = img;
+          } catch (e) {
+            console.error(`Failed to load default idle asset: ${key}`, e);
+          }
         }
       }
     });
@@ -66,7 +87,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // authが未定義の場合は処理を中断
     if (!auth) {
       setScreen('title');
       return;
@@ -75,10 +95,7 @@ export default function App() {
     // 認証初期化
     const initAuth = async () => {
       try {
-        // 型安全を確保するために非nullアサーションを使用、またはローカル変数にコピー
         const firebaseAuth = auth!;
-        
-        // グローバル変数の存在チェック
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
           await signInWithCustomToken(firebaseAuth, __initial_auth_token);
         } else {
@@ -96,10 +113,8 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
       if (u) {
-        // ログイン成功時にセーブデータを確認
         checkSaveData(u.uid);
       } else {
-        // ログインしていない場合はタイトル画面へ
         setScreen(prev => prev === 'auth' ? 'title' : prev);
       }
     });
@@ -323,7 +338,9 @@ export default function App() {
                     onClick={async () => {
                       setIsSaving(true);
                       try {
-                        await setDoc(doc(db!, 'artifacts', appId, 'users', user!.uid, 'saves', 'slot1'), { 
+                        const uid = user?.uid;
+                        if (!uid) throw new Error("User not found");
+                        await setDoc(doc(db!, 'artifacts', appId, 'users', uid, 'saves', 'slot1'), { 
                           player: gameState.current.player, 
                           locationId: gameState.current.locationId 
                         });
