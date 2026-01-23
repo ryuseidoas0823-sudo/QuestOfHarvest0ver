@@ -3,10 +3,10 @@ import TitleScreen from './components/TitleScreen';
 import JobSelectScreen from './components/JobSelectScreen';
 import GameHUD from './components/GameHUD';
 import InventoryMenu from './components/InventoryMenu';
-import { GameState, Direction, Item } from './types';
+import { GameState } from './types';
 import { JobId } from './types/job';
 import { createInitialPlayer } from './gameLogic';
-// ... existing imports ...
+// import { generateDungeon } from './utils'; // 必要に応じてutilsからインポート
 
 // ゲームの状態遷移
 type AppPhase = 'title' | 'jobSelect' | 'game' | 'gameOver';
@@ -14,49 +14,92 @@ type AppPhase = 'title' | 'jobSelect' | 'game' | 'gameOver';
 function App() {
   const [phase, setPhase] = useState<AppPhase>('title');
   const [gameState, setGameState] = useState<GameState | null>(null);
-  
-  // 選択された職業を一時保持
   const [selectedJob, setSelectedJob] = useState<JobId | null>(null);
+  
+  // インベントリの開閉状態
+  const [isInventoryOpen, setIsInventoryOpen] = useState(false);
 
   // ゲーム開始処理
   const startGame = (jobId: JobId) => {
     setSelectedJob(jobId);
     
-    // 初期マップ生成などのロジック（既存のものを使用）
-    // ここでは仮の初期位置
     const startPos = { x: 5, y: 5 };
-    
-    // データ駆動でプレイヤー生成
     const player = createInitialPlayer(jobId, startPos);
 
-    // 初期ゲーム状態の構築
+    // 初期ゲーム状態
+    // ※ GameState型に inventory プロパティを追加する必要があります (後述のtypes.ts修正で対応想定)
     const initialState: GameState = {
       player: player,
-      enemies: [], // generateDungeonなどで生成
-      items: [],
+      enemies: [],
+      items: [], // マップに落ちているアイテム
+      inventory: ['potion_small', 'potion_small', 'rusty_sword'], // 初期所持品（テスト用）
       map: {
         width: 50,
         height: 50,
-        tiles: [], // generateDungeonなどで生成
+        tiles: [],
         rooms: []
       },
       gameTime: 0,
       floor: 1,
-      messages: ['迷宮に入った...'],
+      messages: ['迷宮に入った...', 'Iキーでインベントリを開けます。'],
       camera: { x: 0, y: 0 }
     };
 
-    // ※ここで既存のダンジョン生成ロジックを呼び出して map と tiles を埋める必要があります
-    // generateDungeon(initialState); 
+    // 本来はここでダンジョン生成を行う
+    // initialState = generateDungeon(initialState);
 
     setGameState(initialState);
     setPhase('game');
+    setIsInventoryOpen(false);
   };
 
-  // ... existing code (useEffect for game loop, input handling, etc.) ...
+  // キー入力イベントハンドラ（インベントリ開閉用）
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (phase !== 'game') return;
+
+      // 'I' キーでインベントリ開閉
+      if (e.key === 'i' || e.key === 'I') {
+        setIsInventoryOpen(prev => !prev);
+      }
+      
+      // ESCキーでインベントリを閉じる
+      if (e.key === 'Escape' && isInventoryOpen) {
+        setIsInventoryOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [phase, isInventoryOpen]);
+
+  // アイテム使用処理
+  const handleUseItem = (itemId: string) => {
+    if (!gameState) return;
+
+    // TODO: ここで itemId に基づいて効果を発動させる (src/data/items.tsを参照)
+    // 今回は簡易的に「使用してなくなる」処理のみ実装
+
+    setGameState(prev => {
+      if (!prev) return null;
+      
+      // インベントリからアイテムを1つ削除
+      const newInventory = [...(prev.inventory || [])];
+      const index = newInventory.indexOf(itemId);
+      if (index > -1) {
+        newInventory.splice(index, 1);
+      }
+
+      return {
+        ...prev,
+        inventory: newInventory,
+        messages: [`${itemId} を使用した！`, ...prev.messages].slice(0, 10) // ログは最新10件まで
+      };
+    });
+  };
 
   return (
-    <div className="App w-full h-screen overflow-hidden bg-black text-white font-sans">
+    <div className="App w-full h-screen overflow-hidden bg-black text-white font-sans relative">
       {phase === 'title' && (
         <TitleScreen onStart={() => setPhase('jobSelect')} />
       )}
@@ -67,11 +110,25 @@ function App() {
 
       {phase === 'game' && gameState && (
         <>
-          {/* メインゲーム描画エリア (Canvasなど) */}
-          <div id="game-container" className="relative w-full h-full">
-            {/* ここに Renderer コンポーネントなどを配置 */}
-            {/* <GameRenderer gameState={gameState} /> */}
+          {/* メインゲーム描画エリア */}
+          <div id="game-container" className="relative w-full h-full bg-gray-900">
+            {/* プレイヤーの描画（簡易デバッグ用） */}
+            <div 
+              className="absolute w-10 h-10 bg-green-500 rounded-full flex items-center justify-center transition-all duration-100"
+              style={{ 
+                left: '50%', 
+                top: '50%', 
+                transform: 'translate(-50%, -50%)' 
+              }}
+            >
+               {/* 実際は gameState.camera を考慮して描画位置を計算する必要があります */}
+               P
+            </div>
             
+            <div className="absolute top-1/2 left-1/2 mt-8 text-center text-gray-500 transform -translate-x-1/2">
+              (Game Rendering Area)
+            </div>
+
             <GameHUD 
               player={gameState.player} 
               floor={gameState.floor}
@@ -79,8 +136,14 @@ function App() {
             />
           </div>
           
-          {/* インベントリなどのオーバーレイUI */}
-          {/* <InventoryMenu ... /> */}
+          {/* インベントリメニュー */}
+          {isInventoryOpen && (
+            <InventoryMenu 
+              inventory={gameState.inventory || []}
+              onClose={() => setIsInventoryOpen(false)}
+              onUseItem={handleUseItem}
+            />
+          )}
         </>
       )}
 
