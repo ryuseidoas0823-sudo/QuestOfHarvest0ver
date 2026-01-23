@@ -1,85 +1,93 @@
-import React, { useState } from 'react';
-import { JobType, Gender } from '../types';
-import { INITIAL_PLAYER_STATS } from '../data';
+import React from 'react';
+import { JOBS } from '../data/jobs';
+import { JobId } from '../types/job';
+import { getAsset } from '../assets/assetRegistry';
 
 interface JobSelectScreenProps {
-  onSelect: (job: JobType, gender: Gender) => void;
-  onBack: () => void;
-  loadedAssets?: any; 
+  onSelectJob: (jobId: JobId) => void;
 }
 
-export const JobSelectScreen: React.FC<JobSelectScreenProps> = ({ onSelect, onBack }) => {
-  const [selectedJob, setSelectedJob] = useState<JobType>('Swordsman');
-  const [selectedGender, setSelectedGender] = useState<Gender>('male');
-
-  const jobs: JobType[] = ['Swordsman', 'Warrior', 'Archer', 'Mage'];
-  const stats = INITIAL_PLAYER_STATS[selectedJob];
-
-  const StatRow = ({ label, value }: { label: string, value: number }) => (
-    <div className="flex justify-between items-center py-1 border-b border-white/10">
-      <span className="text-gray-400 text-sm">{label}</span>
-      <span className="text-white font-bold">{value}</span>
-    </div>
-  );
+const JobSelectScreen: React.FC<JobSelectScreenProps> = ({ onSelectJob }) => {
+  // JOBSオブジェクトを配列に変換してマップ処理
+  const jobList = Object.values(JOBS);
 
   return (
-    <div className="w-full h-screen bg-slate-900 flex flex-col items-center justify-center p-8">
-      <h2 className="text-3xl font-bold text-white mb-8">SELECT YOUR CLASS</h2>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-8">
+      <h2 className="text-4xl font-bold mb-8 text-yellow-400">職業を選択してください</h2>
       
-      <div className="flex gap-8 max-w-4xl w-full">
-        <div className="flex-1 space-y-4">
-          {jobs.map(job => (
-            <button
-              key={job}
-              onClick={() => setSelectedJob(job)}
-              className={`w-full p-4 rounded-lg border-2 transition-all ${
-                selectedJob === job ? 'bg-blue-600 border-white text-white' : 'bg-slate-800 border-transparent text-gray-400 hover:bg-slate-700'
-              }`}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full max-w-6xl">
+        {jobList.map((job) => {
+          // アセットの取得（ここでは単純化していますが、実際のアセット形式に合わせて描画してください）
+          // 例: アセットファイルがReactコンポーネントをdefault exportしている場合など
+          const AssetModule = getAsset(job.assetKey);
+          
+          return (
+            <div 
+              key={job.id}
+              className="bg-gray-800 border-2 border-gray-700 rounded-xl p-6 flex flex-col items-center hover:border-yellow-500 hover:bg-gray-750 transition-all cursor-pointer shadow-lg transform hover:-translate-y-1"
+              onClick={() => onSelectJob(job.id)}
             >
-              <div className="text-xl font-black">{job.toUpperCase()}</div>
-            </button>
-          ))}
-        </div>
+              {/* キャラクタープレビュー領域 */}
+              <div className="w-32 h-32 mb-4 bg-gray-900 rounded-full flex items-center justify-center overflow-hidden border border-gray-600">
+                {/* アセットの描画: 
+                  実際の実装に合わせて <AssetModule.Default /> や <img src={...} /> 等に書き換えてください。
+                  ここではプレビュー用に職業名の頭文字を表示します。
+                */}
+                <span className="text-4xl font-bold text-gray-500">
+                  {AssetModule ? 'SVG' : job.name[0]}
+                </span>
+              </div>
 
-        <div className="w-80 bg-slate-800 p-6 rounded-xl border border-white/20">
-          <h3 className="text-xl font-bold text-blue-400 mb-4">{selectedJob} Stats</h3>
-          <div className="space-y-1 mb-6">
-            <StatRow label="Strength" value={stats.str} />
-            <StatRow label="Dexterity" value={stats.dex} />
-            <StatRow label="Intelligence" value={stats.int} />
-            <StatRow label="Vitality" value={stats.vit} />
-            <StatRow label="Agility" value={stats.agi} />
-            <StatRow label="Luck" value={stats.luk} />
-          </div>
+              <h3 className="text-2xl font-bold mb-2">{job.name}</h3>
+              
+              <div className="text-sm text-gray-400 text-center mb-4 min-h-[3rem]">
+                {job.description}
+              </div>
 
-          <h3 className="text-lg font-bold text-white mb-3">GENDER</h3>
-          <div className="flex gap-2 mb-8">
-            <button
-              onClick={() => setSelectedGender('male')}
-              className={`flex-1 py-2 rounded font-bold ${selectedGender === 'male' ? 'bg-white text-slate-900' : 'bg-slate-700 text-gray-400'}`}
-            >
-              MALE
-            </button>
-            <button
-              onClick={() => setSelectedGender('female')}
-              className={`flex-1 py-2 rounded font-bold ${selectedGender === 'female' ? 'bg-pink-500 text-white' : 'bg-slate-700 text-gray-400'}`}
-            >
-              FEMALE
-            </button>
-          </div>
+              {/* ステータスバー（簡易表示） */}
+              <div className="w-full space-y-2 text-xs">
+                <div className="flex items-center">
+                  <span className="w-8 text-red-400">HP</span>
+                  <div className="flex-1 bg-gray-700 h-2 rounded-full overflow-hidden">
+                    <div className="bg-red-500 h-full" style={{ width: `${(job.baseStats.maxHp / 150) * 100}%` }}></div>
+                  </div>
+                  <span className="ml-2 w-6 text-right">{job.baseStats.maxHp}</span>
+                </div>
+                <div className="flex items-center">
+                  <span className="w-8 text-yellow-400">ATK</span>
+                  <div className="flex-1 bg-gray-700 h-2 rounded-full overflow-hidden">
+                    <div className="bg-yellow-500 h-full" style={{ width: `${(job.baseStats.attack / 20) * 100}%` }}></div>
+                  </div>
+                  <span className="ml-2 w-6 text-right">{job.baseStats.attack}</span>
+                </div>
+                <div className="flex items-center">
+                  <span className="w-8 text-blue-400">DEF</span>
+                  <div className="flex-1 bg-gray-700 h-2 rounded-full overflow-hidden">
+                    <div className="bg-blue-500 h-full" style={{ width: `${(job.baseStats.defense / 10) * 100}%` }}></div>
+                  </div>
+                  <span className="ml-2 w-6 text-right">{job.baseStats.defense}</span>
+                </div>
+              </div>
 
-          <button
-            onClick={() => onSelect(selectedJob, selectedGender)}
-            className="w-full py-4 bg-green-500 hover:bg-green-400 text-white font-black rounded-lg shadow-lg transform active:scale-95 transition-all"
-          >
-            START ADVENTURE
-          </button>
-        </div>
+              {/* 習得スキル（バッジ表示） */}
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                {job.learnableSkills.slice(0, 2).map(skillId => (
+                  <span key={skillId} className="px-2 py-1 bg-gray-700 rounded text-xs text-gray-300">
+                    {/* 本来は SKILLS[skillId].name を参照すべきですが、ここではIDを表示 */}
+                    {skillId}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
-
-      <button onClick={onBack} className="mt-8 text-gray-500 hover:text-white underline">
-        BACK TO TITLE
-      </button>
+      
+      <div className="mt-12 text-gray-500 text-sm">
+        ※ 職業によって成長率と習得スキルが異なります
+      </div>
     </div>
   );
 };
+
+export default JobSelectScreen;
