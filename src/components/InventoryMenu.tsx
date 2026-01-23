@@ -1,113 +1,126 @@
 import React from 'react';
-import { PlayerEntity, Stats } from '../types';
+import { ITEMS } from '../data/items';
+import { getAsset } from '../assets/assetRegistry';
+import { ItemDefinition } from '../types/item';
 
 interface InventoryMenuProps {
-  player: PlayerEntity;
+  // プレイヤーの所持品（アイテムIDの配列、またはインスタンス）
+  // 現段階ではIDのリストとして扱います。拡張後はItemInstance[]になります。
+  inventory: string[]; 
   onClose: () => void;
-  onUpgradeStat: (statName: keyof Stats) => void;
+  onUseItem: (itemId: string) => void;
 }
 
-/**
- * インベントリおよびキャラクターステータス画面
- */
-export const InventoryMenu: React.FC<InventoryMenuProps> = ({ player, onClose, onUpgradeStat }) => {
+const InventoryMenu: React.FC<InventoryMenuProps> = ({ inventory, onClose, onUseItem }) => {
+  // インベントリ内のアイテムIDをカウントしてスタック数を表示するための集計
+  const inventoryCounts = inventory.reduce((acc, itemId) => {
+    acc[itemId] = (acc[itemId] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // ユニークなアイテムIDのリスト
+  const uniqueItemIds = Object.keys(inventoryCounts);
+
   return (
-    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-40 flex items-center justify-center p-8">
-      <div className="bg-slate-900 border-2 border-white/20 rounded-2xl w-full max-w-4xl max-h-[80vh] flex flex-col overflow-hidden shadow-2xl">
-        {/* ヘッダー */}
-        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-slate-800/50">
-          <div className="flex items-center gap-4">
-            <h2 className="text-2xl font-black text-white tracking-tight">CHARACTER</h2>
-            <span className="text-blue-400 font-bold bg-blue-400/10 px-3 py-1 rounded text-xs uppercase tracking-widest border border-blue-400/20">
-              {player.job}
-            </span>
-          </div>
+    <div className="absolute inset-0 z-40 flex items-center justify-center bg-black bg-opacity-75">
+      <div className="bg-gray-800 border-2 border-yellow-600 rounded-lg p-6 w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
+        <div className="flex justify-between items-center mb-6 border-b border-gray-600 pb-4">
+          <h2 className="text-3xl text-yellow-500 font-bold tracking-wider">INVENTORY</h2>
           <button 
-            onClick={onClose} 
-            className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-lg"
+            onClick={onClose}
+            className="text-gray-400 hover:text-white transition-colors text-xl font-bold px-3 py-1 rounded hover:bg-gray-700"
           >
-            CLOSE [ESC]
+            ✕ CLOSE
           </button>
         </div>
-        
-        <div className="flex-1 flex overflow-hidden">
-          {/* 左側: ステータス割り振り */}
-          <div className="w-1/3 p-6 border-r border-white/10 overflow-y-auto bg-slate-900/50">
-            <div className="mb-8">
-              <div className="text-[10px] text-gray-500 uppercase tracking-[0.2em] mb-1 font-bold">Unspent Points</div>
-              <div className="text-4xl font-black text-white font-mono">{player.statPoints}</div>
-            </div>
 
-            <div className="space-y-5">
-              {(Object.keys(player.stats) as Array<keyof Stats>).map(key => (
-                <div key={key} className="group">
-                  <div className="flex justify-between items-center mb-1.5">
-                    <span className="text-gray-400 uppercase text-[10px] font-black tracking-widest">{key}</span>
-                    <div className="flex items-center gap-4">
-                      <span className="text-white font-mono text-xl font-bold">{player.stats[key]}</span>
-                      {player.statPoints > 0 && (
-                        <button 
-                          onClick={() => onUpgradeStat(key)}
-                          className="w-7 h-7 bg-blue-600 hover:bg-blue-500 text-white rounded-md shadow-lg shadow-blue-900/40 flex items-center justify-center font-bold transition-all active:scale-90 hover:scale-110"
-                        >
-                          +
-                        </button>
+        <div className="flex-1 overflow-y-auto pr-2">
+          {uniqueItemIds.length === 0 ? (
+            <div className="text-center text-gray-500 py-10 text-xl">
+              アイテムを持っていません
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {uniqueItemIds.map((itemId) => {
+                const itemDef = ITEMS[itemId];
+                
+                // 定義が存在しないアイテムIDのエラーハンドリング
+                if (!itemDef) {
+                  return (
+                    <div key={itemId} className="bg-red-900/30 p-4 rounded border border-red-800 text-red-400">
+                      Unknown Item: {itemId}
+                    </div>
+                  );
+                }
+
+                const count = inventoryCounts[itemId];
+                // アイコンアセットの取得（未設定時はデフォルトアイコン）
+                const ItemIcon = getAsset(itemDef.assetIcon); 
+
+                return (
+                  <div 
+                    key={itemId} 
+                    className="bg-gray-700 p-3 rounded-lg flex items-start gap-3 border border-gray-600 hover:border-yellow-500 transition-colors group"
+                  >
+                    {/* アイコン表示エリア */}
+                    <div className="w-16 h-16 bg-gray-900 rounded border border-gray-600 flex items-center justify-center shrink-0">
+                      {ItemIcon ? (
+                        // アセットがコンポーネントの場合
+                        // <ItemIcon className="w-10 h-10 text-gray-300" />
+                        <span className="text-xs text-gray-500">IMG</span>
+                      ) : (
+                         // 仮のアイコン（頭文字）
+                        <span className="text-2xl font-bold text-gray-500">{itemDef.name[0]}</span>
                       )}
                     </div>
-                  </div>
-                  <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 opacity-50 transition-all duration-500" 
-                      style={{ width: `${Math.min(100, (player.stats[key] / 40) * 100)}%` }} 
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            <div className="mt-8 pt-8 border-t border-white/5 text-[10px] text-gray-500 leading-relaxed">
-              * STR: ダメージ量<br/>
-              * VIT: 最大HP・防御<br/>
-              * INT: 最大MP・魔法
-            </div>
-          </div>
 
-          {/* 右側: インベントリ */}
-          <div className="flex-1 p-8 overflow-y-auto custom-scrollbar">
-            <div className="flex justify-between items-end mb-6">
-              <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Bag Space</h3>
-              <span className="text-xs text-gray-400 font-mono">{player.inventory.length} / 50</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start">
+                        <h3 className={`font-bold truncate ${getRarityColor(itemDef.baseRarity)}`}>
+                          {itemDef.name}
+                        </h3>
+                        <span className="bg-gray-800 text-gray-300 text-xs px-2 py-0.5 rounded-full ml-2">
+                          x{count}
+                        </span>
+                      </div>
+                      
+                      <p className="text-xs text-gray-400 mt-1 line-clamp-2 min-h-[2.5em]">
+                        {itemDef.description}
+                      </p>
+
+                      <div className="mt-3 flex justify-end">
+                        <button
+                          onClick={() => onUseItem(itemId)}
+                          className="text-xs bg-gray-600 hover:bg-yellow-600 hover:text-black text-white px-3 py-1.5 rounded transition-colors"
+                        >
+                          {itemDef.type === 'consumable' ? '使う' : '装備'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            
-            <div className="grid grid-cols-4 lg:grid-cols-5 gap-4">
-              {player.inventory.map(item => (
-                <div 
-                  key={item.id} 
-                  className="aspect-square bg-slate-800/50 rounded-xl border border-white/5 p-3 flex flex-col items-center justify-center text-center group hover:border-blue-500/50 hover:bg-slate-800 transition-all cursor-pointer relative"
-                >
-                  <span className="text-3xl mb-1 group-hover:scale-110 transition-transform drop-shadow-md">
-                    {item.icon || '📦'}
-                  </span>
-                  <span className="text-[9px] text-gray-400 font-medium leading-tight truncate w-full px-1">
-                    {item.name}
-                  </span>
-                  {/* レアリティマーカー */}
-                  <div className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${
-                    item.rarity === 'Legendary' ? 'bg-orange-500 shadow-[0_0_5px_rgba(249,115,22,0.8)]' :
-                    item.rarity === 'Epic' ? 'bg-purple-500' :
-                    item.rarity === 'Rare' ? 'bg-blue-500' : 'bg-gray-600'
-                  }`} />
-                </div>
-              ))}
-              {Array.from({ length: Math.max(0, 15 - player.inventory.length) }).map((_, i) => (
-                <div key={i} className="aspect-square bg-white/5 rounded-xl border border-white/5 border-dashed flex items-center justify-center">
-                  <div className="w-1 h-1 bg-white/10 rounded-full" />
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-gray-600 text-right text-gray-500 text-sm">
+          所持数: {inventory.length} / 20
         </div>
       </div>
     </div>
   );
 };
+
+// レアリティに応じた文字色クラスを返すヘルパー
+const getRarityColor = (rarity: string) => {
+  switch (rarity) {
+    case 'legendary': return 'text-orange-400';
+    case 'epic': return 'text-purple-400';
+    case 'rare': return 'text-blue-400';
+    case 'uncommon': return 'text-green-400';
+    default: return 'text-gray-200';
+  }
+};
+
+export default InventoryMenu;
