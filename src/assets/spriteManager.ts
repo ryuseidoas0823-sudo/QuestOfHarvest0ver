@@ -6,7 +6,6 @@ const spriteCache: Record<string, HTMLCanvasElement> = {};
 /**
  * ドット絵データから画像（Canvas）を生成する
  * @param key アセットキー (例: 'player', 'goblin')
- * @param scale 拡大率 (デフォルトは描画時に調整するため1)
  */
 export const getSprite = (key: string): HTMLCanvasElement | null => {
   // キャッシュにあればそれを返す
@@ -15,21 +14,27 @@ export const getSprite = (key: string): HTMLCanvasElement | null => {
   }
 
   // データ定義を取得
-  // 定義がない場合はフォールバック（'boss'などカテゴリで代用するロジックを入れても良い）
   let data = pixelArtData[key];
   
-  // マッピング: データがない場合の代替アセット
+  // マッピング: データがない場合の代替アセット (フォールバック)
   if (!data) {
     if (key.includes('orc')) data = pixelArtData['orc'];
     else if (key.includes('boss') || key.includes('general') || key.includes('commander')) data = pixelArtData['boss'];
     else if (key.includes('ally') || key.includes('npc')) data = pixelArtData['ally'];
-    else if (key.includes('skeleton')) data = pixelArtData['orc']; // 仮
-    else return null;
+    // ジョブ関連のフォールバック
+    else if (['warrior', 'mage', 'rogue', 'cleric', 'swordsman', 'archer'].some(job => key.includes(job))) {
+        data = pixelArtData['player'];
+    }
+    // デフォルトフォールバック（キーが見つからない場合）
+    else {
+        // 何も返さないと非表示になるので、開発中は'slime'などを返しても良いが、null安全にする
+        return null;
+    }
   }
 
   const { palette, grid } = data;
   const height = grid.length;
-  const width = grid[0].length; // カンマ削除済み前提
+  const width = grid[0].length; 
 
   // オフスクリーンキャンバスを作成
   const canvas = document.createElement('canvas');
