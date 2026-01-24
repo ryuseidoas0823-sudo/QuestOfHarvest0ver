@@ -244,26 +244,25 @@ export const moveEntity = (entity: Entity, dx: number, dy: number, map: any): En
 };
 
 // ==========================================
-// ダンジョン生成ロジック (改修部分)
+// ダンジョン生成ロジック
 // ==========================================
 
-// ダンジョン生成関数の型定義
 type DungeonGeneratorFunc = (floor: number, player: Entity) => Pick<GameState, 'map' | 'enemies' | 'items' | 'player'>;
+
+// 共通初期化: 壁で埋める
+const initTiles = (width: number, height: number, fillVal = 1) => {
+  const tiles: number[][] = [];
+  for(let y = 0; y < height; y++) tiles[y] = Array(width).fill(fillVal);
+  return tiles;
+};
 
 /**
  * Type A: スタンダード・グリッド
- * 4x4程度の部屋を生成し、通路で繋ぐ
  */
 const generateGridDungeon: DungeonGeneratorFunc = (floor, player) => {
   const width = MAP_WIDTH;
   const height = MAP_HEIGHT;
-  const tiles: number[][] = [];
-  
-  // 初期化：壁
-  for(let y = 0; y < height; y++) {
-      tiles[y] = Array(width).fill(1);
-  }
-
+  const tiles = initTiles(width, height);
   const rooms: any[] = [];
   const maxRooms = 10 + Math.floor(Math.random() * 5); 
 
@@ -274,26 +273,16 @@ const generateGridDungeon: DungeonGeneratorFunc = (floor, player) => {
       const roomX = 2 + Math.floor(Math.random() * (width - roomW - 4));
       const roomY = 2 + Math.floor(Math.random() * (height - roomH - 4));
 
-      // 重なりチェック
       let overlap = false;
       for (const r of rooms) {
-          if (
-              roomX < r.x + r.w + 1 &&
-              roomX + roomW + 1 > r.x &&
-              roomY < r.y + r.h + 1 &&
-              roomY + roomH + 1 > r.y
-          ) {
+          if (roomX < r.x + r.w + 1 && roomX + roomW + 1 > r.x && roomY < r.y + r.h + 1 && roomY + roomH + 1 > r.y) {
               overlap = true;
               break;
           }
       }
 
       if (!overlap) {
-          for (let y = roomY; y < roomY + roomH; y++) {
-              for (let x = roomX; x < roomX + roomW; x++) {
-                  tiles[y][x] = 0;
-              }
-          }
+          fillRoom(tiles, { x: roomX, y: roomY, w: roomW, h: roomH });
           rooms.push({ x: roomX, y: roomY, w: roomW, h: roomH });
       }
   }
@@ -302,7 +291,6 @@ const generateGridDungeon: DungeonGeneratorFunc = (floor, player) => {
   for (let i = 0; i < rooms.length - 1; i++) {
       const r1 = rooms[i];
       const r2 = rooms[i + 1];
-
       const c1x = Math.floor(r1.x + r1.w / 2);
       const c1y = Math.floor(r1.y + r1.h / 2);
       const c2x = Math.floor(r2.x + r2.w / 2);
@@ -317,142 +305,257 @@ const generateGridDungeon: DungeonGeneratorFunc = (floor, player) => {
       }
   }
 
-  // プレイヤー配置（最初の部屋）
   const startRoom = rooms[0];
-  const newPlayer = {
-      ...player,
-      x: (startRoom.x + Math.floor(startRoom.w / 2)) * GRID_SIZE,
-      y: (startRoom.y + Math.floor(startRoom.h / 2)) * GRID_SIZE
-  };
-
-  // 敵・アイテム配置
+  const newPlayer = { ...player, x: (startRoom.x + startRoom.w/2)*GRID_SIZE, y: (startRoom.y + startRoom.h/2)*GRID_SIZE };
   const { enemies, items } = placeEntities(rooms, floor);
 
-  return {
-      map: { width, height, tiles, rooms },
-      enemies,
-      items,
-      player: newPlayer
-  };
+  return { map: { width, height, tiles, rooms }, enemies, items, player: newPlayer };
 };
 
 /**
  * Type B: 大広間 (Open Field)
- * 壁のない広大な部屋。中央に敵が密集する傾向。
  */
 const generateOpenDungeon: DungeonGeneratorFunc = (floor, player) => {
     const width = MAP_WIDTH;
     const height = MAP_HEIGHT;
-    const tiles: number[][] = [];
+    const tiles = initTiles(width, height, 0); // 初期床
 
-    // 外周以外を床にする
+    // 外周を壁に
     for(let y = 0; y < height; y++) {
-        tiles[y] = [];
         for(let x = 0; x < width; x++) {
-            if (y === 0 || y === height - 1 || x === 0 || x === width - 1) {
-                tiles[y][x] = 1; // 壁
-            } else {
-                tiles[y][x] = 0; // 床
-            }
+            if (y === 0 || y === height - 1 || x === 0 || x === width - 1) tiles[y][x] = 1;
         }
     }
     
-    // 全体を一つの部屋として定義
     const rooms = [{ x: 1, y: 1, w: width - 2, h: height - 2 }];
+    const newPlayer = { ...player, x: 5 * GRID_SIZE, y: 5 * GRID_SIZE };
 
-    // プレイヤー配置 (左上付近)
-    const newPlayer = {
-        ...player,
-        x: 5 * GRID_SIZE,
-        y: 5 * GRID_SIZE
-    };
-
-    // 敵・アイテム配置（数多め）
     const enemies: Entity[] = [];
     const items: Item[] = [];
     const enemyKeys = Object.keys(ENEMIES);
-
-    // 大広間用配置ロジック
-    // 中央付近に敵を固める
     const centerX = width / 2;
     const centerY = height / 2;
 
-    for (let i = 0; i < 15 + floor; i++) { // フロアが進むほど増える
+    for (let i = 0; i < 15 + floor; i++) { 
         const enemyKey = enemyKeys[Math.floor(Math.random() * enemyKeys.length)];
-        const enemyDef = ENEMIES[enemyKey];
-        if (!enemyDef) continue;
-        
-        // 中央から少し散らばらせる
-        const offsetRange = 15; 
+        const offsetRange = 20; 
         const ex = Math.floor(centerX + (Math.random() * offsetRange - offsetRange/2));
         const ey = Math.floor(centerY + (Math.random() * offsetRange - offsetRange/2));
 
-        // プレイヤーの近くには配置しない
         if (Math.abs(ex - 5) < 5 && Math.abs(ey - 5) < 5) continue;
-
         if (ex > 1 && ex < width - 1 && ey > 1 && ey < height - 1) {
              enemies.push(createEnemyInstance(enemyKey, ex, ey, i, floor));
         }
     }
     
-    // アイテム配置（ランダム）
-    // ...省略（必要なら追加）
+    return { map: { width, height, tiles, rooms }, enemies, items, player: newPlayer };
+};
 
-    return {
-        map: { width, height, tiles, rooms },
-        enemies,
-        items,
-        player: newPlayer
+/**
+ * Type C: 三柱の間 (Vertical Pillars)
+ * 縦長の中部屋(幅狭め、高さ十分)を3つ横に並べる
+ */
+const generatePillarsDungeon: DungeonGeneratorFunc = (floor, player) => {
+    const width = MAP_WIDTH;
+    const height = MAP_HEIGHT;
+    const tiles = initTiles(width, height);
+    const rooms: any[] = [];
+
+    // 3つの柱（部屋）を定義
+    const margin = 4;
+    const colWidth = Math.floor((width - margin * 4) / 3);
+    const roomH = height - 10;
+    const startY = 5;
+
+    for (let i = 0; i < 3; i++) {
+        const roomX = margin + i * (colWidth + margin);
+        const room = { x: roomX, y: startY, w: colWidth, h: roomH };
+        fillRoom(tiles, room);
+        rooms.push(room);
+    }
+
+    // 部屋間を通路で繋ぐ（上部と下部でランダムに）
+    for (let i = 0; i < 2; i++) {
+        const r1 = rooms[i];
+        const r2 = rooms[i+1];
+        
+        // 2本ずつ通路を通す
+        const y1 = r1.y + 5;
+        const y2 = r1.y + r1.h - 5;
+        
+        createHCorridor(tiles, r1.x + r1.w - 1, r2.x, y1);
+        createHCorridor(tiles, r1.x + r1.w - 1, r2.x, y2);
+    }
+
+    const startRoom = rooms[1]; // 中央からスタート
+    const newPlayer = { ...player, x: (startRoom.x + startRoom.w/2)*GRID_SIZE, y: (startRoom.y + startRoom.h - 2)*GRID_SIZE };
+    const { enemies, items } = placeEntities(rooms, floor);
+
+    return { map: { width, height, tiles, rooms }, enemies, items, player: newPlayer };
+};
+
+/**
+ * Type D: 蛇行回廊 (Snake Road)
+ * 縦3 x 横5 のエリアを定義し、一本道で繋ぐ
+ */
+const generateSnakeDungeon: DungeonGeneratorFunc = (floor, player) => {
+    const width = 50;
+    const height = 30; // 少し横長
+    const tiles = initTiles(width, height);
+    const rooms: any[] = [];
+
+    // グリッド設定 (5x3)
+    const gridCols = 5;
+    const gridRows = 3;
+    const cellW = Math.floor(width / gridCols);
+    const cellH = Math.floor(height / gridRows);
+
+    // 蛇行ルート生成 (左上->右へ->一段下へ->左へ...のジグザグ)
+    for (let row = 0; row < gridRows; row++) {
+        const isRight = row % 2 === 0;
+        const colStart = isRight ? 0 : gridCols - 1;
+        const colEnd = isRight ? gridCols : -1;
+        const step = isRight ? 1 : -1;
+
+        for (let col = colStart; col !== colEnd; col += step) {
+             // 部屋生成
+             const roomW = Math.floor(cellW * 0.7);
+             const roomH = Math.floor(cellH * 0.7);
+             const roomX = col * cellW + 2;
+             const roomY = row * cellH + 2;
+             
+             const room = { x: roomX, y: roomY, w: roomW, h: roomH };
+             fillRoom(tiles, room);
+             rooms.push(room);
+             
+             // 一つ前の部屋と繋ぐ
+             if (rooms.length > 1) {
+                 const prev = rooms[rooms.length - 2];
+                 const curr = room;
+                 const px = Math.floor(prev.x + prev.w/2);
+                 const py = Math.floor(prev.y + prev.h/2);
+                 const cx = Math.floor(curr.x + curr.w/2);
+                 const cy = Math.floor(curr.y + curr.h/2);
+
+                 if (Math.abs(px - cx) > Math.abs(py - cy)) {
+                     createHCorridor(tiles, px, cx, py);
+                     createVCorridor(tiles, py, cy, cx);
+                 } else {
+                     createVCorridor(tiles, py, cy, px);
+                     createHCorridor(tiles, px, cx, cy);
+                 }
+             }
+        }
+    }
+
+    const startRoom = rooms[0];
+    const newPlayer = { ...player, x: (startRoom.x + startRoom.w/2)*GRID_SIZE, y: (startRoom.y + startRoom.h/2)*GRID_SIZE };
+    const { enemies, items } = placeEntities(rooms, floor);
+
+    return { map: { width, height, tiles, rooms }, enemies, items, player: newPlayer };
+};
+
+/**
+ * Type E: トライアル・メイズ (Maze)
+ * 穴掘り法による迷路生成
+ */
+const generateMazeDungeon: DungeonGeneratorFunc = (floor, player) => {
+    const width = 41; // 奇数推奨
+    const height = 41;
+    const tiles = initTiles(width, height);
+    
+    // 穴掘り法
+    const startX = 1;
+    const startY = 1;
+    tiles[startY][startX] = 0;
+
+    const directions = [
+        { x: 0, y: -2 }, // Up
+        { x: 0, y: 2 },  // Down
+        { x: -2, y: 0 }, // Left
+        { x: 2, y: 0 }   // Right
+    ];
+
+    const dig = (x: number, y: number) => {
+        // シャッフル
+        const dirs = [...directions].sort(() => Math.random() - 0.5);
+        
+        for (const dir of dirs) {
+            const nx = x + dir.x;
+            const ny = y + dir.y;
+            
+            if (nx > 0 && nx < width - 1 && ny > 0 && ny < height - 1 && tiles[ny][nx] === 1) {
+                tiles[y + dir.y / 2][x + dir.x / 2] = 0; // 通路
+                tiles[ny][nx] = 0; // 掘り進む先
+                dig(nx, ny);
+            }
+        }
     };
+
+    dig(startX, startY);
+
+    // 一部の壁を取り払ってループを作る（難易度調整）
+    for(let i=0; i<30; i++) {
+        const x = 1 + Math.floor(Math.random() * (width - 2));
+        const y = 1 + Math.floor(Math.random() * (height - 2));
+        if (tiles[y][x] === 1) tiles[y][x] = 0;
+    }
+
+    // 部屋として認識させるためのダミーデータ
+    const rooms = [{ x: 1, y: 1, w: width-2, h: height-2 }];
+    
+    const newPlayer = { ...player, x: startX * GRID_SIZE, y: startY * GRID_SIZE };
+    
+    // 敵配置: 通路上のランダムな位置
+    const enemies: Entity[] = [];
+    const items: Item[] = [];
+    const enemyKeys = Object.keys(ENEMIES);
+
+    for(let i=0; i<10 + floor; i++) {
+        let ex, ey;
+        do {
+            ex = Math.floor(Math.random() * width);
+            ey = Math.floor(Math.random() * height);
+        } while(tiles[ey][ex] === 1 || (Math.abs(ex - startX) < 5 && Math.abs(ey - startY) < 5));
+        
+        const enemyKey = enemyKeys[Math.floor(Math.random() * enemyKeys.length)];
+        enemies.push(createEnemyInstance(enemyKey, ex, ey, i, floor));
+    }
+
+    return { map: { width, height, tiles, rooms }, enemies, items, player: newPlayer };
 };
 
 /**
  * Type F: ボス階層 (Boss Floor)
- * 休憩所 -> 門 -> ボス部屋 -> 宝部屋
  */
 const generateBossFloor: DungeonGeneratorFunc = (floor, player) => {
-    const width = 40; // 少し狭めでOK
-    const height = 60; // 縦長
-    const tiles: number[][] = [];
-    
-    // 初期化：壁
-    for(let y = 0; y < height; y++) tiles[y] = Array(width).fill(1);
-
+    const width = 40; 
+    const height = 60; 
+    const tiles = initTiles(width, height);
     const rooms: any[] = [];
     
-    // 1. 休憩エリア (手前)
     const restRoom = { x: 15, y: 50, w: 10, h: 8 };
     fillRoom(tiles, restRoom);
     rooms.push(restRoom);
 
-    // 2. ボスエリア (中央)
     const bossRoom = { x: 10, y: 20, w: 20, h: 20 };
     fillRoom(tiles, bossRoom);
     rooms.push(bossRoom);
 
-    // 3. 奥の部屋 (最奥)
     const treasureRoom = { x: 18, y: 5, w: 4, h: 4 };
     fillRoom(tiles, treasureRoom);
     rooms.push(treasureRoom);
 
-    // 通路で繋ぐ
-    createVCorridor(tiles, restRoom.y, bossRoom.y + bossRoom.h, 20); // 休憩-ボス間
-    createVCorridor(tiles, bossRoom.y, treasureRoom.y + treasureRoom.h, 20); // ボス-宝間
+    createVCorridor(tiles, restRoom.y, bossRoom.y + bossRoom.h, 20);
+    createVCorridor(tiles, bossRoom.y, treasureRoom.y + treasureRoom.h, 20);
 
-    // プレイヤー配置
-    const newPlayer = {
-        ...player,
-        x: (restRoom.x + restRoom.w / 2) * GRID_SIZE,
-        y: (restRoom.y + restRoom.h / 2) * GRID_SIZE
-    };
+    const newPlayer = { ...player, x: (restRoom.x + restRoom.w/2)*GRID_SIZE, y: (restRoom.y + restRoom.h/2)*GRID_SIZE };
 
-    // ボス配置
     const enemies: Entity[] = [];
-    const bossKey = 'orc'; // 仮のボス (実際は BOSS データから取得)
+    const bossKey = 'orc'; 
     const bossX = (bossRoom.x + bossRoom.w / 2);
     const bossY = (bossRoom.y + bossRoom.h / 2);
     
-    // ボスを少し大きく強くして配置
     const bossEnemy = createEnemyInstance(bossKey, bossX, bossY, 999, floor + 5);
     bossEnemy.width = GRID_SIZE * 2;
     bossEnemy.height = GRID_SIZE * 2;
@@ -461,21 +564,14 @@ const generateBossFloor: DungeonGeneratorFunc = (floor, player) => {
     bossEnemy.stats.attack *= 2;
     enemies.push(bossEnemy);
 
-    // 取り巻き配置
     enemies.push(createEnemyInstance('goblin', bossX - 3, bossY + 3, 901, floor));
     enemies.push(createEnemyInstance('goblin', bossX + 3, bossY + 3, 902, floor));
 
-    return {
-        map: { width, height, tiles, rooms },
-        enemies,
-        items: [], // ボス部屋にはアイテムなし
-        player: newPlayer
-    };
+    return { map: { width, height, tiles, rooms }, enemies, items: [], player: newPlayer };
 };
 
-/**
- * 汎用敵生成ヘルパー
- */
+// ... createEnemyInstance, placeEntities, fillRoom, createHCorridor, createVCorridor は変更なし ...
+// (以前のコードブロックの内容を保持してください)
 const createEnemyInstance = (key: string, gx: number, gy: number, idSuffix: number, floor: number): Entity => {
     const enemyDef = ENEMIES[key];
     return {
@@ -501,28 +597,20 @@ const createEnemyInstance = (key: string, gx: number, gy: number, idSuffix: numb
     };
 };
 
-/**
- * 汎用エンティティ配置ヘルパー (Grid用)
- */
 const placeEntities = (rooms: any[], floor: number) => {
     const enemies: Entity[] = [];
     const items: Item[] = [];
     const enemyKeys = Object.keys(ENEMIES);
     const itemKeys = Object.keys(ITEMS);
 
-    // 最初の部屋以外に配置
     for (let i = 1; i < rooms.length; i++) {
         const room = rooms[i];
-        
-        // 敵配置 (50%の確率)
         if (Math.random() < 0.5) {
             const enemyKey = enemyKeys[Math.floor(Math.random() * enemyKeys.length)];
             const ex = Math.floor(room.x + Math.random() * room.w);
             const ey = Math.floor(room.y + Math.random() * room.h);
             enemies.push(createEnemyInstance(enemyKey, ex, ey, i, floor));
         }
-
-        // アイテム配置 (30%の確率)
         if (Math.random() < 0.3) {
             const itemKey = itemKeys[Math.floor(Math.random() * itemKeys.length)];
             const ix = (room.x + Math.floor(Math.random() * room.w)) * GRID_SIZE;
@@ -553,7 +641,6 @@ const createVCorridor = (tiles: number[][], y1: number, y2: number, x: number) =
     for (let y = start; y <= end; y++) tiles[y][x] = 0;
 }
 
-
 // ==========================================
 // メイン生成関数 (Strategy Pattern)
 // ==========================================
@@ -565,20 +652,21 @@ export const generateDungeon: DungeonGeneratorFunc = (floor, player) => {
         return generateBossFloor(floor, player);
     }
 
-    // 2. その他の階層の抽選
+    // 2. 確率テーブルに基づいた抽選
     const rand = Math.random();
     
-    // 6階層以降はバリエーションを増やす
-    if (floor >= 6) {
-        if (rand < 0.2) {
-            // 20% で大広間
-            console.log(`Generating Open Field for Level ${floor}`);
-            return generateOpenDungeon(floor, player);
-        }
-        // 他のパターンもここに追加 (Maze, Snake等)
+    // 階層テーブル実装
+    if (floor <= 4) {
+        // 1-4F: A(80%), C(20%)
+        if (rand < 0.2) return generatePillarsDungeon(floor, player); // Type C
+        return generateGridDungeon(floor, player); // Type A (Default)
+    } 
+    else {
+        // 6F以降 (5F,10FはBoss): バリエーション豊かに
+        // A(40%), B(20%), D(20%), E(20%)
+        if (rand < 0.2) return generateOpenDungeon(floor, player); // Type B
+        if (rand < 0.4) return generateSnakeDungeon(floor, player); // Type D
+        if (rand < 0.6) return generateMazeDungeon(floor, player); // Type E
+        return generateGridDungeon(floor, player); // Type A
     }
-
-    // デフォルト: Grid
-    console.log(`Generating Grid Dungeon for Level ${floor}`);
-    return generateGridDungeon(floor, player);
 };
