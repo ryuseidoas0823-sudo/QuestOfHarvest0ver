@@ -6,7 +6,7 @@ import GameHUD from './components/GameHUD';
 import InventoryMenu from './components/InventoryMenu';
 import { GameState } from './types';
 import { JobId } from './types/job';
-import { createInitialPlayer, updateGameLogic, generateDungeon, activateSkill } from './gameLogic';
+import { createInitialPlayer, updateGameLogic, generateDungeon, activateSkill, useItem } from './gameLogic'; // useItem追加
 
 type AppPhase = 'title' | 'jobSelect' | 'godSelect' | 'game' | 'gameOver';
 
@@ -43,10 +43,6 @@ function App() {
       if (phase !== 'game') return;
       if (e.key === 'i' || e.key === 'I') setIsInventoryOpen(prev => !prev);
       if (e.key === 'Escape') setIsInventoryOpen(false);
-      
-      // Enterキーで階段操作 (updateGameLogic側で処理されるが、念のため明示)
-      // ここでは特別なUIトグルはないのでkeysPressedに任せる
-
       if (gameState && !isInventoryOpen) {
         let skillIndex = -1;
         if (e.key === 'q' || e.key === 'Q') skillIndex = 0;
@@ -85,17 +81,20 @@ function App() {
       items: dungeonData.items,
       projectiles: [],
       inventory: ['potion_small'],
+      equipment: { mainHand: null, armor: null }, // 初期装備なし
       map: dungeonData.map,
       gameTime: 0,
       floor: 1,
-      messages: ['迷宮に入った...', '階段の上で[Enter]キーを押すと進めます'],
+      messages: ['迷宮に入った...', 'WASDで移動、Q/Eでスキル、Iでインベントリ'],
       camera: { x: 0, y: 0 }
     };
     setGameState(initialState);
     setPhase('game');
   };
+
+  // アイテム使用ハンドラの実装
   const handleUseItem = (itemId: string) => { 
-      setGameState(prev => prev); 
+      setGameState(prev => prev ? useItem(prev, itemId) : null); 
   };
 
   const renderTile = (tileId: number, x: number, y: number) => {
@@ -105,7 +104,7 @@ function App() {
           case 2: return <div key={`${x}-${y}`} style={{...style, backgroundColor: '#cf4420'}} />; // Lava
           case 3: return <div key={`${x}-${y}`} style={{...style, backgroundColor: '#d4af37', border: '4px solid #8B4513'}} />; // Locked Door
           case 4: return <div key={`${x}-${y}`} style={{...style, backgroundColor: '#444'}} />; // Secret Wall
-          case 5: return <div key={`${x}-${y}`} style={{...style, backgroundColor: '#0066cc', border: '2px solid #88ccff', opacity: 0.8 }} title="Stairs" />; // Stairs (Blue)
+          case 5: return <div key={`${x}-${y}`} style={{...style, backgroundColor: '#0066cc', border: '2px solid #88ccff', opacity: 0.8 }} title="Stairs" />; // Stairs
           case 6: return <div key={`${x}-${y}`} style={{...style, backgroundColor: '#440000', border: '4px solid #ff0000'}} />; // Boss Door
           default: return null; 
       }
@@ -127,7 +126,7 @@ function App() {
                     row.map((tile, x) => renderTile(tile, x * 40, y * 40))
                  )}
                  {gameState.items.map(item => (
-                     <div key={item.id} className="absolute w-6 h-6 bg-yellow-300 rounded-full flex items-center justify-center text-xs text-black font-bold"
+                     <div key={item.id} className="absolute w-6 h-6 bg-yellow-300 rounded-full flex items-center justify-center text-xs text-black font-bold animate-bounce"
                           style={{ left: item.x + 7, top: item.y + 7 }}>?</div>
                  ))}
                  {gameState.enemies.map(enemy => (
@@ -153,7 +152,13 @@ function App() {
              )}
             <GameHUD player={gameState.player} floor={gameState.floor} messages={gameState.messages} />
           </div>
-          {isInventoryOpen && <InventoryMenu inventory={gameState.inventory || []} onClose={() => setIsInventoryOpen(false)} onUseItem={handleUseItem} />}
+          {isInventoryOpen && (
+            <InventoryMenu 
+              inventory={gameState.inventory || []} 
+              onClose={() => setIsInventoryOpen(false)} 
+              onUseItem={handleUseItem} 
+            />
+          )}
         </>
       )}
       {phase === 'gameOver' && (
