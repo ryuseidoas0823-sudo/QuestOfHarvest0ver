@@ -17,13 +17,11 @@ import { GameHUD } from './components/GameHUD';
 import { dialogues } from './data/dialogues';
 import { saveGame, loadGame, hasSaveData, clearSaveData } from './utils/storage';
 import { audioManager } from './utils/audioManager';
-// utilsから新しい計算ロジックをインポート
 import { calculateLevel, calculateExpForLevel } from './utils';
+import { visualManager } from './utils/visualManager'; // 追加
 
 // 画面遷移の状態
 type ScreenState = 'title' | 'jobSelect' | 'godSelect' | 'town' | 'dungeon' | 'result' | 'inventory';
-
-// 古い calculateLevel は削除し、インポートしたものを使用
 
 export default function App() {
   const [screen, setScreen] = useState<ScreenState>('title');
@@ -76,10 +74,8 @@ export default function App() {
     setCanContinue(hasSaveData());
   }, []);
 
-  // ... (performAutoSave, initAudio, etc. は変更なし) ...
-  // スペース省略のため中略。必要なら以前のコードを参照してください。
   const performAutoSave = () => {
-    const inventoryIds = inventory; // string[]なのでそのまま
+    const inventoryIds = inventory;
     const activeQuestIds = activeQuests.map(q => q.id);
 
     saveGame({
@@ -135,7 +131,26 @@ export default function App() {
     () => handleGameOver()
   );
 
-  // Keyboard Input (Keep same)
+  // --- Animation Loop ---
+  useEffect(() => {
+    if (screen !== 'dungeon' || !dungeon || !canvasRef.current) return;
+
+    let animationFrameId: number;
+
+    const renderLoop = () => {
+      visualManager.update();
+      renderDungeon(canvasRef.current!, dungeon, playerPos, enemies);
+      animationFrameId = requestAnimationFrame(renderLoop);
+    };
+
+    renderLoop();
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [screen, dungeon, playerPos, enemies]); // 依存関係が変わるとループ再起動
+
+  // Keyboard Input
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'i' && (screen === 'town' || screen === 'dungeon')) {
@@ -195,7 +210,6 @@ export default function App() {
     audioManager.playSeSelect();
   };
 
-  // ... (handleStartGame, handleContinueGame, etc. Same as before) ...
   const handleStartGame = () => {
     audioManager.playSeSelect();
     clearSaveData();
@@ -281,10 +295,8 @@ export default function App() {
     setActiveQuests(activeQuests.filter(q => q.id !== quest.id));
     setCompletedQuestIds([...completedQuestIds, quest.id]);
     
-    // レベルアップ計算 (新ロジック)
     const newLevel = calculateLevel(newExp);
     if (newLevel > baseStats.level) {
-        // レベルアップ演出などを入れても良い
         setBaseStats({ ...baseStats, level: newLevel });
     }
 
@@ -309,16 +321,10 @@ export default function App() {
   };
 
   const handleUpgradeStatus = (stat: 'str' | 'vit' | 'dex' | 'agi' | 'int' | 'luc') => {
-      // ステータス強化のコスト計算などは別途調整が必要だが、
-      // 経験値を消費する仕様ならレベルダウンする可能性があるため注意。
-      // 今回は「経験値消費」のままにするが、レベル計算と整合性を取るなら
-      // 「レベルアップでポイント獲得」方式に変えるのが一般的。
-      // 現状維持: EXPを消費してステータスを買う（レベルは下がる）
       if (playerExp >= 100) {
           audioManager.playSeSelect();
           const newExp = playerExp - 100;
           setPlayerExp(newExp);
-          // レベル再計算 (下がった場合も反映)
           const newLevel = calculateLevel(newExp);
           setBaseStats({ ...baseStats, level: newLevel, [stat]: baseStats[stat] + 1 });
           setTimeout(performAutoSave, 100);
@@ -327,6 +333,8 @@ export default function App() {
       }
   };
 
+  // Canvas描画ロジックは Animation Loop に統合されたため、
+  // 単発の useEffect は削除してもよいが、画面遷移直後の初回描画のために残しておくのが安全
   useEffect(() => {
     if (screen === 'dungeon' && canvasRef.current && dungeon) {
       renderDungeon(canvasRef.current, dungeon, playerPos, enemies);
