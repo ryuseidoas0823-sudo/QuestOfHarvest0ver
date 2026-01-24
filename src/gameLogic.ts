@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { generateDungeon } from './dungeonGenerator';
-import { DungeonMap } from './types';
+import { DungeonMap, TileType } from './types';
 import { EnemyInstance } from './types/enemy';
 import { enemies as enemyData } from './data/enemies';
 import { Job } from './types/job';
@@ -8,6 +8,15 @@ import { Quest } from './types/quest';
 import { getDistance } from './utils';
 
 // ... existing interfaces ...
+interface GameState {
+  dungeon: DungeonMap | null;
+  playerPos: { x: number; y: number };
+  enemies: EnemyInstance[];
+  floor: number;
+  gameOver: boolean;
+  gameClear: boolean;
+  messageLog: string[];
+}
 
 export const useGameLogic = (
   playerJob: Job,
@@ -319,10 +328,6 @@ export const useGameLogic = (
         });
 
         // 死亡した敵・NPCを除外
-        // NPCが死んだ場合の処理（ゲームオーバーにするか、一時離脱か）
-        // ここでは「HP0のNPC」も除去してしまうと復活できないので、
-        // 厳密には「戦闘不能フラグ」を立ててレンダリングを変えるのが良いが、簡易的に消滅させる。
-        // ※救助対象(stationary)が消えるとクエスト失敗判定などが本来必要
         return nextEnemies.filter(e => e.hp > 0);
     });
   };
