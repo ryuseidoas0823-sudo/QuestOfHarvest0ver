@@ -95,7 +95,7 @@ export const quests: Quest[] = [
     title: 'CH2-1: 二人の連携',
     description: '救出した冒険者「エリアス」が恩返しに協力してくれるそうだ。彼と共にダンジョンへ潜り、連携の感覚を掴め。',
     type: 'hunt',
-    targetId: 'slime', 
+    targetId: 'slime',
     targetAmount: 5,
     rewardGold: 300,
     rewardExp: 200,
@@ -138,7 +138,7 @@ export const quests: Quest[] = [
     title: 'CH2-4: ライバルの嘲笑',
     description: '他のファミリアの団員たちと小競り合いになった。実力を示し、彼らを黙らせるためにオーク・リーダーを討伐せよ。',
     type: 'hunt',
-    targetId: 'orc',
+    targetId: 'orc', // 強化個体想定（IDは同じだがレベル補正で対応）
     targetAmount: 5,
     rewardGold: 800,
     rewardExp: 500,
@@ -187,7 +187,7 @@ export const quests: Quest[] = [
     title: 'CH3-2: 絶望の宴',
     description: '【危険】調査隊からの連絡が途絶えた。地下12階で「モンスターハウス」の発生が疑われる。準備を万全にして生存者を捜索せよ。',
     type: 'hunt',
-    targetId: 'orc', 
+    targetId: 'orc', // 雑魚敵代表
     targetAmount: 10,
     rewardGold: 1500,
     rewardExp: 1200,
@@ -250,8 +250,8 @@ export const quests: Quest[] = [
     subChapter: 1,
     title: 'CH4-1: 緊急招集',
     description: 'ギルドから全ファミリアへ緊急招集がかかった。ダンジョンからの魔物の流出「スタンピード」の予兆があるという。',
-    type: 'reach', // ギルドへ顔を出すイメージ
-    targetAmount: 1, // 実質会話のみでクリア等の処理を想定
+    type: 'reach',
+    targetAmount: 1, // 会話イベント等で達成扱いにする想定
     rewardGold: 500,
     rewardExp: 500,
     requirements: { questCompleted: ['mq_3_5'] },
@@ -265,7 +265,7 @@ export const quests: Quest[] = [
     title: 'CH4-2: 前線の防衛',
     description: '地下16階〜17階にかけて、深層から魔物が溢れ出している。防衛ラインを維持するため、敵を掃討せよ。',
     type: 'hunt',
-    targetId: 'minotaur', // 強敵
+    targetId: 'minotaur',
     targetAmount: 3,
     rewardGold: 2500,
     rewardExp: 2000,
@@ -295,7 +295,7 @@ export const quests: Quest[] = [
     title: 'CH4-4: 決戦準備',
     description: '敵の本隊との決戦が近い。鍛冶師が「対魔装備」を作るために必要な素材を集めてきてほしい。',
     type: 'collect',
-    targetId: 'magic_stone_small', // 本当はレア素材が良いが既存アイテムで代用
+    targetId: 'magic_stone_small',
     targetAmount: 20,
     rewardGold: 4000,
     rewardExp: 2500,
@@ -310,7 +310,7 @@ export const quests: Quest[] = [
     title: 'CH4-5: 深淵の指揮官',
     description: '【ボス討伐】魔物の軍勢を率いる指揮官の居場所を突き止めた。街への侵攻を阻止するため、「深淵の指揮官」を討て！',
     type: 'hunt',
-    targetId: 'abyss_commander', // 第4章ボス
+    targetId: 'abyss_commander',
     targetAmount: 1,
     rewardGold: 10000,
     rewardExp: 5000,
