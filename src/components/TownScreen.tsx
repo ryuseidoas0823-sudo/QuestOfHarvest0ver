@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { INITIAL_QUESTS } from '../data/quests';
 import { Quest } from '../types/quest';
+import { DialogueWindow } from './DialogueWindow'; // 追加
+import { DIALOGUES } from '../data/dialogues'; // 追加
+import { DialogueTree } from '../types/dialogue'; // 追加
 
 interface TownScreenProps {
   onGoToDungeon: () => void;
   onBackToTitle: () => void;
-  // 以下追加
   acceptedQuests: string[];
   onAcceptQuest: (questId: string) => void;
-  completedQuests: string[]; // 報告済みのクエストID
-  readyToReportQuests: string[]; // 条件達成済みで未報告のクエストID
+  completedQuests: string[];
+  readyToReportQuests: string[];
   onReportQuest: (questId: string) => void;
 }
 
@@ -25,18 +27,37 @@ export const TownScreen: React.FC<TownScreenProps> = ({
   onReportQuest
 }) => {
   const [currentFacility, setCurrentFacility] = useState<Facility>('main');
+  // 会話状態管理
+  const [activeDialogue, setActiveDialogue] = useState<DialogueTree | null>(null);
+
+  const startDialogue = (dialogueId: string) => {
+    const dialogue = DIALOGUES[dialogueId];
+    if (dialogue) {
+      setActiveDialogue(dialogue);
+    }
+  };
 
   // 施設ごとのレンダリング
   const renderFacilityContent = () => {
     switch (currentFacility) {
       case 'guild':
         return (
-          <div className="bg-slate-800 p-6 rounded-lg border-2 border-yellow-600 h-full overflow-hidden flex flex-col w-full">
-            <h2 className="text-2xl font-bold text-yellow-500 mb-4 border-b border-yellow-700 pb-2 shrink-0">冒険者ギルド - 受付</h2>
-            <div className="mb-4 text-slate-300 italic shrink-0">
-              「新人さんね。まずは掲示板の依頼をこなして実力を示して。」 —— 受付嬢ミリア
+          <div className="bg-slate-800 p-6 rounded-lg border-2 border-yellow-600 h-full overflow-hidden flex flex-col w-full relative">
+            <div className="flex justify-between items-center mb-4 border-b border-yellow-700 pb-2 shrink-0">
+              <h2 className="text-2xl font-bold text-yellow-500">冒険者ギルド - 受付</h2>
+              <button 
+                onClick={() => startDialogue('guild_talk')}
+                className="bg-yellow-800 hover:bg-yellow-700 text-yellow-100 px-4 py-1 rounded border border-yellow-600 text-sm flex items-center gap-2 transition-colors"
+              >
+                <span>💬</span> 受付嬢と話す
+              </button>
             </div>
             
+            <div className="mb-4 text-slate-300 italic shrink-0 text-sm">
+              カウンターの奥で、受付嬢のミリアが書類整理をしている。
+            </div>
+            
+            {/* クエストリスト（既存コード） */}
             <div className="flex-grow overflow-y-auto pr-2 space-y-4 custom-scrollbar">
               {INITIAL_QUESTS.map((quest: Quest) => {
                 const isAccepted = acceptedQuests.includes(quest.id);
@@ -71,7 +92,6 @@ export const TownScreen: React.FC<TownScreenProps> = ({
                         報酬: {quest.reward.gold} G / Exp {quest.reward.experience}
                       </div>
                       
-                      {/* アクションボタンの出し分け */}
                       {isCompleted ? (
                          <span className="text-slate-500 font-bold px-4 py-1 border border-slate-600 rounded bg-slate-800">達成済み</span>
                       ) : isReadyToReport ? (
@@ -106,18 +126,53 @@ export const TownScreen: React.FC<TownScreenProps> = ({
           </div>
         );
 
-      // 他のケースは変更なしのため省略...
       case 'home':
+        return (
+          <div className="bg-indigo-900 p-6 rounded-lg border-2 border-indigo-400 h-full flex flex-col items-center justify-center w-full relative overflow-hidden">
+             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+             
+             <div className="z-10 text-center">
+                <h2 className="text-3xl font-bold text-indigo-200 mb-6">ファミリア・ホーム</h2>
+                <button 
+                  onClick={() => startDialogue('home_talk')}
+                  className="mb-8 bg-indigo-700 hover:bg-indigo-600 text-white px-6 py-2 rounded-full border border-indigo-400 shadow-lg transition-transform hover:scale-105"
+                >
+                  神と話す
+                </button>
+                <p className="text-indigo-300 mb-4 text-lg">「おかえりなさい！ 今日の成果をステータスに反映しましょう。」</p>
+                <div className="text-slate-400 mb-8 bg-black/30 p-4 rounded border border-indigo-500/30">(ステータス更新・倉庫機能は開発中です)</div>
+                <button 
+                  onClick={() => setCurrentFacility('main')}
+                  className="text-slate-400 hover:text-white underline"
+                >
+                  ← 街へ戻る
+                </button>
+             </div>
+          </div>
+        );
+
+      // 他の施設（市場・酒場など）は既存のまま
       case 'market':
       case 'tavern':
+        return (
+           <div className="bg-slate-800 p-6 rounded-lg border-2 border-slate-600 h-full flex flex-col items-center justify-center w-full">
+             <h2 className="text-3xl font-bold text-slate-200 mb-6">
+               {currentFacility === 'market' ? '豊穣の市場 & 鍛冶工房' : '酒場『勇気の杯』'}
+             </h2>
+             <p className="text-slate-400 mb-8 text-lg">店主は留守のようだ...</p>
+             <div className="text-slate-500 mb-8 bg-black/30 p-4 rounded">(ショップ機能は開発中です)</div>
+             <button 
+              onClick={() => setCurrentFacility('main')}
+              className="text-slate-400 hover:text-white underline"
+            >
+              ← 街へ戻る
+            </button>
+          </div>
+        );
+
       case 'main':
       default:
-        // 前回作成したUIコードを維持
         return (
-          // ... (省略) ...
-          // ※実際のファイルでは全コードを記述します。ここでは差分が大きくなるため省略表記にしていますが、
-          // 以下のApp.tsxとの結合時にはフルコードでレンダリングされる前提です。
-          // 既存のメインメニュー部分等はそのまま使用します。
           <div className="flex flex-col h-full justify-between py-4 w-full">
             <div className="text-center">
               <h1 className="text-5xl font-bold text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)] mb-2 tracking-wider font-serif">迷宮都市 バベル</h1>
@@ -200,6 +255,15 @@ export const TownScreen: React.FC<TownScreenProps> = ({
           {renderFacilityContent()}
         </div>
       </div>
+
+      {/* 会話ウィンドウ（アクティブ時のみ表示） */}
+      {activeDialogue && (
+        <DialogueWindow 
+          dialogueTree={activeDialogue}
+          onFinish={() => setActiveDialogue(null)}
+          onAction={(action) => console.log('Action:', action)}
+        />
+      )}
     </div>
   );
 };
