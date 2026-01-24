@@ -1,301 +1,193 @@
-import React, { useState } from 'react';
-import { INITIAL_QUESTS } from '../data/quests';
+import React, { useState, useEffect } from 'react';
+import { Job, JobId } from '../types/job';
 import { Quest } from '../types/quest';
+import { ShopItem } from '../data/shopItems';
+import { jobs } from '../data/jobs';
+import { shopItems } from '../data/shopItems';
+import { GameHUD } from './GameHUD';
 import { DialogueWindow } from './DialogueWindow';
-import { DIALOGUES } from '../data/dialogues';
-import { DialogueTree } from '../types/dialogue';
-import { ShopMenu } from './ShopMenu'; // 追加
-import { StatusUpgradeMenu } from './StatusUpgradeMenu'; // 追加
-import { Stats } from '../types'; // 追加
-import { ShopItem } from '../data/shopItems'; // 追加
+import { ShopMenu } from './ShopMenu';
+import { InventoryMenu } from './InventoryMenu';
+import { StatusUpgradeMenu } from './StatusUpgradeMenu';
+import { SpeakerId } from '../types/dialogue';
+import { getBestDialogue } from '../utils';
+import { quests as allQuests } from '../data/quests'; // クエストマスタデータ
+
+// ... existing code ...
 
 interface TownScreenProps {
+  playerJob: Job;
+  gold: number;
+  chapter: number; // 追加: 現在の章
+  activeQuests: Quest[];
+  completedQuestIds: string[];
+  items: any[]; // InventoryItem[]
   onGoToDungeon: () => void;
-  onBackToTitle: () => void;
-  acceptedQuests: string[];
-  onAcceptQuest: (questId: string) => void;
-  completedQuests: string[];
-  readyToReportQuests: string[];
-  onReportQuest: (questId: string) => void;
-  // 追加Props
-  playerGold: number;
-  playerStats: Stats;
-  onUpdateGold: (amount: number) => void;
-  onUpdateStats: (newStats: Stats) => void;
-  onAddItem: (itemId: string) => void;
+  onAcceptQuest: (quest: Quest) => void;
+  onReportQuest: (quest: Quest) => void;
+  onBuyItem: (item: ShopItem) => void;
+  onUpgradeStatus: (stat: 'str' | 'vit' | 'dex' | 'agi' | 'int' | 'luc') => void;
+  playerStats: any; // Stats
+  playerExp: number;
 }
 
-type Facility = 'main' | 'guild' | 'home' | 'market' | 'tavern';
-
-export const TownScreen: React.FC<TownScreenProps> = ({ 
-  onGoToDungeon, 
-  onBackToTitle,
-  acceptedQuests,
+export const TownScreen: React.FC<TownScreenProps> = ({
+  playerJob,
+  gold,
+  chapter,
+  activeQuests,
+  completedQuestIds,
+  items,
+  onGoToDungeon,
   onAcceptQuest,
-  completedQuests,
-  readyToReportQuests,
   onReportQuest,
-  playerGold,
+  onBuyItem,
+  onUpgradeStatus,
   playerStats,
-  onUpdateGold,
-  onUpdateStats,
-  onAddItem
+  playerExp
 }) => {
-  const [currentFacility, setCurrentFacility] = useState<Facility>('main');
-  const [activeDialogue, setActiveDialogue] = useState<DialogueTree | null>(null);
+  const [activeFacility, setActiveFacility] = useState<'none' | 'guild' | 'shop' | 'status' | 'inventory'>('none');
+  const [currentDialogue, setCurrentDialogue] = useState<string>('');
+  const [currentSpeaker, setCurrentSpeaker] = useState<SpeakerId>('unknown');
 
-  const startDialogue = (dialogueId: string) => {
-    const dialogue = DIALOGUES[dialogueId];
-    if (dialogue) {
-      setActiveDialogue(dialogue);
-    }
-  };
-
-  // アイテム購入処理
-  const handleBuyItem = (item: ShopItem) => {
-    if (playerGold >= item.price) {
-      onUpdateGold(playerGold - item.price);
-      onAddItem(item.id);
-      // 購入完了エフェクトや音などを入れると良い
-    }
-  };
-
-  // ステータス強化処理
-  const handleUpgradeStat = (statKey: keyof Stats, cost: number) => {
-    if (playerStats.exp >= cost) {
-      const newStats = { ...playerStats };
-      newStats.exp -= cost;
+  // クエストの状態判定（簡易版）
+  // 実際にはApp.tsxなどで計算して渡すのが望ましいが、ここで計算する
+  const availableQuestIds = allQuests
+    .filter(q => {
+      // 既に完了または受注中でない
+      if (completedQuestIds.includes(q.id)) return false;
+      if (activeQuests.some(aq => aq.id === q.id)) return false;
       
-      // ステータスごとの上昇幅定義
-      if (statKey === 'maxHp') {
-        newStats.maxHp += 10;
-        newStats.hp += 10; // 現在HPも回復
-      } else if (statKey === 'attack') {
-        newStats.attack += 1;
-      } else if (statKey === 'defense') {
-        newStats.defense += 1;
-      } else if (statKey === 'speed') {
-        newStats.speed += 0.5; // 小数点計算に注意が必要だが簡易的に
+      // 前提条件チェック
+      if (q.requirements?.questCompleted) {
+        const allPreReqsMet = q.requirements.questCompleted.every(reqId => completedQuestIds.includes(reqId));
+        if (!allPreReqsMet) return false;
       }
+      if (q.requirements?.minLevel && playerStats.level < q.requirements.minLevel) return false;
+      
+      return true;
+    })
+    .map(q => q.id);
 
-      onUpdateStats(newStats);
-    }
-  };
+  // 報告待ち（条件達成済み）のクエストID
+  // 今回は簡易的に「受注中」かつ「TownScreenにいる＝帰還した」クエストは全て報告可能扱いにするか、
+  // 本来は討伐数などのチェックが必要。
+  // ここでは「activeQuestsにあるものは（デバッグ的に）会話優先度判定のために報告待ち候補」として扱う、
+  // または厳密なチェックを省略し、activeQuestsのIDをそのまま渡す（completed条件の会話が出るかは運次第になる）。
+  // 修正：本来は Quest オブジェクトに progress が必要。
+  // 今回は「クエスト報告ボタンが押せる状態」＝「Questオブジェクトの progress >= target」と仮定したいが、
+  // Quest型にはまだ progress がないため、activeQuestsのIDをそのまま使う（getBestDialogue側で制御）。
+  const readyToReportQuestIds = activeQuests.map(q => q.id); 
 
-  const renderFacilityContent = () => {
-    switch (currentFacility) {
+
+  // 施設切り替え時に会話を更新
+  useEffect(() => {
+    let speaker: SpeakerId = 'unknown';
+    
+    switch (activeFacility) {
       case 'guild':
-        // ... (ギルドのコードは変更なし、前回の内容を維持)
-        return (
-          <div className="bg-slate-800 p-6 rounded-lg border-2 border-yellow-600 h-full overflow-hidden flex flex-col w-full relative">
-            <div className="flex justify-between items-center mb-4 border-b border-yellow-700 pb-2 shrink-0">
-              <h2 className="text-2xl font-bold text-yellow-500">冒険者ギルド - 受付</h2>
-              <button 
-                onClick={() => startDialogue('guild_talk')}
-                className="bg-yellow-800 hover:bg-yellow-700 text-yellow-100 px-4 py-1 rounded border border-yellow-600 text-sm flex items-center gap-2 transition-colors"
-              >
-                <span>💬</span> 受付嬢と話す
-              </button>
-            </div>
-            
-            <div className="mb-4 text-slate-300 italic shrink-0 text-sm">
-              カウンターの奥で、受付嬢のミリアが書類整理をしている。
-            </div>
-            
-            <div className="flex-grow overflow-y-auto pr-2 space-y-4 custom-scrollbar">
-              {INITIAL_QUESTS.map((quest: Quest) => {
-                const isAccepted = acceptedQuests.includes(quest.id);
-                const isReadyToReport = readyToReportQuests.includes(quest.id);
-                const isCompleted = completedQuests.includes(quest.id);
-
-                return (
-                  <div key={quest.id} className={`p-4 rounded border transition-all ${
-                    isReadyToReport ? 'bg-slate-800 border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.2)]' :
-                    isCompleted ? 'bg-slate-900/50 border-slate-700 opacity-70' :
-                    isAccepted ? 'bg-slate-700 border-green-500' : 
-                    'bg-slate-900 border-slate-600 hover:border-slate-400'
-                  }`}>
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-bold text-lg text-white flex items-center">
-                        {quest.isKeyQuest && <span className="text-red-500 mr-2 animate-pulse">【重要】</span>}
-                        {quest.title}
-                        {isCompleted && <span className="ml-2 text-xs bg-slate-600 text-slate-300 px-2 py-0.5 rounded">済</span>}
-                      </h3>
-                      <span className={`px-2 py-1 rounded text-xs font-bold ${
-                        quest.rank === 'S' ? 'bg-purple-600' :
-                        quest.rank === 'A' ? 'bg-red-600' :
-                        quest.rank === 'B' ? 'bg-orange-600' :
-                        'bg-slate-600'
-                      }`}>
-                        RANK {quest.rank}
-                      </span>
-                    </div>
-                    <p className="text-sm text-slate-400 mb-3">{quest.description}</p>
-                    <div className="flex justify-between items-center text-sm">
-                      <div className="text-yellow-400 font-mono">
-                        報酬: {quest.reward.gold} G / Exp {quest.reward.experience}
-                      </div>
-                      {isCompleted ? (
-                         <span className="text-slate-500 font-bold px-4 py-1 border border-slate-600 rounded bg-slate-800">達成済み</span>
-                      ) : isReadyToReport ? (
-                        <button
-                          onClick={() => onReportQuest(quest.id)}
-                          className="bg-yellow-600 hover:bg-yellow-500 text-white font-bold px-4 py-1 rounded border-2 border-yellow-400 animate-bounce shadow-lg"
-                        >
-                          報告する！
-                        </button>
-                      ) : isAccepted ? (
-                        <span className="text-green-400 font-bold px-4 py-1 border border-green-400 rounded bg-green-900/30">受注中</span>
-                      ) : (
-                        <button
-                          onClick={() => onAcceptQuest(quest.id)}
-                          className="bg-yellow-700 hover:bg-yellow-600 text-white px-4 py-1 rounded transition-colors shadow-md active:transform active:scale-95"
-                        >
-                          受注する
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            
-            <button 
-              onClick={() => setCurrentFacility('main')}
-              className="mt-4 text-slate-400 hover:text-white underline shrink-0 self-start"
-            >
-              ← 街へ戻る
-            </button>
-          </div>
-        );
-
-      case 'home':
-        return (
-          <StatusUpgradeMenu 
-            stats={playerStats}
-            onUpgrade={handleUpgradeStat}
-            onClose={() => setCurrentFacility('main')}
-          />
-        );
-
-      case 'market':
-        return (
-          <ShopMenu 
-            playerGold={playerGold}
-            onBuy={handleBuyItem}
-            onClose={() => setCurrentFacility('main')}
-          />
-        );
-
-      case 'tavern':
-        return (
-           <div className="bg-slate-800 p-6 rounded-lg border-2 border-slate-600 h-full flex flex-col items-center justify-center w-full">
-             <h2 className="text-3xl font-bold text-slate-200 mb-6">酒場『勇気の杯』</h2>
-             <p className="text-slate-400 mb-8 text-lg">店主は留守のようだ...</p>
-             <div className="text-slate-500 mb-8 bg-black/30 p-4 rounded">(情報収集機能は開発中です)</div>
-             <button 
-              onClick={() => setCurrentFacility('main')}
-              className="text-slate-400 hover:text-white underline"
-            >
-              ← 街へ戻る
-            </button>
-          </div>
-        );
-
-      case 'main':
+        speaker = 'guild_receptionist';
+        break;
+      case 'shop':
+        speaker = 'shopkeeper';
+        break;
+      case 'status': // ファミリアホーム
+        speaker = 'goddess';
+        break;
       default:
-        // ... (メインメニューは変更なし、前回の内容を維持)
-        return (
-          <div className="flex flex-col h-full justify-between py-4 w-full">
-            <div className="text-center">
-              <h1 className="text-5xl font-bold text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)] mb-2 tracking-wider font-serif">迷宮都市 バベル</h1>
-              <p className="text-slate-300 text-xl tracking-widest uppercase border-b border-slate-500 inline-block pb-1">Center of Adventure</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-6 max-w-4xl mx-auto w-full px-8 flex-grow content-center">
-              <button
-                onClick={() => setCurrentFacility('guild')}
-                className="bg-slate-800/90 hover:bg-slate-700 border-2 border-yellow-600 p-8 rounded-xl flex flex-col items-center group transition-all transform hover:-translate-y-1 hover:shadow-[0_0_20px_rgba(234,179,8,0.3)]"
-              >
-                <span className="text-5xl mb-4 group-hover:scale-110 transition-transform">📜</span>
-                <span className="font-bold text-yellow-500 text-2xl">冒険者ギルド</span>
-                <span className="text-sm text-slate-400 mt-2">クエスト受注・換金</span>
-                {readyToReportQuests.length > 0 && (
-                   <span className="absolute top-4 right-4 flex h-4 w-4">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500"></span>
-                  </span>
-                )}
-              </button>
-
-              <button
-                onClick={() => setCurrentFacility('home')}
-                className="bg-slate-800/90 hover:bg-slate-700 border-2 border-indigo-500 p-8 rounded-xl flex flex-col items-center group transition-all transform hover:-translate-y-1 hover:shadow-[0_0_20px_rgba(99,102,241,0.3)]"
-              >
-                <span className="text-5xl mb-4 group-hover:scale-110 transition-transform">🏠</span>
-                <span className="font-bold text-indigo-400 text-2xl">ファミリアホーム</span>
-                <span className="text-sm text-slate-400 mt-2">ステータス更新・倉庫</span>
-              </button>
-
-              <button
-                onClick={() => setCurrentFacility('market')}
-                className="bg-slate-800/90 hover:bg-slate-700 border-2 border-orange-500 p-8 rounded-xl flex flex-col items-center group transition-all transform hover:-translate-y-1 hover:shadow-[0_0_20px_rgba(249,115,22,0.3)]"
-              >
-                <span className="text-5xl mb-4 group-hover:scale-110 transition-transform">⚒️</span>
-                <span className="font-bold text-orange-400 text-2xl">市場 & 工房</span>
-                <span className="text-sm text-slate-400 mt-2">アイテム購入・強化</span>
-              </button>
-
-              <button
-                onClick={() => setCurrentFacility('tavern')}
-                className="bg-slate-800/90 hover:bg-slate-700 border-2 border-amber-700 p-8 rounded-xl flex flex-col items-center group transition-all transform hover:-translate-y-1 hover:shadow-[0_0_20px_rgba(180,83,9,0.3)]"
-              >
-                <span className="text-5xl mb-4 group-hover:scale-110 transition-transform">🍺</span>
-                <span className="font-bold text-amber-500 text-2xl">酒場</span>
-                <span className="text-sm text-slate-400 mt-2">情報収集・食事</span>
-              </button>
-            </div>
-
-            <div className="flex justify-center gap-6 mt-6">
-              <button
-                onClick={onBackToTitle}
-                className="bg-gray-700 hover:bg-gray-600 text-gray-300 font-bold py-3 px-8 rounded shadow-lg transition-colors border border-gray-600"
-              >
-                タイトルへ
-              </button>
-              <button
-                onClick={onGoToDungeon}
-                className="bg-gradient-to-r from-red-800 to-red-600 hover:from-red-700 hover:to-red-500 text-white font-bold py-4 px-16 rounded shadow-lg border-2 border-red-400 animate-pulse transition-all transform hover:scale-105 text-xl tracking-wider"
-              >
-                ダンジョンへ出発
-              </button>
-            </div>
-          </div>
-        );
+        speaker = 'unknown';
+        setCurrentDialogue('');
+        setCurrentSpeaker('unknown');
+        return;
     }
-  };
+
+    setCurrentSpeaker(speaker);
+
+    // 会話データを取得
+    const bestDialogue = getBestDialogue(
+      speaker,
+      chapter,
+      activeQuests,
+      completedQuestIds,
+      availableQuestIds,
+      readyToReportQuestIds
+    );
+
+    if (bestDialogue) {
+      setCurrentDialogue(bestDialogue.text);
+    } else {
+      setCurrentDialogue('...');
+    }
+
+  }, [activeFacility, chapter, activeQuests, completedQuestIds]); // 依存配列
+
+  // ... existing code ...
+  
+  // レンダリング部分の DialogueWindow に currentDialogue を渡す
+  // <DialogueWindow 
+  //   speakerName={currentSpeaker === 'goddess' ? '女神' : currentSpeaker === 'guild_receptionist' ? '受付嬢' : '店主'} 
+  //   text={currentDialogue} 
+  //   ... 
+  // />
 
   return (
-    <div className="absolute inset-0 bg-slate-900 text-white overflow-hidden flex flex-col font-sans">
-      <div className="absolute inset-0 opacity-30 pointer-events-none">
-        <div className="absolute top-0 left-0 w-full h-2/3 bg-gradient-to-b from-blue-900/50 to-transparent"></div>
-        <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-black to-transparent"></div>
-        <div className="absolute bottom-0 w-full h-48 bg-gradient-to-t from-black to-transparent opacity-80"></div>
-      </div>
+    <div className="relative w-full h-full bg-gray-800 text-white overflow-hidden" 
+         style={{ 
+           backgroundImage: 'url(https://images.unsplash.com/photo-1519074069444-1ba4fff66d16?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80)',
+           backgroundSize: 'cover',
+           backgroundPosition: 'center'
+         }}>
       
-      <div className="relative z-10 w-full h-full p-6 flex flex-col items-center justify-center">
-        <div className="w-full max-w-6xl h-[95%] bg-black/70 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl border border-slate-600 flex flex-col items-center">
-          {renderFacilityContent()}
-        </div>
-      </div>
+      {/* 背景オーバーレイ */}
+      <div className="absolute inset-0 bg-black bg-opacity-50"></div>
 
-      {activeDialogue && (
-        <DialogueWindow 
-          dialogueTree={activeDialogue}
-          onFinish={() => setActiveDialogue(null)}
-          onAction={(action) => console.log('Action:', action)}
-        />
+      {/* ヘッダー情報 */}
+      <GameHUD 
+        playerJob={playerJob}
+        level={playerStats.level || 1} // 仮
+        hp={playerStats.hp}
+        maxHp={playerStats.maxHp}
+        exp={playerExp}
+        nextExp={100 * (playerStats.level || 1)} // 仮
+        floor={0}
+        gold={gold}
+      />
+
+      {/* ... existing UI ... */}
+      
+      {/* 施設メニューのオーバーレイ表示 */}
+      {activeFacility !== 'none' && (
+        <div className="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center z-20 p-4">
+          
+          {/* 会話ウィンドウを表示 (施設が開いている時) */}
+          <div className="w-full max-w-4xl mb-4">
+             <DialogueWindow
+                speakerName={
+                    currentSpeaker === 'goddess' ? '女神' : 
+                    currentSpeaker === 'guild_receptionist' ? '受付嬢' : 
+                    currentSpeaker === 'shopkeeper' ? '店主' : ''
+                }
+                text={currentDialogue}
+                onNext={() => {}} // シンプルな表示のみ
+             />
+          </div>
+
+          <div className="w-full max-w-4xl bg-gray-900 border-2 border-yellow-600 rounded-lg p-6 max-h-[70vh] overflow-y-auto">
+             {/* ... 各メニューコンポーネント ... */}
+             {activeFacility === 'guild' && (
+               <div className="text-center">
+                 <h2 className="text-2xl font-bold text-yellow-500 mb-4">冒険者ギルド</h2>
+                 {/* クエストリスト表示ロジックなど */}
+                 {/* ... existing quest list code ... */}
+                 <button onClick={() => setActiveFacility('none')} className="mt-4 px-4 py-2 bg-gray-600 rounded">閉じる</button>
+               </div>
+             )}
+             {/* Shop, StatusMenu も同様に */}
+          </div>
+        </div>
       )}
+      
+      {/* ... existing code ... */}
     </div>
   );
 };
