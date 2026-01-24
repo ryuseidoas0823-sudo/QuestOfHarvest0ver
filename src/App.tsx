@@ -6,18 +6,17 @@ import { TownScreen } from './components/TownScreen';
 import { ResultScreen } from './components/ResultScreen';
 import { renderDungeon } from './renderer';
 import { useGameLogic } from './gameLogic';
-import { Job, JobId } from './types/job';
+import { Job } from './types/job';
 import { Quest } from './types/quest';
 import { ShopItem } from './data/shopItems';
 import { quests as allQuests } from './data/quests';
 import { jobs } from './data/jobs';
 import { GameHUD } from './components/GameHUD';
-import { dialogues } from './data/dialogues'; // 追加
+import { dialogues } from './data/dialogues';
 
 // 画面遷移の状態
 type ScreenState = 'title' | 'jobSelect' | 'godSelect' | 'town' | 'dungeon' | 'result';
 
-// ... existing helper functions (calculateExp etc) ...
 const calculateLevel = (exp: number) => Math.floor(Math.sqrt(exp / 100)) + 1;
 
 export default function App() {
@@ -41,14 +40,11 @@ export default function App() {
   const [activeQuests, setActiveQuests] = useState<Quest[]>([]);
   const [completedQuestIds, setCompletedQuestIds] = useState<string[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
-  
-  // 追加: アンロックされた仲間IDリスト
   const [unlockedCompanions, setUnlockedCompanions] = useState<string[]>([]);
 
-  // Canvas Ref
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // ゲームロジックフック
+  // ゲームロジックフックに chapter を渡す
   const { 
     dungeon, 
     playerPos, 
@@ -59,12 +55,11 @@ export default function App() {
     movePlayer 
   } = useGameLogic(
     playerJob,
+    chapter, // 追加
     activeQuests,
-    (questId, amount) => handleQuestUpdate(questId, amount), // クエスト進捗更新
+    (questId, amount) => handleQuestUpdate(questId, amount),
     () => handleGameOver()
   );
-
-  // ... existing logic (keyboard input, useEffects) ...
 
   // キーボード入力処理
   useEffect(() => {
@@ -89,14 +84,12 @@ export default function App() {
     }
   }, [screen, dungeon, playerPos, enemies]);
 
-
   // --- アクションハンドラ ---
 
   const handleStartGame = () => setScreen('jobSelect');
   
   const handleSelectJob = (job: Job) => {
     setPlayerJob(job);
-    // 初期ステータス設定
     setPlayerStats({
       ...playerStats,
       maxHp: job.baseStats.vit * 10,
@@ -113,15 +106,11 @@ export default function App() {
   };
 
   const handleSelectGod = (godId: string) => {
-    // 神の恩恵処理などはここ
     setScreen('town');
-    // 初期クエスト自動受注などの処理があればここ
-    // handleAcceptQuest(allQuests[0]); // 例
   };
 
   const handleGoToDungeon = () => {
     setScreen('dungeon');
-    // ダンジョン初期化は useGameLogic 内で行われる
   };
 
   const handleGameOver = () => {
@@ -132,7 +121,6 @@ export default function App() {
     setScreen('town');
   };
 
-  // クエスト関連
   const handleAcceptQuest = (quest: Quest) => {
     if (!activeQuests.find(q => q.id === quest.id)) {
       setActiveQuests([...activeQuests, quest]);
@@ -140,34 +128,26 @@ export default function App() {
   };
 
   const handleQuestUpdate = (questId: string, progress: number) => {
-     // 簡易実装: ここでクエスト達成フラグ管理などを行う
-     // 今回は「ボス撃破」などのイベントトリガーから直接完了扱いにするケースもあり
      console.log(`Quest Updated: ${questId}, Progress: ${progress}`);
   };
 
   const handleReportQuest = (quest: Quest) => {
-    // 報酬付与
     setGold(gold + quest.rewardGold);
     setPlayerExp(playerExp + quest.rewardExp);
     
-    // クエストリスト更新
     setActiveQuests(activeQuests.filter(q => q.id !== quest.id));
     setCompletedQuestIds([...completedQuestIds, quest.id]);
     
-    // レベルアップチェック
     const newLevel = calculateLevel(playerExp + quest.rewardExp);
     if (newLevel > playerStats.level) {
         setPlayerStats({ ...playerStats, level: newLevel });
-        // レベルアップ演出など
     }
 
-    // --- シナリオ進行ロジック ---
-    // 第1章ボス (mq_1_5) を報告完了したら、第2章へ移行
+    // 章の進行
     if (quest.id === 'mq_1_5') {
         setChapter(2);
-        // 救助したNPC「エリアス」をアンロック
         setUnlockedCompanions(prev => [...prev, 'elias']);
-        console.log("Chapter 2 Started! Companion Unlocked.");
+        alert("Chapter 2へ進みました！ 仲間「エリアス」が解禁されました。");
     }
   };
 
@@ -179,25 +159,16 @@ export default function App() {
   };
 
   const handleUpgradeStatus = (stat: 'str' | 'vit' | 'dex' | 'agi' | 'int' | 'luc') => {
-      // 経験値消費などでステータスアップ
-      // 簡易実装
       if (playerExp >= 100) {
           setPlayerExp(playerExp - 100);
-          setPlayerStats({
-              ...playerStats,
-              [stat]: playerStats[stat] + 1
-          });
+          setPlayerStats({ ...playerStats, [stat]: playerStats[stat] + 1 });
       }
   };
 
-
-  // レンダリング
   return (
     <div className="w-full h-screen bg-black text-white font-sans">
       {screen === 'title' && <TitleScreen onStart={handleStartGame} />}
-      
       {screen === 'jobSelect' && <JobSelectScreen onSelectJob={handleSelectJob} />}
-      
       {screen === 'godSelect' && <GodSelectScreen onSelectGod={handleSelectGod} />}
       
       {screen === 'town' && (
@@ -220,12 +191,11 @@ export default function App() {
       
       {screen === 'dungeon' && (
         <div className="relative w-full h-full flex flex-col items-center justify-center">
-            {/* HUD */}
             <div className="absolute top-0 left-0 w-full z-10">
                 <GameHUD 
                     playerJob={playerJob}
                     level={playerStats.level}
-                    hp={playerStats.hp} // useGameLogic側のHPを使うべきだが同期簡略化のため
+                    hp={playerStats.hp}
                     maxHp={playerStats.maxHp}
                     exp={playerExp}
                     nextExp={100 * playerStats.level}
@@ -234,7 +204,6 @@ export default function App() {
                 />
             </div>
 
-            {/* Canvas */}
             <canvas 
                 ref={canvasRef} 
                 width={800} 
@@ -242,14 +211,12 @@ export default function App() {
                 className="border-4 border-gray-700 bg-gray-900 shadow-2xl"
             />
             
-            {/* メッセージログ */}
             <div className="absolute bottom-4 left-4 bg-black bg-opacity-70 p-4 rounded max-w-md pointer-events-none">
                 {messageLog.map((log, i) => (
                     <div key={i} className="text-sm text-gray-200">{log}</div>
                 ))}
             </div>
 
-            {/* ゲームオーバー/クリア判定 */}
             {gameOver && (
                 <div className="absolute inset-0 bg-red-900 bg-opacity-80 flex items-center justify-center flex-col z-20">
                     <h2 className="text-4xl font-bold mb-4">YOU DIED</h2>
