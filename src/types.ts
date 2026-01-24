@@ -1,118 +1,83 @@
-export type JobType = 'Swordsman' | 'Warrior' | 'Archer' | 'Mage';
-export type Job = JobType;
-export type Gender = 'male' | 'female';
-export type ResolutionMode = 'auto' | '800x600' | 'Low' | 'High';
-export type Biome = 'Grass' | 'Water' | 'Forest' | 'Mountain';
+// 既存の型定義をベースに拡張
 
-export type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary';
-export type ItemType = 'Weapon' | 'Shield' | 'Head' | 'Body' | 'Legs' | 'Accessory' | 'Consumable' | 'Material';
-export type EquipmentType = ItemType;
+export type Direction = 'up' | 'down' | 'left' | 'right';
+
+export interface Position {
+  x: number;
+  y: number;
+}
 
 export interface Stats {
-  str: number;
-  dex: number;
-  int: number;
-  vit: number;
-  agi: number;
-  luk: number;
-}
-export type Attributes = Stats;
-
-export interface Entity {
-  id: string;
-  name: string;
-  hp: number;
   maxHp: number;
-  mp: number;
-  maxMp: number;
+  hp: number;
+  attack: number;
+  defense: number;
   level: number;
-  stats: Stats;
+  exp: number;
+  nextLevelExp: number;
+  speed: number;
+  // 拡張ステータス
+  critRate?: number;
+  dropRate?: number;
+}
+
+// 飛び道具（スキルで発射される火の玉や矢）
+export interface Projectile {
+  id: string;
   x: number;
   y: number;
   width: number;
   height: number;
-  visualWidth: number;
-  visualHeight: number;
+  direction: Direction;
+  speed: number;
+  damage: number;
+  ownerId: string; // 誰が撃ったか
+  lifeTime: number; // 消滅までの時間 (ms)
+  assetKey: string;
+}
+
+export interface Entity {
+  id: string;
+  type: 'player' | 'enemy' | 'npc';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color: string;
+  direction: Direction;
   isMoving: boolean;
-  animFrame: number;
-  direction: 'left' | 'right';
-  color?: string;
-}
-
-export interface PlayerEntity extends Entity {
-  job: JobType;
-  gender: Gender;
-  exp: number;
-  maxExp: number;
-  statPoints: number;
-  inventory: Item[];
-  equipment: {
-    weapon: Item | null;
-    shield: Item | null;
-    head: Item | null;
-    body: Item | null;
-    legs: Item | null;
-    accessory: Item | null;
-  };
-  hunger: number;
-  thirst: number;
-  energy: number;
-  lastAttackTime: number;
-  invincibleUntil: number;
-}
-
-export interface EnemyEntity extends Entity {
-  type: string;
-  rarity: 'Normal' | 'Elite' | 'Boss';
-  lootTable: string[];
-  dead?: boolean;
-  race?: string;
-  behavior: 'idle' | 'chase' | 'attack';
-  visionRange: number;
-  attackRange: number;
-  attackCooldown: number;
-  lastAttackTime: number;
+  stats: Stats;
+  
+  // 拡張プロパティ
+  jobId?: string;
+  godId?: string;
+  skills?: string[]; // 習得スキルIDのリスト
+  skillCooldowns?: Record<string, number>; // スキルID -> 再使用可能になるタイムスタンプ
 }
 
 export interface Item {
   id: string;
-  name: string;
-  type: ItemType;
-  rarity: Rarity;
-  stats?: Partial<Stats>;
-  description: string;
-  value: number;
-  icon?: string;
-  color?: string;
-  restore?: {
-    hp?: number;
-    mp?: number;
-    hunger?: number;
-    thirst?: number;
-    energy?: number;
-  };
+  x: number;
+  y: number;
+  itemId: string; // src/data/items.ts のキー
+}
+
+export interface MapData {
+  width: number;
+  height: number;
+  tiles: number[][]; // 0: floor, 1: wall
+  rooms: any[];
 }
 
 export interface GameState {
-  player: PlayerEntity;
-  enemies: EnemyEntity[];
-  worldMap: number[][]; // renderer.ts で map ではなくこちらを使用
-  dayCount: number;
+  player: Entity;
+  enemies: Entity[];
+  items: Item[];
+  projectiles: Projectile[]; // 追加: 画面上の飛び道具リスト
+  inventory: string[];       // 追加: プレイヤーの所持品
+  map: MapData;
   gameTime: number;
-  droppedItems?: any[];
-  particles?: any[];
-  floatingTexts?: any[];
-  camera?: { x: number, y: number };
+  floor: number;
+  messages: string[];
+  camera: Position;
 }
-
-export type TileType = number;
-export interface Tile { 
-  type: TileType; 
-  x: number; 
-  y: number; 
-  solid?: boolean; 
-}
-
-// アセット用。各アセットファイルで使用されるヘルパー
-export type JobAssets = Record<JobType, { male: any; female: any }>;
-export const svgToUrl = (svg: string) => `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
