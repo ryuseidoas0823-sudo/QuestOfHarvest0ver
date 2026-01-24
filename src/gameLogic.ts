@@ -1,24 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { generateDungeon } from './dungeonGenerator';
-import { DungeonMap, TileType } from './types';
-import { Enemy, EnemyInstance, Faction } from './types/enemy';
+import { DungeonMap } from './types';
+import { EnemyInstance } from './types/enemy';
 import { enemies as enemyData } from './data/enemies';
 import { Job } from './types/job';
 import { Quest } from './types/quest';
 import { getDistance } from './utils';
 
-interface GameState {
-  dungeon: DungeonMap | null;
-  playerPos: { x: number; y: number };
-  enemies: EnemyInstance[];
-  floor: number;
-  gameOver: boolean;
-  gameClear: boolean;
-  messageLog: string[];
-}
+// ... existing interfaces ...
 
 export const useGameLogic = (
-  initialJob: Job,
+  playerJob: Job,
+  chapter: number, // 追加: 進行度によって仲間を出す判定に使用
   activeQuests: Quest[],
   onQuestUpdate: (questId: string, progress: number) => void,
   onPlayerDeath: () => void
@@ -31,16 +24,12 @@ export const useGameLogic = (
   const [messageLog, setMessageLog] = useState<string[]>([]);
   
   const [playerHp, setPlayerHp] = useState(100);
-  const playerMaxHp = 100;
+  const playerMaxHp = 100; // 仮の実装。本来はstatsから計算
   const playerAttack = 10;
 
-  // ターン処理内で最新のプレイヤー座標を参照するためのRef
+  // ターン処理参照用
   const playerPosRef = useRef({ x: 0, y: 0 });
-  
-  // プレイヤー座標更新時にRefも同期
-  useEffect(() => {
-    playerPosRef.current = playerPos;
-  }, [playerPos]);
+  useEffect(() => { playerPosRef.current = playerPos; }, [playerPos]);
 
   const addLog = useCallback((msg: string) => {
     setMessageLog(prev => [msg, ...prev].slice(0, 5));
@@ -55,24 +44,49 @@ export const useGameLogic = (
 
     const newEnemies: EnemyInstance[] = [];
     
-    // --- ボス階層の特別処理 ---
+    // --- ボス階層の判定 ---
     const isBossFloor = floorNum % 5 === 0;
     const isRescueQuestActive = activeQuests.some(q => q.id === 'mq_1_5');
 
+    // --- 仲間のスポーン (第2章以降) ---
+    // ボス階層でも通常階層でも、プレイヤーの近くに配置
+    if (chapter >= 2) {
+        const allyData = enemyData.find(e => e.id === 'elias_ally');
+        if (allyData) {
+            newEnemies.push({
+                ...allyData,
+                uniqueId: 'ally_elias',
+                hp: allyData.maxHp,
+                x: newDungeon.playerStart.x + 1, // プレイヤーの隣
+                y: newDungeon.playerStart.y,
+                faction: 'player_ally',
+                aiType: 'aggressive'
+            });
+            // 初回のみログを出すなどの制御も可
+            // addLog(`${allyData.name}が同行している。`);
+        }
+    }
+
     if (isBossFloor) {
+        // ボス配置
         const bossData = enemyData.find(e => e.type === 'boss') || enemyData[0];
+        // 階層に応じてボスを変える簡易ロジック
+        let currentBoss = bossData;
+        if (floorNum === 5) currentBoss = enemyData.find(e => e.id === 'orc_general') || bossData;
+        if (floorNum === 10) currentBoss = enemyData.find(e => e.id === 'cerberus') || bossData;
+
         const room = newDungeon.rooms[0];
-        
         newEnemies.push({
-            ...bossData,
+            ...currentBoss,
             uniqueId: `boss_${floorNum}`,
-            hp: bossData.maxHp,
+            hp: currentBoss.maxHp,
             x: Math.floor(room.x + room.w / 2),
             y: Math.floor(room.y + room.h / 2),
             faction: 'monster'
         });
 
-        if (isRescueQuestActive && floorNum === 5) {
+        // 第1章ボス戦の救助対象配置
+        if (floorNum === 5 && isRescueQuestActive) {
             const npcData = enemyData.find(e => e.id === 'injured_adventurer');
             if (npcData) {
                 newEnemies.push({
@@ -84,17 +98,16 @@ export const useGameLogic = (
                     faction: 'player_ally',
                     aiType: 'stationary'
                 });
-                addLog('奥に誰かが倒れている！ ボスから守らなければ！');
             }
         }
-
     } else {
+        // 通常敵の配置
         newDungeon.rooms.forEach(room => {
-             const count = Math.floor(Math.random() * 2);
+             const count = Math.floor(Math.random() * 2) + 1;
              for(let i=0; i<count; i++) {
-                 const data = enemyData.filter(e => e.type !== 'boss' && e.faction !== 'player_ally')[
-                     Math.floor(Math.random() * (enemyData.length - 2))
-                 ] || enemyData[0];
+                 // NPC/Boss/Ally以外から抽選
+                 const validEnemies = enemyData.filter(e => e.faction === 'monster' && e.type !== 'boss');
+                 const data = validEnemies[Math.floor(Math.random() * validEnemies.length)];
                  
                  newEnemies.push({
                      ...data,
@@ -109,12 +122,13 @@ export const useGameLogic = (
     }
 
     setEnemies(newEnemies);
-  }, [activeQuests, addLog]);
+  }, [activeQuests, addLog, chapter]);
 
   useEffect(() => {
     initFloor(1);
   }, []);
 
+  // --- プレイヤー移動 ---
   const movePlayer = (dx: number, dy: number) => {
     if (gameOver || !dungeon) return;
     const newX = playerPos.x + dx;
@@ -122,46 +136,25 @@ export const useGameLogic = (
 
     if (dungeon.tiles[newY][newX] === 'wall') return;
 
+    // 攻撃判定
     const targetEnemy = enemies.find(e => e.x === newX && e.y === newY);
     if (targetEnemy) {
         if (targetEnemy.faction === 'monster') {
             const damage = Math.max(1, playerAttack - targetEnemy.defense);
-            addLog(`${targetEnemy.name}に${damage}のダメージ！`);
+            addLog(`あなた の攻撃！ ${targetEnemy.name}に${damage}ダメージ`);
             
-            // プレイヤーの攻撃処理
-            setEnemies(prev => {
-                const next = prev.map(e => {
-                    if (e.uniqueId === targetEnemy.uniqueId) {
-                        return { ...e, hp: e.hp - damage };
-                    }
-                    return e;
-                }).filter(e => e.hp > 0);
-                
-                // 撃破判定
-                if (next.length < prev.length) {
-                    addLog(`${targetEnemy.name}を倒した！`);
-                    if (targetEnemy.type === 'boss') {
-                        // 救助成功判定
-                        const npc = next.find(e => e.faction === 'player_ally');
-                        if (npc) { // NPCが生きていれば
-                            addLog('救助成功！ 安全を確保した。');
-                            onQuestUpdate('mq_1_5', 1);
-                        } else if (!activeQuests.some(q => q.id === 'mq_1_5')) {
-                            addLog('ボス撃破！');
-                        } else {
-                            addLog('ボスを倒したが、救助対象は既に...');
-                        }
-                    }
-                }
-                return next;
-            });
-
+            applyDamageToEnemy(targetEnemy.uniqueId, damage);
         } else if (targetEnemy.faction === 'player_ally') {
-            addLog(`${targetEnemy.name}: 「うう……頼む、助けてくれ……」`);
+            // 味方と位置を入れ替える（便利機能）
+            setPlayerPos({ x: newX, y: newY });
+            setEnemies(prev => prev.map(e => 
+                e.uniqueId === targetEnemy.uniqueId ? { ...e, x: playerPos.x, y: playerPos.y } : e
+            ));
+            addLog(`${targetEnemy.name}と位置を入れ替わった。`);
+            return; // ターン経過させない、あるいはさせる
         }
         
-        // 攻撃したターンも敵は動く
-        processEnemyTurn();
+        processTurn();
         return;
     }
 
@@ -172,105 +165,164 @@ export const useGameLogic = (
         initFloor(floor + 1);
     }
 
-    processEnemyTurn();
+    processTurn();
   };
 
-  // --- 敵のターン処理 (NPCダメージ対応版) ---
-  const processEnemyTurn = () => {
+  // ダメージ適用ヘルパー
+  const applyDamageToEnemy = (targetId: string, damage: number) => {
+      setEnemies(prev => {
+          const next = prev.map(e => {
+              if (e.uniqueId === targetId) return { ...e, hp: e.hp - damage };
+              return e;
+          }).filter(e => e.hp > 0);
+
+          // 撃破ログ
+          if (next.length < prev.length) {
+              const dead = prev.find(p => !next.find(n => n.uniqueId === p.uniqueId));
+              if (dead) {
+                  addLog(`${dead.name}を倒した！`);
+                  // クエスト更新判定
+                  if (dead.id === 'orc_general') onQuestUpdate('mq_1_5', 1);
+                  if (dead.id === 'cerberus') onQuestUpdate('mq_2_5', 1);
+                  // 汎用討伐クエスト
+                  activeQuests.forEach(q => {
+                      if (q.type === 'hunt' && q.targetId === dead.id) {
+                          onQuestUpdate(q.id, 1);
+                      }
+                  });
+              }
+          }
+          return next;
+      });
+  };
+
+  // --- ターン処理 (敵＆味方AI) ---
+  const processTurn = () => {
     if (!dungeon) return;
 
     setEnemies(prevEnemies => {
-        // 状態をコピーして操作可能にする
         let nextEnemies = prevEnemies.map(e => ({ ...e }));
         const currentPlayerPos = playerPosRef.current;
 
-        // モンスターのみ行動
-        const monsters = prevEnemies.filter(e => e.faction === 'monster');
+        // 全キャラ行動処理
+        // 本来は素早さ順などでソートすべきだが、ここでは配列順（生成順）
         
-        monsters.forEach(monster => {
-            // 既に倒されている場合はスキップ（念のため）
-            if (monster.hp <= 0) return;
+        nextEnemies.forEach((actor, actorIdx) => {
+            if (actor.hp <= 0) return; // 死亡済
+            if (actor.aiType === 'stationary') return; // 動かない
 
-            // 自身(monster)の最新状態を取得 (nextEnemies内でのインデックス)
-            const myIndex = nextEnemies.findIndex(e => e.uniqueId === monster.uniqueId);
-            if (myIndex === -1) return;
-            const myState = nextEnemies[myIndex];
-
-            // ターゲット選定
-            const targets = [
-                { 
-                    type: 'player', 
-                    id: 'player', 
-                    x: currentPlayerPos.x, 
-                    y: currentPlayerPos.y, 
-                    dist: getDistance(myState.x, myState.y, currentPlayerPos.x, currentPlayerPos.y) 
-                },
-                ...nextEnemies
-                   .filter(e => e.faction === 'player_ally' && e.hp > 0)
-                   .map(e => ({ 
-                       type: 'npc',
-                       id: e.uniqueId, 
-                       x: e.x, 
-                       y: e.y, 
-                       dist: getDistance(myState.x, myState.y, e.x, e.y) 
-                   }))
-            ];
-            
-            targets.sort((a, b) => a.dist - b.dist);
-            const target = targets[0];
-
-            if (!target) return;
-
-            // 攻撃
-            if (target.dist <= 1.5) {
-                if (target.type === 'player') {
-                    const dmg = Math.max(1, monster.attack - 5);
-                    setPlayerHp(prev => {
-                        const next = prev - dmg;
-                        if (next <= 0) {
-                            setGameOver(true);
-                            onPlayerDeath();
-                        }
-                        return next;
-                    });
-                    addLog(`${monster.name}の攻撃！ ${dmg}のダメージ！`);
-                } else {
-                    // NPCへの攻撃
-                    const npcIndex = nextEnemies.findIndex(e => e.uniqueId === target.id);
-                    if (npcIndex !== -1) {
-                        const dmg = Math.max(1, monster.attack); // NPC防御0計算
-                        nextEnemies[npcIndex].hp -= dmg;
-                        addLog(`${monster.name}は負傷者を攻撃している！`);
-                        
-                        if (nextEnemies[npcIndex].hp <= 0) {
-                            addLog('救助対象が力尽きてしまった...');
-                            // ここでクエスト失敗処理などを呼ぶことも可能
-                        }
-                    }
-                }
-                return; // 攻撃したら移動しない
-            }
-
-            // 移動処理
+            // 自身の最新ステータス
+            const myState = nextEnemies[actorIdx];
             let newX = myState.x;
             let newY = myState.y;
 
-            if (target.x > myState.x && dungeon.tiles[myState.y][myState.x + 1] !== 'wall') newX++;
-            else if (target.x < myState.x && dungeon.tiles[myState.y][myState.x - 1] !== 'wall') newX--;
-            else if (target.y > myState.y && dungeon.tiles[myState.y + 1][myState.x] !== 'wall') newY++;
-            else if (target.y < myState.y && dungeon.tiles[myState.y - 1][myState.x] !== 'wall') newY--;
+            // --- 味方AI (Faction: player_ally) ---
+            if (actor.faction === 'player_ally') {
+                // 1. 近くの敵を探す
+                const targets = nextEnemies
+                    .filter(e => e.faction === 'monster' && e.hp > 0)
+                    .map(e => ({ 
+                        id: e.uniqueId, 
+                        x: e.x, 
+                        y: e.y, 
+                        dist: getDistance(myState.x, myState.y, e.x, e.y) 
+                    }))
+                    .sort((a, b) => a.dist - b.dist);
+                
+                const nearestEnemy = targets[0];
 
-            // 衝突判定 (自分以外の敵、プレイヤー)
-            const isBlocked = nextEnemies.some(e => e.uniqueId !== monster.uniqueId && e.hp > 0 && e.x === newX && e.y === newY) ||
+                if (nearestEnemy && nearestEnemy.dist <= 5) {
+                    // 索敵範囲内なら戦闘モード
+                    if (nearestEnemy.dist <= 1.5) {
+                        // 攻撃
+                        const targetEntity = prevEnemies.find(e => e.uniqueId === nearestEnemy.id);
+                        const dmg = Math.max(1, actor.attack - (targetEntity?.defense || 0));
+                        // ダメージ適用（nextEnemiesを直接操作）
+                        const targetIdx = nextEnemies.findIndex(e => e.uniqueId === nearestEnemy.id);
+                        if (targetIdx !== -1) {
+                            nextEnemies[targetIdx].hp -= dmg;
+                            addLog(`${actor.name}の攻撃！ ${nextEnemies[targetIdx].name}に${dmg}ダメージ`);
+                        }
+                    } else {
+                        // 敵に近づく
+                        if (nearestEnemy.x > myState.x && dungeon.tiles[myState.y][myState.x + 1] !== 'wall') newX++;
+                        else if (nearestEnemy.x < myState.x && dungeon.tiles[myState.y][myState.x - 1] !== 'wall') newX--;
+                        else if (nearestEnemy.y > myState.y && dungeon.tiles[myState.y + 1][myState.x] !== 'wall') newY++;
+                        else if (nearestEnemy.y < myState.y && dungeon.tiles[myState.y - 1][myState.x] !== 'wall') newY--;
+                    }
+                } else {
+                    // 敵がいない場合: プレイヤーに追従
+                    const distToPlayer = getDistance(myState.x, myState.y, currentPlayerPos.x, currentPlayerPos.y);
+                    if (distToPlayer > 2) {
+                        // プレイヤーに近づく
+                        if (currentPlayerPos.x > myState.x && dungeon.tiles[myState.y][myState.x + 1] !== 'wall') newX++;
+                        else if (currentPlayerPos.x < myState.x && dungeon.tiles[myState.y][myState.x - 1] !== 'wall') newX--;
+                        else if (currentPlayerPos.y > myState.y && dungeon.tiles[myState.y + 1][myState.x] !== 'wall') newY++;
+                        else if (currentPlayerPos.y < myState.y && dungeon.tiles[myState.y - 1][myState.x] !== 'wall') newY--;
+                    }
+                }
+            }
+            
+            // --- モンスターAI (Faction: monster) ---
+            else if (actor.faction === 'monster') {
+                // ターゲット選定（プレイヤー or 味方NPC）
+                const targets = [
+                    { type: 'player', x: currentPlayerPos.x, y: currentPlayerPos.y, dist: getDistance(myState.x, myState.y, currentPlayerPos.x, currentPlayerPos.y) },
+                    ...nextEnemies
+                       .filter(e => e.faction === 'player_ally' && e.hp > 0)
+                       .map(e => ({ type: 'npc', id: e.uniqueId, x: e.x, y: e.y, dist: getDistance(myState.x, myState.y, e.x, e.y) }))
+                ].sort((a, b) => a.dist - b.dist);
+
+                const target = targets[0];
+                if (target) {
+                    if (target.dist <= 1.5) {
+                        // 攻撃
+                        if (target.type === 'player') {
+                            const dmg = Math.max(1, actor.attack - 5); // Player def temp
+                            setPlayerHp(prev => {
+                                const next = prev - dmg;
+                                if (next <= 0) {
+                                    setGameOver(true);
+                                    onPlayerDeath();
+                                }
+                                return next;
+                            });
+                            addLog(`${actor.name}の攻撃！ あなたに${dmg}ダメージ`);
+                        } else {
+                            // NPC攻撃
+                            const npcIdx = nextEnemies.findIndex(e => e.uniqueId === target.id);
+                            if (npcIdx !== -1) {
+                                const dmg = Math.max(1, actor.attack - nextEnemies[npcIdx].defense);
+                                nextEnemies[npcIdx].hp -= dmg;
+                                addLog(`${actor.name}の攻撃！ ${nextEnemies[npcIdx].name}に${dmg}ダメージ`);
+                            }
+                        }
+                    } else {
+                        // 移動
+                        if (target.x > myState.x && dungeon.tiles[myState.y][myState.x + 1] !== 'wall') newX++;
+                        else if (target.x < myState.x && dungeon.tiles[myState.y][myState.x - 1] !== 'wall') newX--;
+                        else if (target.y > myState.y && dungeon.tiles[myState.y + 1][myState.x] !== 'wall') newY++;
+                        else if (target.y < myState.y && dungeon.tiles[myState.y - 1][myState.x] !== 'wall') newY--;
+                    }
+                }
+            }
+
+            // 移動更新 (衝突判定)
+            // 自分以外、かつ生きてる奴、かつプレイヤー
+            const isBlocked = nextEnemies.some((e, idx) => idx !== actorIdx && e.hp > 0 && e.x === newX && e.y === newY) ||
                               (currentPlayerPos.x === newX && currentPlayerPos.y === newY);
-
+            
             if (!isBlocked) {
-                nextEnemies[myIndex].x = newX;
-                nextEnemies[myIndex].y = newY;
+                nextEnemies[actorIdx].x = newX;
+                nextEnemies[actorIdx].y = newY;
             }
         });
 
-        // HPが0になったNPCを除外（死亡）
+        // 死亡した敵・NPCを除外
+        // NPCが死んだ場合の処理（ゲームオーバーにするか、一時離脱か）
+        // ここでは「HP0のNPC」も除去してしまうと復活できないので、
+        // 厳密には「戦闘不能フラグ」を立ててレンダリングを変えるのが良いが、簡易的に消滅させる。
+        // ※救助対象(stationary)が消えるとクエスト失敗判定などが本来必要
         return nextEnemies.filter(e => e.hp > 0);
     });
   };
