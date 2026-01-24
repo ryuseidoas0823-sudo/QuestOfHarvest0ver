@@ -3,13 +3,6 @@ import { Dialogue } from '../types/dialogue';
 /**
  * NPC会話データ
  * クエストの進行状況に合わせて、街の人々のセリフを定義します。
- * priority: 
- * 0: デフォルト
- * 10: 章の進行
- * 20: 特定クエスト受注可能
- * 30: 特定クエスト受注中
- * 40: 特定クエスト完了（報告前）
- * 50: 報告完了直後など
  */
 export const dialogues: Dialogue[] = [
   // ==========================================
@@ -65,6 +58,21 @@ export const dialogues: Dialogue[] = [
     text: '「黒い魔石」……？ 見せて。……これは、ただの魔石じゃない。神の恩恵を拒絶するような、呪われた力を感じるわ。',
     priority: 30,
     requirements: { questId: 'mq_3_3', questStatus: 'active' }
+  },
+  // --- 第4章 ---
+  {
+    id: 'god_ch4_start',
+    speakerId: 'goddess',
+    text: 'ギルドから緊急招集……？ ついに恐れていたことが起きたのかもしれないわ。行ってらっしゃい、でも生きて帰ると約束して。',
+    priority: 20,
+    requirements: { chapter: 4 }
+  },
+  {
+    id: 'god_ch4_final_battle',
+    speakerId: 'goddess',
+    text: '敵の指揮官が見つかったのね。……この戦いが終われば、バベルの運命が変わる。あなたの剣に、私の全ての祈りを込めるわ。',
+    priority: 40,
+    requirements: { questId: 'mq_4_5', questStatus: 'active' }
   },
 
   // ==========================================
@@ -182,6 +190,29 @@ export const dialogues: Dialogue[] = [
     requirements: { questId: 'mq_3_3', questStatus: 'completed' }
   },
 
+  // --- 第4章 ---
+  {
+    id: 'guild_ch4_emergency',
+    speakerId: 'guild_receptionist',
+    text: '冒険者の皆様、聞いてください！ ダンジョンからの魔物流出「スタンピード」の予兆が確認されました。これは街の存亡に関わる事態です！',
+    priority: 20,
+    requirements: { chapter: 4, questId: 'mq_4_1', questStatus: 'can_accept' }
+  },
+  {
+    id: 'guild_ch4_defense',
+    speakerId: 'guild_receptionist',
+    text: '現在、主要ファミリアと連携し、地下17階に防衛ラインを構築中です。貴方にも前線の維持をお願いします！',
+    priority: 30,
+    requirements: { questId: 'mq_4_2', questStatus: 'active' }
+  },
+  {
+    id: 'guild_ch4_boss',
+    speakerId: 'guild_receptionist',
+    text: '敵の指揮官「深淵の指揮官」を確認……！ これを討てば、敵の統率は崩壊するはずです。バベルの未来を、お願いします！',
+    priority: 40,
+    requirements: { questId: 'mq_4_5', questStatus: 'active' }
+  },
+
   // ==========================================
   // ショップ店員 (Shopkeeper) - 市場
   // ==========================================
@@ -204,5 +235,13 @@ export const dialogues: Dialogue[] = [
     text: 'デカい山に挑むんだって？ ポーションは多めに持っていきな。命あっての物種だぜ。',
     priority: 30,
     requirements: { questId: 'mq_1_5', questStatus: 'active' }
+  },
+  // --- 第4章 ---
+  {
+    id: 'shop_ch4_panic',
+    speakerId: 'shopkeeper',
+    text: 'おいおい、外じゃ避難準備が始まってるぞ……。俺は店を開け続けるが、あんたも死ぬなよ？ こいつを持っていけ。',
+    priority: 20,
+    requirements: { chapter: 4 }
   }
 ];
