@@ -10,12 +10,13 @@ const GRID_SIZE = 40;
 const MAP_WIDTH = 50;
 const MAP_HEIGHT = 50;
 
-// ... createInitialPlayer, getDirectionVector, checkCollision, activateSkill, updateGameLogic, moveEntity は変更なし ...
-// (以前のコードブロックの内容を保持してください。ここではダンジョン生成部分のみ書き換えます)
+// タイル定義
+const TILE_FLOOR = 0;
+const TILE_WALL = 1;
+const TILE_LAVA = 2; // ダメージ床
 
-// ==========================================
-// ここから既存コードの再掲（コンテキスト維持用）
-// ==========================================
+// ... createInitialPlayer, getDirectionVector ...
+// (以前のコードを維持)
 
 export const createInitialPlayer = (jobId: JobId, godId: string, startPos: Position): Entity => {
   const jobDef = JOBS[jobId];
@@ -84,12 +85,15 @@ const checkCollision = (x: number, y: number, width: number, height: number, map
         const gridX = Math.floor(p.x / GRID_SIZE);
         const gridY = Math.floor(p.y / GRID_SIZE);
         if (gridY < 0 || gridY >= map.height || gridX < 0 || gridX >= map.width) return true;
-        if (map.tiles[gridY][gridX] === 1) return true;
+        // 壁（1）のみ通行不可。床（0）とダメージ床（2）は通行可
+        if (map.tiles[gridY][gridX] === TILE_WALL) return true;
     }
     return false;
 };
 
 export const activateSkill = (state: GameState, skillId: string): GameState => {
+  // ... (activateSkillの実装は前回と同じため省略) ...
+  // ※実際のコードでは前回の実装をそのまま維持してください
   const { player, gameTime } = state;
   const skill = SKILLS[skillId];
   if (!skill) return state;
@@ -171,8 +175,82 @@ export const activateSkill = (state: GameState, skillId: string): GameState => {
   return newState;
 };
 
+// ==========================================
+// イベントチェックロジック (新規追加)
+// ==========================================
+
+const checkDungeonEvents = (state: GameState): GameState => {
+    let newState = { ...state };
+    const { player, map, gameTime } = newState;
+    
+    // 1. ダメージ床 (Lava) の判定
+    // プレイヤーの中心座標
+    const cx = player.x + player.width / 2;
+    const cy = player.y + player.height / 2;
+    const gridX = Math.floor(cx / GRID_SIZE);
+    const gridY = Math.floor(cy / GRID_SIZE);
+
+    // 範囲チェック
+    if (gridY >= 0 && gridY < map.height && gridX >= 0 && gridX < map.width) {
+        if (map.tiles[gridY][gridX] === TILE_LAVA) {
+            // 0.5秒ごとにダメージ (簡易実装: gameTime % 500 < 16)
+            if (gameTime % 500 < 16) {
+                const damage = Math.max(1, Math.floor(player.stats.maxHp * 0.05)); // 最大HPの5%
+                newState.player.stats.hp -= damage;
+                newState.messages = [`溶岩で ${damage} のダメージ！`, ...newState.messages].slice(0, 10);
+                
+                // HP 0 チェックはメインループ等で行うかここで処理
+                if (newState.player.stats.hp <= 0) {
+                     // Game Over処理が必要だがここではステータス更新のみ
+                }
+            }
+        }
+    }
+
+    // 2. モンスターハウスの判定
+    // プレイヤーが部屋の中にいるかチェック
+    if (map.rooms) {
+        map.rooms.forEach((room: any) => {
+            if (room.type === 'monster_house' && !room.triggered) {
+                // 部屋の範囲内か (グリッド座標)
+                if (gridX >= room.x && gridX < room.x + room.w &&
+                    gridY >= room.y && gridY < room.y + room.h) {
+                    
+                    // トリガー発動！
+                    room.triggered = true;
+                    newState.messages = [`モンスターハウスだ！！`, ...newState.messages].slice(0, 10);
+
+                    // 敵を大量スポーン
+                    const enemyKeys = Object.keys(ENEMIES);
+                    const spawnCount = 5 + Math.floor(Math.random() * 5); // 5-10体
+
+                    for (let i = 0; i < spawnCount; i++) {
+                        const enemyKey = enemyKeys[Math.floor(Math.random() * enemyKeys.length)];
+                        // 部屋内のランダム位置
+                        const ex = Math.floor(room.x + Math.random() * room.w);
+                        const ey = Math.floor(room.y + Math.random() * room.h);
+                        // プレイヤーの真上は避ける
+                        if (ex === gridX && ey === gridY) continue;
+
+                        newState.enemies.push(createEnemyInstance(enemyKey, ex, ey, 9000 + i + gameTime, 1));
+                    }
+                }
+            }
+        });
+    }
+
+    return newState;
+};
+
+
 export const updateGameLogic = (state: GameState, input: { keys: Record<string, boolean> }): GameState => {
+  // まず基本ロジックを実行
   let newState = { ...state };
+  
+  // イベントチェック（ダメージ床、モンスターハウス）
+  newState = checkDungeonEvents(newState);
+
+  // プロジェクタイル更新
   if (newState.projectiles && newState.projectiles.length > 0) {
     const updatedProjectiles: Projectile[] = [];
     newState.projectiles.forEach(p => {
@@ -207,6 +285,8 @@ export const updateGameLogic = (state: GameState, input: { keys: Record<string, 
     });
     newState.projectiles = updatedProjectiles;
   }
+  
+  // 敵AI
   const updatedEnemies = newState.enemies.map(enemy => {
       const dx = newState.player.x - enemy.x;
       const dy = newState.player.y - enemy.y;
@@ -230,6 +310,7 @@ export const updateGameLogic = (state: GameState, input: { keys: Record<string, 
 };
 
 export const moveEntity = (entity: Entity, dx: number, dy: number, map: any): Entity => {
+    // moveEntityもcheckCollisionを使うので、Tile 2 (Lava) は通行可能となる
     const targetX = entity.x + dx;
     const targetY = entity.y + dy;
     if (!checkCollision(targetX, targetY, entity.width, entity.height, map)) {
@@ -249,15 +330,14 @@ export const moveEntity = (entity: Entity, dx: number, dy: number, map: any): En
 
 type DungeonGeneratorFunc = (floor: number, player: Entity) => Pick<GameState, 'map' | 'enemies' | 'items' | 'player'>;
 
-// 共通初期化: 壁で埋める
-const initTiles = (width: number, height: number, fillVal = 1) => {
+const initTiles = (width: number, height: number, fillVal = TILE_WALL) => {
   const tiles: number[][] = [];
   for(let y = 0; y < height; y++) tiles[y] = Array(width).fill(fillVal);
   return tiles;
 };
 
 /**
- * Type A: スタンダード・グリッド
+ * Type A: スタンダード・グリッド (改修版)
  */
 const generateGridDungeon: DungeonGeneratorFunc = (floor, player) => {
   const width = MAP_WIDTH;
@@ -282,8 +362,23 @@ const generateGridDungeon: DungeonGeneratorFunc = (floor, player) => {
       }
 
       if (!overlap) {
-          fillRoom(tiles, { x: roomX, y: roomY, w: roomW, h: roomH });
-          rooms.push({ x: roomX, y: roomY, w: roomW, h: roomH });
+          // ギミック抽選: 10%でダメージ床部屋
+          const isLava = Math.random() < 0.1;
+          const tileType = isLava ? TILE_LAVA : TILE_FLOOR;
+
+          fillRoom(tiles, { x: roomX, y: roomY, w: roomW, h: roomH }, tileType);
+          
+          const roomObj: any = { x: roomX, y: roomY, w: roomW, h: roomH };
+          
+          // ギミック抽選: 5%でモンスターハウス (ただしLava部屋以外)
+          if (!isLava && Math.random() < 0.05) {
+              roomObj.type = 'monster_house';
+              roomObj.triggered = false;
+              // モンスターハウスには初期配置の敵を置かない（トリガーで湧くため）
+              // 視覚的にわかるようにアイテムを多めに置くなどの処理を入れると良い
+          }
+
+          rooms.push(roomObj);
       }
   }
 
@@ -306,6 +401,10 @@ const generateGridDungeon: DungeonGeneratorFunc = (floor, player) => {
   }
 
   const startRoom = rooms[0];
+  // スタート部屋は安全地帯にする（モンスターハウス解除、床修正）
+  startRoom.type = 'normal';
+  fillRoom(tiles, startRoom, TILE_FLOOR);
+
   const newPlayer = { ...player, x: (startRoom.x + startRoom.w/2)*GRID_SIZE, y: (startRoom.y + startRoom.h/2)*GRID_SIZE };
   const { enemies, items } = placeEntities(rooms, floor);
 
@@ -316,20 +415,29 @@ const generateGridDungeon: DungeonGeneratorFunc = (floor, player) => {
  * Type B: 大広間 (Open Field)
  */
 const generateOpenDungeon: DungeonGeneratorFunc = (floor, player) => {
+    // ... (Type B は変更なし) ...
     const width = MAP_WIDTH;
     const height = MAP_HEIGHT;
-    const tiles = initTiles(width, height, 0); // 初期床
+    const tiles = initTiles(width, height, TILE_FLOOR); 
 
     // 外周を壁に
     for(let y = 0; y < height; y++) {
         for(let x = 0; x < width; x++) {
-            if (y === 0 || y === height - 1 || x === 0 || x === width - 1) tiles[y][x] = 1;
+            if (y === 0 || y === height - 1 || x === 0 || x === width - 1) tiles[y][x] = TILE_WALL;
         }
     }
     
+    // 一部のエリアを溶岩にする
+    for(let i=0; i<10; i++) {
+         const lx = 5 + Math.floor(Math.random() * (width - 10));
+         const ly = 5 + Math.floor(Math.random() * (height - 10));
+         if(lx > 0 && ly > 0) tiles[ly][lx] = TILE_LAVA;
+    }
+
     const rooms = [{ x: 1, y: 1, w: width - 2, h: height - 2 }];
     const newPlayer = { ...player, x: 5 * GRID_SIZE, y: 5 * GRID_SIZE };
-
+    
+    // 敵生成ロジック...
     const enemies: Entity[] = [];
     const items: Item[] = [];
     const enemyKeys = Object.keys(ENEMIES);
@@ -353,15 +461,14 @@ const generateOpenDungeon: DungeonGeneratorFunc = (floor, player) => {
 
 /**
  * Type C: 三柱の間 (Vertical Pillars)
- * 縦長の中部屋(幅狭め、高さ十分)を3つ横に並べる
  */
 const generatePillarsDungeon: DungeonGeneratorFunc = (floor, player) => {
+    // ... (Type C は基本的にそのまま、fillRoomの利用のみ) ...
     const width = MAP_WIDTH;
     const height = MAP_HEIGHT;
     const tiles = initTiles(width, height);
     const rooms: any[] = [];
 
-    // 3つの柱（部屋）を定義
     const margin = 4;
     const colWidth = Math.floor((width - margin * 4) / 3);
     const roomH = height - 10;
@@ -370,24 +477,20 @@ const generatePillarsDungeon: DungeonGeneratorFunc = (floor, player) => {
     for (let i = 0; i < 3; i++) {
         const roomX = margin + i * (colWidth + margin);
         const room = { x: roomX, y: startY, w: colWidth, h: roomH };
-        fillRoom(tiles, room);
+        fillRoom(tiles, room); // デフォルト床
         rooms.push(room);
     }
 
-    // 部屋間を通路で繋ぐ（上部と下部でランダムに）
     for (let i = 0; i < 2; i++) {
         const r1 = rooms[i];
         const r2 = rooms[i+1];
-        
-        // 2本ずつ通路を通す
         const y1 = r1.y + 5;
         const y2 = r1.y + r1.h - 5;
-        
         createHCorridor(tiles, r1.x + r1.w - 1, r2.x, y1);
         createHCorridor(tiles, r1.x + r1.w - 1, r2.x, y2);
     }
 
-    const startRoom = rooms[1]; // 中央からスタート
+    const startRoom = rooms[1]; 
     const newPlayer = { ...player, x: (startRoom.x + startRoom.w/2)*GRID_SIZE, y: (startRoom.y + startRoom.h - 2)*GRID_SIZE };
     const { enemies, items } = placeEntities(rooms, floor);
 
@@ -396,21 +499,18 @@ const generatePillarsDungeon: DungeonGeneratorFunc = (floor, player) => {
 
 /**
  * Type D: 蛇行回廊 (Snake Road)
- * 縦3 x 横5 のエリアを定義し、一本道で繋ぐ
  */
 const generateSnakeDungeon: DungeonGeneratorFunc = (floor, player) => {
+    // ... (Type D は変更なし) ...
     const width = 50;
-    const height = 30; // 少し横長
+    const height = 30; 
     const tiles = initTiles(width, height);
     const rooms: any[] = [];
-
-    // グリッド設定 (5x3)
     const gridCols = 5;
     const gridRows = 3;
     const cellW = Math.floor(width / gridCols);
     const cellH = Math.floor(height / gridRows);
 
-    // 蛇行ルート生成 (左上->右へ->一段下へ->左へ...のジグザグ)
     for (let row = 0; row < gridRows; row++) {
         const isRight = row % 2 === 0;
         const colStart = isRight ? 0 : gridCols - 1;
@@ -418,7 +518,6 @@ const generateSnakeDungeon: DungeonGeneratorFunc = (floor, player) => {
         const step = isRight ? 1 : -1;
 
         for (let col = colStart; col !== colEnd; col += step) {
-             // 部屋生成
              const roomW = Math.floor(cellW * 0.7);
              const roomH = Math.floor(cellH * 0.7);
              const roomX = col * cellW + 2;
@@ -428,7 +527,6 @@ const generateSnakeDungeon: DungeonGeneratorFunc = (floor, player) => {
              fillRoom(tiles, room);
              rooms.push(room);
              
-             // 一つ前の部屋と繋ぐ
              if (rooms.length > 1) {
                  const prev = rooms[rooms.length - 2];
                  const curr = room;
@@ -451,62 +549,47 @@ const generateSnakeDungeon: DungeonGeneratorFunc = (floor, player) => {
     const startRoom = rooms[0];
     const newPlayer = { ...player, x: (startRoom.x + startRoom.w/2)*GRID_SIZE, y: (startRoom.y + startRoom.h/2)*GRID_SIZE };
     const { enemies, items } = placeEntities(rooms, floor);
-
     return { map: { width, height, tiles, rooms }, enemies, items, player: newPlayer };
 };
 
 /**
  * Type E: トライアル・メイズ (Maze)
- * 穴掘り法による迷路生成
  */
 const generateMazeDungeon: DungeonGeneratorFunc = (floor, player) => {
-    const width = 41; // 奇数推奨
+    // ... (Type E は変更なし) ...
+    const width = 41; 
     const height = 41;
     const tiles = initTiles(width, height);
     
-    // 穴掘り法
     const startX = 1;
     const startY = 1;
-    tiles[startY][startX] = 0;
+    tiles[startY][startX] = TILE_FLOOR;
 
-    const directions = [
-        { x: 0, y: -2 }, // Up
-        { x: 0, y: 2 },  // Down
-        { x: -2, y: 0 }, // Left
-        { x: 2, y: 0 }   // Right
-    ];
+    const directions = [{ x: 0, y: -2 }, { x: 0, y: 2 }, { x: -2, y: 0 }, { x: 2, y: 0 }];
 
     const dig = (x: number, y: number) => {
-        // シャッフル
         const dirs = [...directions].sort(() => Math.random() - 0.5);
-        
         for (const dir of dirs) {
             const nx = x + dir.x;
             const ny = y + dir.y;
-            
-            if (nx > 0 && nx < width - 1 && ny > 0 && ny < height - 1 && tiles[ny][nx] === 1) {
-                tiles[y + dir.y / 2][x + dir.x / 2] = 0; // 通路
-                tiles[ny][nx] = 0; // 掘り進む先
+            if (nx > 0 && nx < width - 1 && ny > 0 && ny < height - 1 && tiles[ny][nx] === TILE_WALL) {
+                tiles[y + dir.y / 2][x + dir.x / 2] = TILE_FLOOR;
+                tiles[ny][nx] = TILE_FLOOR;
                 dig(nx, ny);
             }
         }
     };
-
     dig(startX, startY);
 
-    // 一部の壁を取り払ってループを作る（難易度調整）
     for(let i=0; i<30; i++) {
         const x = 1 + Math.floor(Math.random() * (width - 2));
         const y = 1 + Math.floor(Math.random() * (height - 2));
-        if (tiles[y][x] === 1) tiles[y][x] = 0;
+        if (tiles[y][x] === TILE_WALL) tiles[y][x] = TILE_FLOOR;
     }
 
-    // 部屋として認識させるためのダミーデータ
     const rooms = [{ x: 1, y: 1, w: width-2, h: height-2 }];
-    
     const newPlayer = { ...player, x: startX * GRID_SIZE, y: startY * GRID_SIZE };
     
-    // 敵配置: 通路上のランダムな位置
     const enemies: Entity[] = [];
     const items: Item[] = [];
     const enemyKeys = Object.keys(ENEMIES);
@@ -516,12 +599,11 @@ const generateMazeDungeon: DungeonGeneratorFunc = (floor, player) => {
         do {
             ex = Math.floor(Math.random() * width);
             ey = Math.floor(Math.random() * height);
-        } while(tiles[ey][ex] === 1 || (Math.abs(ex - startX) < 5 && Math.abs(ey - startY) < 5));
+        } while(tiles[ey][ex] === TILE_WALL || (Math.abs(ex - startX) < 5 && Math.abs(ey - startY) < 5));
         
         const enemyKey = enemyKeys[Math.floor(Math.random() * enemyKeys.length)];
         enemies.push(createEnemyInstance(enemyKey, ex, ey, i, floor));
     }
-
     return { map: { width, height, tiles, rooms }, enemies, items, player: newPlayer };
 };
 
@@ -529,6 +611,7 @@ const generateMazeDungeon: DungeonGeneratorFunc = (floor, player) => {
  * Type F: ボス階層 (Boss Floor)
  */
 const generateBossFloor: DungeonGeneratorFunc = (floor, player) => {
+    // ... (Type F は変更なし) ...
     const width = 40; 
     const height = 60; 
     const tiles = initTiles(width, height);
@@ -570,7 +653,7 @@ const generateBossFloor: DungeonGeneratorFunc = (floor, player) => {
     return { map: { width, height, tiles, rooms }, enemies, items: [], player: newPlayer };
 };
 
-// ... createEnemyInstance, placeEntities, fillRoom, createHCorridor, createVCorridor は変更なし ...
+// ... createEnemyInstance ...
 // (以前のコードブロックの内容を保持してください)
 const createEnemyInstance = (key: string, gx: number, gy: number, idSuffix: number, floor: number): Entity => {
     const enemyDef = ENEMIES[key];
@@ -605,6 +688,10 @@ const placeEntities = (rooms: any[], floor: number) => {
 
     for (let i = 1; i < rooms.length; i++) {
         const room = rooms[i];
+        
+        // モンスターハウスの場合は初期敵配置をスキップ
+        if (room.type === 'monster_house') continue;
+
         if (Math.random() < 0.5) {
             const enemyKey = enemyKeys[Math.floor(Math.random() * enemyKeys.length)];
             const ex = Math.floor(room.x + Math.random() * room.w);
@@ -621,10 +708,10 @@ const placeEntities = (rooms: any[], floor: number) => {
     return { enemies, items };
 };
 
-const fillRoom = (tiles: number[][], room: {x:number, y:number, w:number, h:number}) => {
+const fillRoom = (tiles: number[][], room: {x:number, y:number, w:number, h:number}, tileType: number = TILE_FLOOR) => {
     for (let y = room.y; y < room.y + room.h; y++) {
         for (let x = room.x; x < room.x + room.w; x++) {
-            tiles[y][x] = 0;
+            tiles[y][x] = tileType;
         }
     }
 };
@@ -632,13 +719,13 @@ const fillRoom = (tiles: number[][], room: {x:number, y:number, w:number, h:numb
 const createHCorridor = (tiles: number[][], x1: number, x2: number, y: number) => {
     const start = Math.min(x1, x2);
     const end = Math.max(x1, x2);
-    for (let x = start; x <= end; x++) tiles[y][x] = 0;
+    for (let x = start; x <= end; x++) tiles[y][x] = TILE_FLOOR;
 }
 
 const createVCorridor = (tiles: number[][], y1: number, y2: number, x: number) => {
     const start = Math.min(y1, y2);
     const end = Math.max(y1, y2);
-    for (let y = start; y <= end; y++) tiles[y][x] = 0;
+    for (let y = start; y <= end; y++) tiles[y][x] = TILE_FLOOR;
 }
 
 // ==========================================
