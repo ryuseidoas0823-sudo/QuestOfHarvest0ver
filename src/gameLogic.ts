@@ -1,7 +1,16 @@
-// ... existing imports ...
-import { audioManager } from './utils/audioManager'; // 追加
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { generateDungeon } from './dungeonGenerator';
+import { DungeonMap, TileType } from './types';
+import { EnemyInstance, Faction } from './types/enemy';
+import { enemies as enemyData } from './data/enemies';
+import { Job } from './types/job';
+import { Quest } from './types/quest';
+import { getDistance } from './utils';
+import { skills as skillData } from './data/skills';
+import { audioManager } from './utils/audioManager';
+import { visualManager } from './utils/visualManager'; // 追加
 
-// ... (imports and interface GameState omitted for brevity) ...
+// ... (Interface GameState は省略)
 
 export const useGameLogic = (
   playerJob: Job,
@@ -10,7 +19,7 @@ export const useGameLogic = (
   onQuestUpdate: (questId: string, progress: number) => void,
   onPlayerDeath: () => void
 ) => {
-  // ... (useState definitions omitted) ...
+  // ... (useState等は変更なし)
   const [dungeon, setDungeon] = useState<DungeonMap | null>(null);
   const [playerPos, setPlayerPos] = useState({ x: 0, y: 0 });
   const [enemies, setEnemies] = useState<EnemyInstance[]>([]);
@@ -28,13 +37,14 @@ export const useGameLogic = (
     setMessageLog(prev => [msg, ...prev].slice(0, 5));
   }, []);
 
-  // ... (initFloor omitted) ...
-  // ダンジョン初期化
   const initFloor = useCallback((floorNum: number) => {
+    visualManager.clear(); // 階層移動時にエフェクト消去
     const newDungeon = generateDungeon(floorNum);
     setDungeon(newDungeon);
     setPlayerPos(newDungeon.playerStart);
     setFloor(floorNum);
+    
+    // ... (敵生成ロジックは変更なし)
     const newEnemies: EnemyInstance[] = [];
     const isBossFloor = floorNum % 5 === 0;
     
@@ -96,12 +106,16 @@ export const useGameLogic = (
   }, []);
 
   const applyDamageToEnemy = (targetId: string, damage: number) => {
-    // 攻撃音
     audioManager.playSeAttack(); 
 
     setEnemies(prev => {
       const next = prev.map(e => {
-        if (e.uniqueId === targetId) return { ...e, hp: e.hp - damage };
+        if (e.uniqueId === targetId) {
+            // エフェクト＆ポップアップ追加
+            visualManager.addEffect(e.x, e.y, 'slash');
+            visualManager.addPopup(e.x, e.y, `${damage}`, '#ffffff'); // 白文字
+            return { ...e, hp: e.hp - damage };
+        }
         return e;
       }).filter(e => e.hp > 0);
 
@@ -109,7 +123,6 @@ export const useGameLogic = (
         const dead = prev.find(p => !next.find(n => n.uniqueId === p.uniqueId));
         if (dead) {
           addLog(`${dead.name}を倒した！`);
-          // 撃破音（今回は攻撃音で代用するが、別に作っても良い）
           if (dead.type === 'boss') {
              if (dead.id === 'orc_general') onQuestUpdate('mq_1_5', 1);
              if (dead.id === 'cerberus') onQuestUpdate('mq_2_5', 1);
@@ -152,7 +165,6 @@ export const useGameLogic = (
         let newY = myState.y;
 
         if (actor.faction === 'player_ally') {
-          // ... (Ally AI logic omitted, same as before) ...
           const targets = nextEnemies
             .filter(e => e.faction === 'monster' && e.hp > 0)
             .map(e => ({
@@ -169,7 +181,11 @@ export const useGameLogic = (
                const dmg = Math.max(1, actor.attack - nextEnemies[targetIdx].defense);
                nextEnemies[targetIdx].hp -= dmg;
                addLog(`${actor.name}の攻撃！ ${nextEnemies[targetIdx].name}に${dmg}ダメージ`);
-               audioManager.playSeAttack(); // 味方の攻撃音
+               audioManager.playSeAttack();
+               
+               // 味方攻撃演出
+               visualManager.addEffect(nextEnemies[targetIdx].x, nextEnemies[targetIdx].y, 'slash');
+               visualManager.addPopup(nextEnemies[targetIdx].x, nextEnemies[targetIdx].y, `${dmg}`, '#cccccc');
              }
           } else if (target && target.dist <= 5) {
              if (target.x > myState.x && dungeon.tiles[myState.y][myState.x + 1] !== 'wall') newX++;
@@ -196,7 +212,11 @@ export const useGameLogic = (
                return next;
              });
              addLog(`${actor.name}の攻撃！ ${dmg}ダメージ`);
-             audioManager.playSeDamage(); // プレイヤー被弾音
+             audioManager.playSeDamage();
+             
+             // プレイヤー被弾演出
+             visualManager.addEffect(currentPlayerPos.x, currentPlayerPos.y, 'slash');
+             visualManager.addPopup(currentPlayerPos.x, currentPlayerPos.y, `${dmg}`, '#ff0000'); // 赤文字
            } else {
              if (currentPlayerPos.x > myState.x && dungeon.tiles[myState.y][myState.x + 1] !== 'wall') newX++;
              else if (currentPlayerPos.x < myState.x && dungeon.tiles[myState.y][myState.x - 1] !== 'wall') newX--;
@@ -223,7 +243,6 @@ export const useGameLogic = (
     
     if ((skillCooldowns[skillId] || 0) > 0) {
       addLog(`スキル準備中... (あと${skillCooldowns[skillId]}ターン)`);
-      // audioManager.playSeCancel();
       return;
     }
 
@@ -237,11 +256,18 @@ export const useGameLogic = (
         const healAmount = skill.power;
         setPlayerHp(prev => Math.min(playerMaxHp, prev + healAmount));
         addLog(`${skill.name}！ HPが${healAmount}回復した。`);
-        audioManager.playSeSelect(); // 回復音（選択音で代用）
+        audioManager.playSeSelect();
+        
+        // 回復演出
+        visualManager.addEffect(playerPos.x, playerPos.y, 'heal');
+        visualManager.addPopup(playerPos.x, playerPos.y, `+${healAmount}`, '#00ff00'); // 緑文字
         performed = true;
       }
     } 
     else if (skill.type === 'attack') {
+      // 攻撃演出タイプ決定
+      const effectType = skillId.includes('fire') ? 'fire' : 'slash';
+
       if (skill.target === 'single') {
         const target = enemies
           .filter(e => e.hp > 0 && e.faction === 'monster')
@@ -253,8 +279,11 @@ export const useGameLogic = (
           const damage = Math.floor(playerAttack * skill.power); 
           addLog(`${skill.name}！ ${target.name}に${damage}の大ダメージ！`);
           applyDamageToEnemy(target.uniqueId, damage);
-          // スキル攻撃音
-          audioManager.playSeAttack(); // 必要なら別の音にする
+          audioManager.playSeAttack();
+          
+          // スキル演出
+          visualManager.addEffect(target.x, target.y, effectType);
+          visualManager.addPopup(target.x, target.y, `${damage}`, '#ffff00'); // 黄色文字
           performed = true;
         } else {
           addLog("対象が範囲内にいない！");
@@ -272,6 +301,10 @@ export const useGameLogic = (
           targets.forEach(t => {
             const damage = Math.floor(playerAttack * skill.power);
             applyDamageToEnemy(t.uniqueId, damage);
+            
+            // 全体攻撃演出
+            visualManager.addEffect(t.x, t.y, effectType);
+            visualManager.addPopup(t.x, t.y, `${damage}`, '#ffff00');
           });
           audioManager.playSeAttack();
           performed = true;
@@ -315,7 +348,7 @@ export const useGameLogic = (
     setPlayerPos({ x: newX, y: newY });
     if (newX === dungeon.stairs.x && newY === dungeon.stairs.y) {
         addLog('階段を降りた。');
-        audioManager.playSeSelect(); // 階段音
+        audioManager.playSeSelect();
         initFloor(floor + 1);
     }
     processTurn();
