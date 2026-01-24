@@ -85,7 +85,7 @@ export const dialogues: Dialogue[] = [
     priority: 0
   },
   
-  // --- CH1-1: 冒険の始まり ---
+  // --- 第1章 ---
   {
     id: 'guild_mq1_1_accept',
     speakerId: 'guild_receptionist',
@@ -107,8 +107,6 @@ export const dialogues: Dialogue[] = [
     priority: 40,
     requirements: { questId: 'mq_1_1', questStatus: 'completed' }
   },
-
-  // --- CH1-2: 準備を整えよ (魔石収集) ---
   {
     id: 'guild_mq1_2_accept',
     speakerId: 'guild_receptionist',
@@ -116,8 +114,6 @@ export const dialogues: Dialogue[] = [
     priority: 20,
     requirements: { questId: 'mq_1_2', questStatus: 'can_accept' }
   },
-  
-  // --- CH1-3: 未知なる深層へ (B3F到達) ---
   {
     id: 'guild_mq1_3_accept',
     speakerId: 'guild_receptionist',
@@ -125,8 +121,6 @@ export const dialogues: Dialogue[] = [
     priority: 20,
     requirements: { questId: 'mq_1_3', questStatus: 'can_accept' }
   },
-
-  // --- CH1-4: 不穏な影 (オーク討伐) ---
   {
     id: 'guild_mq1_4_accept',
     speakerId: 'guild_receptionist',
@@ -141,8 +135,6 @@ export const dialogues: Dialogue[] = [
     priority: 30,
     requirements: { questId: 'mq_1_4', questStatus: 'active' }
   },
-
-  // --- CH1-5: 凶刃との遭遇 (ボス戦) ---
   {
     id: 'guild_mq1_5_accept',
     speakerId: 'guild_receptionist',
