@@ -11,10 +11,11 @@ import { Quest } from './types/quest';
 import { ShopItem } from './data/shopItems';
 import { quests as allQuests } from './data/quests';
 import { jobs } from './data/jobs';
-import { items as allItems } from './data/items'; // アイテムデータ参照用
+import { items as allItems } from './data/items';
 import { GameHUD } from './components/GameHUD';
 import { dialogues } from './data/dialogues';
-import { saveGame, loadGame, hasSaveData, clearSaveData } from './utils/storage'; // 追加
+import { saveGame, loadGame, hasSaveData, clearSaveData } from './utils/storage';
+import { audioManager } from './utils/audioManager'; // 追加
 
 // 画面遷移の状態
 type ScreenState = 'title' | 'jobSelect' | 'godSelect' | 'town' | 'dungeon' | 'result';
@@ -23,7 +24,7 @@ const calculateLevel = (exp: number) => Math.floor(Math.sqrt(exp / 100)) + 1;
 
 export default function App() {
   const [screen, setScreen] = useState<ScreenState>('title');
-  const [canContinue, setCanContinue] = useState(false); // コンティニュー可能か
+  const [canContinue, setCanContinue] = useState(false);
   
   // プレイヤーデータ
   const [playerJob, setPlayerJob] = useState<Job>(jobs[0]);
@@ -42,30 +43,42 @@ export default function App() {
   const [chapter, setChapter] = useState(1);
   const [activeQuests, setActiveQuests] = useState<Quest[]>([]);
   const [completedQuestIds, setCompletedQuestIds] = useState<string[]>([]);
-  const [inventory, setInventory] = useState<ShopItem[]>([]); // 簡易的にShopItem型を使用
+  const [inventory, setInventory] = useState<ShopItem[]>([]);
   const [unlockedCompanions, setUnlockedCompanions] = useState<string[]>([]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // 初回ロード時にセーブデータの有無を確認
+  // 初回操作時にオーディオ初期化
+  useEffect(() => {
+    const initAudio = () => audioManager.init();
+    window.addEventListener('click', initAudio, { once: true });
+    window.addEventListener('keydown', initAudio, { once: true });
+    return () => {
+        window.removeEventListener('click', initAudio);
+        window.removeEventListener('keydown', initAudio);
+    };
+  }, []);
+
+  // 画面遷移時のBGM制御
+  useEffect(() => {
+      if (screen === 'dungeon') {
+          audioManager.playBgmDungeon();
+      } else {
+          audioManager.stopBgm();
+      }
+  }, [screen]);
+
   useEffect(() => {
     setCanContinue(hasSaveData());
   }, []);
 
-  // オートセーブ関数（重要な更新の後に呼ぶ）
   const performAutoSave = () => {
-    // 現在の状態を保存
-    // 注意: useStateの値は即座に反映されない場合があるため、
-    // ここでは呼び出し元の新しい値を引数で受け取るか、useEffectで監視するのが確実だが
-    // 簡易的に現在のstateを使用する（厳密には1フレーム古い可能性があるため注意）
-    
-    // アイテムIDリストへの変換
     const inventoryIds = inventory.map(i => i.id);
     const activeQuestIds = activeQuests.map(q => q.id);
 
     saveGame({
       playerJobId: playerJob.id,
-      playerStats: { ...playerStats, exp: playerExp }, // EXPも含める
+      playerStats: { ...playerStats, exp: playerExp },
       gold,
       chapter,
       activeQuestIds,
@@ -86,7 +99,11 @@ export default function App() {
     floor, 
     gameOver, 
     messageLog, 
-    movePlayer 
+    movePlayer,
+    useSkill,
+    skillCooldowns,
+    playerHp,
+    playerMaxHp
   } = useGameLogic(
     playerJob,
     chapter,
@@ -105,11 +122,15 @@ export default function App() {
         case 'ArrowDown': movePlayer(0, 1); break;
         case 'ArrowLeft': movePlayer(-1, 0); break;
         case 'ArrowRight': movePlayer(1, 0); break;
+        case '1': if(playerJob.skills[0]) useSkill(playerJob.skills[0]); break;
+        case '2': if(playerJob.skills[1]) useSkill(playerJob.skills[1]); break;
+        case '3': if(playerJob.skills[2]) useSkill(playerJob.skills[2]); break;
+        case '4': if(playerJob.skills[3]) useSkill(playerJob.skills[3]); break;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [screen, movePlayer]);
+  }, [screen, movePlayer, useSkill, playerJob]);
 
   // Canvas描画
   useEffect(() => {
@@ -120,17 +141,16 @@ export default function App() {
 
   // --- アクションハンドラ ---
 
-  // 「初めから」
   const handleStartGame = () => {
-    clearSaveData(); // データをクリアして開始
+    audioManager.playSeSelect();
+    clearSaveData();
     setScreen('jobSelect');
   };
 
-  // 「続きから」
   const handleContinueGame = () => {
+    audioManager.playSeSelect();
     const data = loadGame();
     if (data) {
-      // データの復元
       const job = jobs.find(j => j.id === data.playerJobId) || jobs[0];
       setPlayerJob(job);
       setPlayerStats(data.playerStats);
@@ -140,20 +160,15 @@ export default function App() {
       setCompletedQuestIds(data.completedQuestIds);
       setUnlockedCompanions(data.unlockedCompanions);
 
-      // IDからオブジェクトへの復元
       const restoredQuests = allQuests.filter(q => data.activeQuestIds.includes(q.id));
       setActiveQuests(restoredQuests);
 
-      // アイテム復元 (簡易: ShopItem型に合わせるためprice等を補完する必要があるが、一旦モック)
-      // 本来はItemDefinitionから復元すべき
-      const restoredInventory: ShopItem[] = []; 
-      // ※実装省略: IDからアイテムデータを引くロジックが必要
-
-      setScreen('town'); // 街から再開
+      setScreen('town');
     }
   };
   
   const handleSelectJob = (job: Job) => {
+    audioManager.playSeSelect();
     setPlayerJob(job);
     setPlayerStats({
       ...playerStats,
@@ -171,34 +186,33 @@ export default function App() {
   };
 
   const handleSelectGod = (godId: string) => {
+    audioManager.playSeSelect();
     setScreen('town');
-    // 初期状態をセーブ
     setTimeout(performAutoSave, 100); 
   };
 
   const handleGoToDungeon = () => {
+    audioManager.playSeSelect();
     setScreen('dungeon');
   };
 
   const handleGameOver = () => {
+    // audioManager.playSeGameover(); // 未実装
     setScreen('result');
-    // ゲームオーバー時はセーブしない、あるいは所持金半減してセーブするなどの処理
   };
   
   const handleReturnToTown = () => {
-    // HP回復などの処理
+    audioManager.playSeSelect();
     setPlayerStats(prev => ({ ...prev, hp: prev.maxHp }));
     setScreen('town');
-    // 帰還時にオートセーブ
     setTimeout(performAutoSave, 100);
   };
 
   const handleAcceptQuest = (quest: Quest) => {
+    audioManager.playSeSelect();
     if (!activeQuests.find(q => q.id === quest.id)) {
       const newQuests = [...activeQuests, quest];
       setActiveQuests(newQuests);
-      // State更新は非同期なので、セーブはuseEffectで行うか、ここでのセーブは遅延させる工夫が必要
-      // 今回は簡易的に手動保存ボタンを実装するか、画面遷移時に保存する運用を推奨
     }
   };
 
@@ -207,6 +221,7 @@ export default function App() {
   };
 
   const handleReportQuest = (quest: Quest) => {
+    audioManager.playSeLevelUp(); // 報酬音として使用
     setGold(gold + quest.rewardGold);
     const newExp = playerExp + quest.rewardExp;
     setPlayerExp(newExp);
@@ -219,32 +234,34 @@ export default function App() {
         setPlayerStats({ ...playerStats, level: newLevel });
     }
 
-    // 章の進行
     if (quest.id === 'mq_1_5') {
         setChapter(2);
         setUnlockedCompanions(prev => [...prev, 'elias']);
         alert("Chapter 2へ進みました！ 仲間「エリアス」が解禁されました。");
     }
     
-    // 報告完了時にオートセーブ（State更新待ちのためsetTimeoutで擬似対応）
     setTimeout(performAutoSave, 500);
   };
 
   const handleBuyItem = (item: ShopItem) => {
     if (gold >= item.price) {
+      audioManager.playSeSelect();
       setGold(gold - item.price);
       setInventory([...inventory, item]);
-      // 購入時セーブ
       setTimeout(performAutoSave, 100);
+    } else {
+      audioManager.playSeCancel(); // お金が足りない音
     }
   };
 
   const handleUpgradeStatus = (stat: 'str' | 'vit' | 'dex' | 'agi' | 'int' | 'luc') => {
       if (playerExp >= 100) {
+          audioManager.playSeSelect();
           setPlayerExp(playerExp - 100);
           setPlayerStats({ ...playerStats, [stat]: playerStats[stat] + 1 });
-          // 強化時セーブ
           setTimeout(performAutoSave, 100);
+      } else {
+          audioManager.playSeCancel();
       }
   };
 
@@ -253,7 +270,6 @@ export default function App() {
       {screen === 'title' && (
           <div className="flex flex-col items-center justify-center h-full space-y-4 bg-gray-900">
               <TitleScreen onStart={handleStartGame} />
-              {/* 続きからボタンの追加 */}
               {canContinue && (
                   <button 
                     onClick={handleContinueGame}
@@ -285,7 +301,6 @@ export default function App() {
             playerStats={playerStats}
             playerExp={playerExp}
             />
-            {/* 手動セーブボタン（デバッグ・安心用） */}
             <div className="absolute top-2 right-2 z-50">
                 <button 
                     onClick={performAutoSave}
@@ -303,12 +318,13 @@ export default function App() {
                 <GameHUD 
                     playerJob={playerJob}
                     level={playerStats.level}
-                    hp={playerStats.hp}
-                    maxHp={playerStats.maxHp}
+                    hp={playerHp}
+                    maxHp={playerMaxHp}
                     exp={playerExp}
                     nextExp={100 * playerStats.level}
                     floor={floor}
                     gold={gold}
+                    skillCooldowns={skillCooldowns}
                 />
             </div>
 
