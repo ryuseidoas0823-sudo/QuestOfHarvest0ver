@@ -1,73 +1,44 @@
-// ... existing code ...
-import { dialogues } from './data/dialogues';
-import { Dialogue, SpeakerId } from './types/dialogue';
-import { Quest } from './types/quest';
+/**
+ * 2点間の距離を計算する
+ */
+export const getDistance = (x1: number, y1: number, x2: number, y2: number): number => {
+  return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+};
+
+// ==========================================
+// 経験値・レベル計算ロジック (Balance Phase 1)
+// ==========================================
+// 計算式: 必要経験値 = Base * (Level - 1) ^ Power
+// Base=100, Power=2.2 の場合:
+// Lv1 -> 2: 100 exp
+// Lv10: ~12,500 exp
+// Lv30: ~178,000 exp (ストーリークリア想定)
+// Lv50: ~550,000 exp (無限の塔・深層)
+
+const EXP_BASE = 100;
+const EXP_POWER = 2.2;
 
 /**
- * 経験値計算などの既存関数...
+ * 指定したレベルに到達するために必要な【累積】経験値を計算する
  */
-
-// ... existing code ...
+export const calculateExpForLevel = (level: number): number => {
+  if (level <= 1) return 0;
+  return Math.floor(EXP_BASE * Math.pow(level - 1, EXP_POWER));
+};
 
 /**
- * 現在の状態に基づいて、最も優先度の高い会話データを取得する
- * @param speakerId 話者のID
- * @param chapter 現在の章
- * @param activeQuests 受注中のクエストリスト
- * @param completedQuestIds 完了（報告済み）のクエストIDリスト
- * @param availableQuestIds 受注可能なクエストIDリスト
- * @param readyToReportQuestIds 報告待ち（条件達成済み）のクエストIDリスト
+ * 現在の経験値からレベルを算出する
  */
-export const getBestDialogue = (
-  speakerId: SpeakerId,
-  chapter: number,
-  activeQuests: Quest[],
-  completedQuestIds: string[],
-  availableQuestIds: string[],
-  readyToReportQuestIds: string[] = []
-): Dialogue | null => {
-  // 指定された話者の会話のみを抽出
-  const speakerDialogues = dialogues.filter(d => d.speakerId === speakerId);
-
-  // 条件を満たす会話をフィルタリング
-  const validDialogues = speakerDialogues.filter(d => {
-    // 条件がない場合は常にOK（デフォルト会話など）
-    if (!d.requirements) return true;
-
-    const { questId, questStatus, chapter: reqChapter } = d.requirements;
-
-    // 章の条件: 指定がある場合、現在の章と一致すること
-    if (reqChapter !== undefined && chapter !== reqChapter) {
-        return false;
-    }
-
-    // クエスト条件
-    if (questId && questStatus) {
-        const isActive = activeQuests.some(q => q.id === questId);
-        const isFinished = completedQuestIds.includes(questId);
-        const isCanAccept = availableQuestIds.includes(questId);
-        const isReadyToReport = readyToReportQuestIds.includes(questId);
-
-        // 'finished': 報告まで完了している状態
-        if (questStatus === 'finished' && !isFinished) return false;
-        
-        // 'can_accept': クエストボードに出現中
-        if (questStatus === 'can_accept' && !isCanAccept) return false;
-        
-        // 'active': 受注中（進行中〜報告待ちを含む）
-        if (questStatus === 'active' && !isActive) return false;
-
-        // 'completed': 条件達成して報告待ちの状態（未報告）
-        // ※activeかつreadyToReportであること
-        if (questStatus === 'completed' && !isReadyToReport) return false;
-    }
-
-    return true;
-  });
-
-  // 優先度が高い順にソート (降順)
-  validDialogues.sort((a, b) => b.priority - a.priority);
-
-  // 最も優先度の高い会話を返す
-  return validDialogues.length > 0 ? validDialogues[0] : null;
+export const calculateLevel = (exp: number): number => {
+  if (exp <= 0) return 1;
+  
+  // 逆算: level = (exp / BASE)^(1/POWER) + 1
+  let level = Math.floor(Math.pow(exp / EXP_BASE, 1 / EXP_POWER)) + 1;
+  
+  // 誤差修正: 計算されたレベルの規定値に達していない場合は下げる
+  if (calculateExpForLevel(level) > exp) {
+      level--;
+  }
+  
+  return level;
 };
