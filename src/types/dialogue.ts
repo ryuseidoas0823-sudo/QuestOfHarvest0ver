@@ -1,26 +1,28 @@
-export interface DialogueSpeaker {
-  id: string;
-  name: string;
-  title?: string;
-  color?: string; // 名前の表示色
+// 会話を行うNPCのID
+export type SpeakerId = 'goddess' | 'guild_receptionist' | 'shopkeeper' | 'unknown';
+
+// 会話が発生する条件
+export interface DialogueRequirements {
+  // 特定のクエストに関連する条件
+  questId?: string;
+  // そのクエストの状態（'active':受注中, 'completed':完了済(未報告), 'finished':報告完了, 'can_accept':受注可能）
+  questStatus?: 'active' | 'completed' | 'finished' | 'can_accept';
+  
+  // 進行度（章）
+  chapter?: number;
+  
+  // プレイヤーレベルなど
+  minLevel?: number;
 }
 
-export interface DialogueChoice {
-  text: string;
-  nextId: string | null; // nullの場合は会話終了
-  action?: string; // 特殊アクション（例: 'accept_quest'）
-}
-
-export interface DialogueNode {
+export interface Dialogue {
   id: string;
-  speakerId: string;
-  text: string;
-  nextId: string | null; // 次のノードID（nullなら終了または選択肢待ち）
-  choices?: DialogueChoice[];
-}
-
-export interface DialogueTree {
-  id: string;
-  rootNodeId: string;
-  nodes: Record<string, DialogueNode>;
+  speakerId: SpeakerId;
+  text: string; // 表示されるメッセージ
+  
+  // 条件（指定がない場合はデフォルトのセリフとして扱う）
+  requirements?: DialogueRequirements;
+  
+  // 優先度（条件が重複した場合、数値が高い方を優先表示する）
+  priority: number;
 }
