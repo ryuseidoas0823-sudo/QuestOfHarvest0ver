@@ -1,7 +1,7 @@
 import { ItemDefinition } from '../types/item';
 
 export const ITEMS: Record<string, ItemDefinition> = {
-  // 武器
+  // ...既存のアイテム...
   rusty_sword: {
     id: 'rusty_sword',
     name: '錆びた剣',
@@ -29,14 +29,12 @@ export const ITEMS: Record<string, ItemDefinition> = {
     name: '見習いの杖',
     description: '微かな魔力を帯びた杖。',
     type: 'weapon',
-    baseStats: { attack: 3 }, // 魔法攻撃力として扱う等のロジックが必要
+    baseStats: { attack: 3 },
     baseRarity: 'uncommon',
     assetIcon: 'icon_staff_wood',
     maxStack: 1,
     price: 60
   },
-
-  // 防具
   leather_armor: {
     id: 'leather_armor',
     name: '革の鎧',
@@ -48,8 +46,6 @@ export const ITEMS: Record<string, ItemDefinition> = {
     maxStack: 1,
     price: 40
   },
-
-  // 消費アイテム
   potion_small: {
     id: 'potion_small',
     name: '小回復ポーション',
@@ -62,5 +58,17 @@ export const ITEMS: Record<string, ItemDefinition> = {
     assetIcon: 'icon_potion_red',
     maxStack: 10,
     price: 20
+  },
+  
+  // === 新規追加 ===
+  dungeon_key: {
+    id: 'dungeon_key',
+    name: '宝物庫の鍵',
+    description: '金色の装飾が施された鍵。宝物庫の扉を開けることができる。',
+    type: 'material', // 消費アイテム扱いでも良いが、自動使用のためmaterial分類で実装
+    baseRarity: 'rare',
+    assetIcon: 'icon_key',
+    maxStack: 5,
+    price: 100
   }
 };
