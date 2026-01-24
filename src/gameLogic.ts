@@ -1,4 +1,4 @@
-import { GameState, Position, Entity, Direction, Stats, Projectile, Item, MapData } from './types';
+import { GameState, Position, Entity, Direction, Stats, Projectile, Item, MapData, Equipment } from './types';
 import { JOBS } from './data/jobs';
 import { GODS } from './data/gods';
 import { SKILLS } from './data/skills';
@@ -13,18 +13,70 @@ const MAP_HEIGHT = 50;
 // タイル定義
 const TILE_FLOOR = 0;
 const TILE_WALL = 1;
-const TILE_LAVA = 2;        // ダメージ床
-const TILE_LOCKED_DOOR = 3; // 鍵付き扉
-const TILE_SECRET_WALL = 4; // 隠し壁
-const TILE_STAIRS = 5;      // 階段 (新規)
-const TILE_BOSS_DOOR = 6;   // ボス部屋の封印扉 (新規)
+const TILE_LAVA = 2;
+const TILE_LOCKED_DOOR = 3;
+const TILE_SECRET_WALL = 4;
+const TILE_STAIRS = 5;
+const TILE_BOSS_DOOR = 6;
 
 // MapData型の拡張
 interface ExtendedMapData extends MapData {
   isDark?: boolean;
 }
 
-// ... createInitialPlayer, getDirectionVector ...
+// ==========================================
+// ステータス計算ロジック (再計算用)
+// ==========================================
+const calculatePlayerStats = (basePlayer: Entity, equipment: Equipment): Stats => {
+    const jobDef = JOBS[basePlayer.jobId as string];
+    const godDef = GODS[basePlayer.godId as string];
+    
+    // 1. 基本ステータス (職業 + レベル成長)
+    // 簡易計算: 初期値 + (レベル-1 * 成長率)
+    const level = basePlayer.stats.level;
+    let maxHp = jobDef.baseStats.maxHp + (level - 1) * jobDef.growthRates.maxHp;
+    let attack = jobDef.baseStats.attack + (level - 1) * jobDef.growthRates.attack;
+    let defense = jobDef.baseStats.defense + (level - 1) * jobDef.growthRates.defense;
+
+    // 2. 神の恩恵 (パッシブ)
+    if (godDef) {
+        if (godDef.passiveBonus.maxHp) maxHp += godDef.passiveBonus.maxHp;
+        if (godDef.passiveBonus.attack) attack += godDef.passiveBonus.attack;
+        if (godDef.passiveBonus.defense) defense += godDef.passiveBonus.defense;
+    }
+
+    // 3. 装備補正
+    if (equipment.mainHand) {
+        const weapon = ITEMS[equipment.mainHand];
+        if (weapon && weapon.baseStats) {
+            if (weapon.baseStats.attack) attack += weapon.baseStats.attack;
+            if (weapon.baseStats.defense) defense += weapon.baseStats.defense;
+            if (weapon.baseStats.maxHp) maxHp += weapon.baseStats.maxHp;
+        }
+    }
+    if (equipment.armor) {
+        const armor = ITEMS[equipment.armor];
+        if (armor && armor.baseStats) {
+            if (armor.baseStats.attack) attack += armor.baseStats.attack;
+            if (armor.baseStats.defense) defense += armor.baseStats.defense;
+            if (armor.baseStats.maxHp) maxHp += armor.baseStats.maxHp;
+        }
+    }
+
+    // 現在HPが最大HPを超えないように調整（回復はしない）
+    const currentHp = Math.min(basePlayer.stats.hp, maxHp);
+
+    return {
+        ...basePlayer.stats,
+        maxHp: Math.floor(maxHp),
+        hp: currentHp, // 現在HPは維持
+        attack: Math.floor(attack),
+        defense: Math.floor(defense),
+        critRate: (godDef?.passiveBonus.critRate || 0),
+        dropRate: (godDef?.passiveBonus.dropRate || 1.0),
+    };
+};
+
 export const createInitialPlayer = (jobId: JobId, godId: string, startPos: Position): Entity => {
   const jobDef = JOBS[jobId];
   const godDef = GODS[godId];
@@ -32,28 +84,19 @@ export const createInitialPlayer = (jobId: JobId, godId: string, startPos: Posit
   if (!jobDef) throw new Error(`Job definition not found: ${jobId}`);
   if (!godDef) throw new Error(`God definition not found: ${godId}`);
 
-  let baseMaxHp = jobDef.baseStats.maxHp;
-  let baseAttack = jobDef.baseStats.attack;
-  let baseDefense = jobDef.baseStats.defense;
-
-  if (godDef.passiveBonus.maxHp) baseMaxHp += godDef.passiveBonus.maxHp;
-  if (godDef.passiveBonus.attack) baseAttack += godDef.passiveBonus.attack;
-  if (godDef.passiveBonus.defense) baseDefense += godDef.passiveBonus.defense;
-
-  const stats: Stats = {
-    maxHp: baseMaxHp,
-    hp: baseMaxHp,
-    attack: baseAttack,
-    defense: baseDefense,
+  // 仮のStatsを作成
+  const initialStats: Stats = {
+    maxHp: jobDef.baseStats.maxHp,
+    hp: jobDef.baseStats.maxHp,
+    attack: jobDef.baseStats.attack,
+    defense: jobDef.baseStats.defense,
     level: 1,
     exp: 0,
-    nextLevelExp: 100, // 初期必要経験値
+    nextLevelExp: 100,
     speed: 1,
-    critRate: godDef.passiveBonus.critRate || 0,
-    dropRate: godDef.passiveBonus.dropRate || 1.0,
   };
 
-  return {
+  const player: Entity = {
     id: 'player',
     type: 'player',
     x: startPos.x * GRID_SIZE,
@@ -63,14 +106,22 @@ export const createInitialPlayer = (jobId: JobId, godId: string, startPos: Posit
     color: godDef.color,
     direction: 'down',
     isMoving: false,
-    stats: stats,
+    stats: initialStats,
     jobId: jobId, 
     godId: godId,
     skills: [...jobDef.learnableSkills],
     skillCooldowns: {},
-  } as Entity;
+  };
+
+  // ステータスを正規計算（神ボーナスなど適用）
+  player.stats = calculatePlayerStats(player, { mainHand: null, armor: null });
+  player.stats.hp = player.stats.maxHp; // 初期生成時はHP全快
+
+  return player;
 };
 
+// ... getDirectionVector, checkCollision, activateSkill ... 
+// (変更なしのため省略、ファイル結合時は前回のコードを使用)
 const getDirectionVector = (dir: Direction): { x: number, y: number } => {
   switch (dir) {
     case 'up': return { x: 0, y: -1 };
@@ -92,15 +143,12 @@ const checkCollision = (x: number, y: number, width: number, height: number, map
         const gridX = Math.floor(p.x / GRID_SIZE);
         const gridY = Math.floor(p.y / GRID_SIZE);
         if (gridY < 0 || gridY >= map.height || gridX < 0 || gridX >= map.width) return true;
-        
         const tile = map.tiles[gridY][gridX];
-        // 階段(5)は通行可、ボス扉(6)は通行不可
         if (tile === TILE_WALL || tile === TILE_LOCKED_DOOR || tile === TILE_SECRET_WALL || tile === TILE_BOSS_DOOR) return true;
     }
     return false;
 };
 
-// ... activateSkill (変更なし)...
 export const activateSkill = (state: GameState, skillId: string): GameState => {
   const { player, gameTime } = state;
   const skill = SKILLS[skillId];
@@ -183,7 +231,7 @@ export const activateSkill = (state: GameState, skillId: string): GameState => {
   return newState;
 };
 
-// ... checkDungeonEvents (変更なし)...
+// ... checkDungeonEvents (変更なし) ...
 const checkDungeonEvents = (state: GameState): GameState => {
     let newState = { ...state };
     const { player, map, gameTime } = newState;
@@ -229,9 +277,7 @@ const checkDungeonEvents = (state: GameState): GameState => {
     return newState;
 };
 
-// ==========================================
-// レベルアップ処理
-// ==========================================
+// ... checkLevelUp (変更なし) ...
 const checkLevelUp = (player: Entity, messages: string[]): { player: Entity, messages: string[] } => {
     let newPlayer = { ...player };
     let newMessages = [...messages];
@@ -239,11 +285,10 @@ const checkLevelUp = (player: Entity, messages: string[]): { player: Entity, mes
     while (newPlayer.stats.exp >= newPlayer.stats.nextLevelExp) {
         newPlayer.stats.exp -= newPlayer.stats.nextLevelExp;
         newPlayer.stats.level += 1;
-        newPlayer.stats.nextLevelExp = Math.floor(newPlayer.stats.nextLevelExp * 1.2); // 必要経験値増加
+        newPlayer.stats.nextLevelExp = Math.floor(newPlayer.stats.nextLevelExp * 1.2); 
 
-        // ステータス上昇 (職業補正を考慮すべきだが今回は固定値+割合)
         newPlayer.stats.maxHp += 10;
-        newPlayer.stats.hp = newPlayer.stats.maxHp; // 全回復
+        newPlayer.stats.hp = newPlayer.stats.maxHp; 
         newPlayer.stats.attack += 2;
         newPlayer.stats.defense += 1;
 
@@ -253,7 +298,67 @@ const checkLevelUp = (player: Entity, messages: string[]): { player: Entity, mes
 };
 
 // ==========================================
-// 更新ロジック (階段 & LevelUp対応)
+// アイテム使用・装備ロジック (新規)
+// ==========================================
+export const useItem = (state: GameState, itemId: string): GameState => {
+    const itemDef = ITEMS[itemId];
+    if (!itemDef) return state;
+
+    let newState = { ...state };
+    let inventory = [...newState.inventory];
+    let equipment = { ...newState.equipment };
+    let messages = [...newState.messages];
+    
+    // インベントリから1つ削除
+    const idx = inventory.indexOf(itemId);
+    if (idx === -1) return state; // 持ってない
+    inventory.splice(idx, 1);
+
+    if (itemDef.type === 'consumable') {
+        // 消費アイテム
+        if (itemDef.effects) {
+            itemDef.effects.forEach(effect => {
+                if (effect.type === 'heal_hp') {
+                    const heal = effect.value;
+                    const oldHp = newState.player.stats.hp;
+                    newState.player.stats.hp = Math.min(newState.player.stats.maxHp, newState.player.stats.hp + heal);
+                    messages = [`${itemDef.name}を使用: HP ${newState.player.stats.hp - oldHp} 回復`, ...messages];
+                }
+                // 他の効果があればここに追加
+            });
+        }
+    } 
+    else if (itemDef.type === 'weapon') {
+        // 武器装備
+        if (equipment.mainHand) {
+            // 既に装備していたものをインベントリに戻す
+            inventory.push(equipment.mainHand);
+        }
+        equipment.mainHand = itemId;
+        messages = [`${itemDef.name} を装備した！`, ...messages];
+    }
+    else if (itemDef.type === 'armor') {
+        // 防具装備
+        if (equipment.armor) {
+            inventory.push(equipment.armor);
+        }
+        equipment.armor = itemId;
+        messages = [`${itemDef.name} を装備した！`, ...messages];
+    }
+
+    newState.inventory = inventory;
+    newState.equipment = equipment;
+    newState.messages = messages.slice(0, 10);
+
+    // ステータス再計算
+    newState.player.stats = calculatePlayerStats(newState.player, newState.equipment);
+
+    return newState;
+};
+
+
+// ==========================================
+// 更新ロジック (アイテム取得対応)
 // ==========================================
 export const updateGameLogic = (state: GameState, input: { keys: Record<string, boolean> }): GameState => {
   let newState = { ...state };
@@ -276,8 +381,32 @@ export const updateGameLogic = (state: GameState, input: { keys: Record<string, 
       if (!checkCollision(targetX, targetY, newState.player.width, newState.player.height, newState.map)) {
           newState.player.x = targetX;
           newState.player.y = targetY;
+          
+          // アイテム取得判定 (足元にあるか)
+          // プレイヤーの中心座標
+          const cx = newState.player.x + newState.player.width / 2;
+          const cy = newState.player.y + newState.player.height / 2;
+          
+          const remainingItems: Item[] = [];
+          newState.items.forEach(item => {
+              // アイテムの中心 (簡易)
+              const icx = item.x + 20; // GRID/2
+              const icy = item.y + 20;
+              
+              const dist = Math.sqrt((cx - icx) ** 2 + (cy - icy) ** 2);
+              if (dist < 20) { // 接触
+                  // インベントリに追加
+                  newState.inventory = [...newState.inventory, item.itemId];
+                  const itemDef = ITEMS[item.itemId];
+                  newState.messages = [`${itemDef ? itemDef.name : item.itemId} を拾った`, ...newState.messages].slice(0, 10);
+              } else {
+                  remainingItems.push(item);
+              }
+          });
+          newState.items = remainingItems;
+
       } else {
-          // 特殊インタラクション (扉など)
+          // 衝突時の特殊インタラクション (扉など)
           const centerX = newState.player.x + newState.player.width / 2;
           const centerY = newState.player.y + newState.player.height / 2;
           const checkX = Math.floor((centerX + dx * 2) / GRID_SIZE);
@@ -288,8 +417,10 @@ export const updateGameLogic = (state: GameState, input: { keys: Record<string, 
               if (tile === TILE_LOCKED_DOOR) {
                   const keyIndex = (newState.inventory || []).indexOf('dungeon_key');
                   if (keyIndex !== -1) {
-                      newState.inventory = [...newState.inventory];
-                      newState.inventory.splice(keyIndex, 1);
+                      const newInv = [...newState.inventory];
+                      newInv.splice(keyIndex, 1);
+                      newState.inventory = newInv;
+                      
                       const newTiles = [...newState.map.tiles];
                       newTiles[checkY] = [...newTiles[checkY]];
                       newTiles[checkY][checkX] = TILE_FLOOR;
@@ -314,11 +445,9 @@ export const updateGameLogic = (state: GameState, input: { keys: Record<string, 
 
       if (gridX >= 0 && gridX < MAP_WIDTH && gridY >= 0 && gridY < MAP_HEIGHT) {
           if (newState.map.tiles[gridY][gridX] === TILE_STAIRS) {
-              // 次の階層へ！
               const nextFloor = newState.floor + 1;
               const dungeonData = generateDungeon(nextFloor, newState.player);
               
-              // 状態を一新して返す
               return {
                   ...newState,
                   floor: nextFloor,
@@ -326,9 +455,8 @@ export const updateGameLogic = (state: GameState, input: { keys: Record<string, 
                   enemies: dungeonData.enemies,
                   items: dungeonData.items,
                   player: dungeonData.player,
-                  projectiles: [], // 弾は消去
+                  projectiles: [],
                   messages: [`地下 ${nextFloor} 階に到達した。`, ...newState.messages].slice(0, 10),
-                  // インベントリやステータスは維持
               };
           }
       }
@@ -382,26 +510,19 @@ export const updateGameLogic = (state: GameState, input: { keys: Record<string, 
       if (hit) {
         newState.enemies = hitEnemies.filter(e => e.stats.hp > 0);
         
-        // 敵死亡時の処理
         if (newState.enemies.length !== hitEnemies.filter(e => e.stats.hp > 0).length) {
-            // 経験値獲得
-            // 倒した敵の経験値を取得（簡易的に固定値 + レベル補正）
             const expGain = 10 + newState.floor * 2;
             newState.player.stats.exp += expGain;
             
-            // レベルアップチェック
             const res = checkLevelUp(newState.player, newState.messages);
             newState.player = res.player;
             newState.messages = res.messages;
 
-            // ボス撃破判定 (簡易: IDに'boss'が含まれていたら)
             const defeated = hitEnemies.find(e => e.stats.hp <= 0);
-            if (defeated && defeated.id.includes('enemy_999')) { // Boss ID Suffix
+            if (defeated && defeated.id.includes('enemy_999')) {
                  newState.messages = ['フロアの主を倒した！封印が解かれる音がする...', ...newState.messages].slice(0, 10);
                  
-                 // ボス扉を開放 (Tile 6 -> Tile 0)
                  const newTiles = [...newState.map.tiles];
-                 // マップ全体走査は非効率だがボス階層は小さいのでOK
                  for(let y=0; y<newState.map.height; y++) {
                      for(let x=0; x<newState.map.width; x++) {
                          if (newTiles[y][x] === TILE_BOSS_DOOR) {
@@ -443,17 +564,9 @@ export const updateGameLogic = (state: GameState, input: { keys: Record<string, 
   return newState;
 };
 
-// ... moveEntity ...
-export const moveEntity = (entity: Entity, dx: number, dy: number, map: any): Entity => {
-    const targetX = entity.x + dx;
-    const targetY = entity.y + dy;
-    if (!checkCollision(targetX, targetY, entity.width, entity.height, map)) {
-        return { ...entity, x: targetX, y: targetY, isMoving: dx !== 0 || dy !== 0 };
-    }
-    return { ...entity, isMoving: false };
-};
-
-
+// moveEntity, generateDungeon などの他の関数は変更なしのため省略
+// ファイル結合時はこれらも含めてください
+// ... (generateDungeon, etc.)
 // ==========================================
 // ダンジョン生成ロジック
 // ==========================================
