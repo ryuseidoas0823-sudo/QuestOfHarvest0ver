@@ -1,33 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { Job, JobId } from '../types/job';
+import { Job } from '../types/job';
 import { Quest } from '../types/quest';
 import { ShopItem } from '../data/shopItems';
-import { jobs } from '../data/jobs';
-import { shopItems } from '../data/shopItems';
 import { GameHUD } from './GameHUD';
 import { DialogueWindow } from './DialogueWindow';
-import { ShopMenu } from './ShopMenu';
-import { InventoryMenu } from './InventoryMenu';
-import { StatusUpgradeMenu } from './StatusUpgradeMenu';
 import { SpeakerId } from '../types/dialogue';
 import { getBestDialogue } from '../utils';
-import { quests as allQuests } from '../data/quests'; // クエストマスタデータ
+import { quests as allQuests } from '../data/quests';
 
-// ... existing code ...
+// 簡易的なアイテム表示用の型定義
+interface DisplayItem {
+  id: string;
+  name: string;
+  price: number;
+}
 
 interface TownScreenProps {
   playerJob: Job;
   gold: number;
-  chapter: number; // 追加: 現在の章
+  chapter: number;
   activeQuests: Quest[];
   completedQuestIds: string[];
-  items: any[]; // InventoryItem[]
+  items: DisplayItem[]; // any[] から修正
   onGoToDungeon: () => void;
   onAcceptQuest: (quest: Quest) => void;
   onReportQuest: (quest: Quest) => void;
   onBuyItem: (item: ShopItem) => void;
-  onUpgradeStatus: (stat: 'str' | 'vit' | 'dex' | 'agi' | 'int' | 'luc') => void;
-  playerStats: any; // Stats
+  // onUpgradeStatus の型定義を修正 (cost引数を追加)
+  onUpgradeStatus: (stat: 'str' | 'vit' | 'dex' | 'agi' | 'int' | 'luc', cost: number) => void;
+  playerStats: any; // Stats型があればそれを使うべきだが、互換性維持のため
   playerExp: number;
 }
 
@@ -37,12 +38,12 @@ export const TownScreen: React.FC<TownScreenProps> = ({
   chapter,
   activeQuests,
   completedQuestIds,
-  items,
-  onGoToDungeon,
-  onAcceptQuest,
-  onReportQuest,
-  onBuyItem,
-  onUpgradeStatus,
+  // items, // 現在未使用だが、将来的にInventoryMenuなどをここに統合する場合に使用
+  // onGoToDungeon, // 同上
+  // onAcceptQuest,
+  // onReportQuest,
+  // onBuyItem,
+  // onUpgradeStatus,
   playerStats,
   playerExp
 }) => {
@@ -50,15 +51,11 @@ export const TownScreen: React.FC<TownScreenProps> = ({
   const [currentDialogue, setCurrentDialogue] = useState<string>('');
   const [currentSpeaker, setCurrentSpeaker] = useState<SpeakerId>('unknown');
 
-  // クエストの状態判定（簡易版）
-  // 実際にはApp.tsxなどで計算して渡すのが望ましいが、ここで計算する
   const availableQuestIds = allQuests
     .filter(q => {
-      // 既に完了または受注中でない
       if (completedQuestIds.includes(q.id)) return false;
       if (activeQuests.some(aq => aq.id === q.id)) return false;
       
-      // 前提条件チェック
       if (q.requirements?.questCompleted) {
         const allPreReqsMet = q.requirements.questCompleted.every(reqId => completedQuestIds.includes(reqId));
         if (!allPreReqsMet) return false;
@@ -69,31 +66,15 @@ export const TownScreen: React.FC<TownScreenProps> = ({
     })
     .map(q => q.id);
 
-  // 報告待ち（条件達成済み）のクエストID
-  // 今回は簡易的に「受注中」かつ「TownScreenにいる＝帰還した」クエストは全て報告可能扱いにするか、
-  // 本来は討伐数などのチェックが必要。
-  // ここでは「activeQuestsにあるものは（デバッグ的に）会話優先度判定のために報告待ち候補」として扱う、
-  // または厳密なチェックを省略し、activeQuestsのIDをそのまま渡す（completed条件の会話が出るかは運次第になる）。
-  // 修正：本来は Quest オブジェクトに progress が必要。
-  // 今回は「クエスト報告ボタンが押せる状態」＝「Questオブジェクトの progress >= target」と仮定したいが、
-  // Quest型にはまだ progress がないため、activeQuestsのIDをそのまま使う（getBestDialogue側で制御）。
   const readyToReportQuestIds = activeQuests.map(q => q.id); 
 
-
-  // 施設切り替え時に会話を更新
   useEffect(() => {
     let speaker: SpeakerId = 'unknown';
     
     switch (activeFacility) {
-      case 'guild':
-        speaker = 'guild_receptionist';
-        break;
-      case 'shop':
-        speaker = 'shopkeeper';
-        break;
-      case 'status': // ファミリアホーム
-        speaker = 'goddess';
-        break;
+      case 'guild': speaker = 'guild_receptionist'; break;
+      case 'shop': speaker = 'shopkeeper'; break;
+      case 'status': speaker = 'goddess'; break;
       default:
         speaker = 'unknown';
         setCurrentDialogue('');
@@ -103,7 +84,6 @@ export const TownScreen: React.FC<TownScreenProps> = ({
 
     setCurrentSpeaker(speaker);
 
-    // 会話データを取得
     const bestDialogue = getBestDialogue(
       speaker,
       chapter,
@@ -119,16 +99,7 @@ export const TownScreen: React.FC<TownScreenProps> = ({
       setCurrentDialogue('...');
     }
 
-  }, [activeFacility, chapter, activeQuests, completedQuestIds]); // 依存配列
-
-  // ... existing code ...
-  
-  // レンダリング部分の DialogueWindow に currentDialogue を渡す
-  // <DialogueWindow 
-  //   speakerName={currentSpeaker === 'goddess' ? '女神' : currentSpeaker === 'guild_receptionist' ? '受付嬢' : '店主'} 
-  //   text={currentDialogue} 
-  //   ... 
-  // />
+  }, [activeFacility, chapter, activeQuests, completedQuestIds, availableQuestIds, readyToReportQuestIds]);
 
   return (
     <div className="relative w-full h-full bg-gray-800 text-white overflow-hidden" 
@@ -138,28 +109,30 @@ export const TownScreen: React.FC<TownScreenProps> = ({
            backgroundPosition: 'center'
          }}>
       
-      {/* 背景オーバーレイ */}
       <div className="absolute inset-0 bg-black bg-opacity-50"></div>
 
-      {/* ヘッダー情報 */}
       <GameHUD 
         playerJob={playerJob}
-        level={playerStats.level || 1} // 仮
+        level={playerStats.level || 1}
         hp={playerStats.hp}
         maxHp={playerStats.maxHp}
         exp={playerExp}
-        nextExp={100 * (playerStats.level || 1)} // 仮
+        nextExp={100 * (playerStats.level || 1)}
         floor={0}
         gold={gold}
       />
 
-      {/* ... existing UI ... */}
-      
-      {/* 施設メニューのオーバーレイ表示 */}
+      {/* 街のメインメニュー（ボタンなど）の実装が必要ならここに記述 */}
+      {/* 仮: 施設へのアクセスボタン */}
+      <div className="absolute bottom-20 left-0 right-0 flex justify-center space-x-4 z-10">
+          <button onClick={() => setActiveFacility('guild')} className="px-6 py-3 bg-blue-700 rounded border-2 border-blue-400 hover:bg-blue-600">冒険者ギルド</button>
+          <button onClick={() => setActiveFacility('shop')} className="px-6 py-3 bg-red-700 rounded border-2 border-red-400 hover:bg-red-600">豊穣の市場</button>
+          <button onClick={() => setActiveFacility('status')} className="px-6 py-3 bg-yellow-700 rounded border-2 border-yellow-400 hover:bg-yellow-600">ファミリアホーム</button>
+      </div>
+
       {activeFacility !== 'none' && (
         <div className="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center z-20 p-4">
           
-          {/* 会話ウィンドウを表示 (施設が開いている時) */}
           <div className="w-full max-w-4xl mb-4">
              <DialogueWindow
                 speakerName={
@@ -168,26 +141,38 @@ export const TownScreen: React.FC<TownScreenProps> = ({
                     currentSpeaker === 'shopkeeper' ? '店主' : ''
                 }
                 text={currentDialogue}
-                onNext={() => {}} // シンプルな表示のみ
+                onNext={() => {}} 
              />
           </div>
 
           <div className="w-full max-w-4xl bg-gray-900 border-2 border-yellow-600 rounded-lg p-6 max-h-[70vh] overflow-y-auto">
-             {/* ... 各メニューコンポーネント ... */}
              {activeFacility === 'guild' && (
                <div className="text-center">
                  <h2 className="text-2xl font-bold text-yellow-500 mb-4">冒険者ギルド</h2>
-                 {/* クエストリスト表示ロジックなど */}
-                 {/* ... existing quest list code ... */}
-                 <button onClick={() => setActiveFacility('none')} className="mt-4 px-4 py-2 bg-gray-600 rounded">閉じる</button>
+                 {/* TODO: クエスト一覧コンポーネントを表示 */}
+                 <p className="mb-4">現在受注可能なクエストを確認しています...</p>
+                 <button onClick={() => setActiveFacility('none')} className="mt-4 px-4 py-2 bg-gray-600 rounded hover:bg-gray-500">閉じる</button>
                </div>
              )}
-             {/* Shop, StatusMenu も同様に */}
+             {activeFacility === 'shop' && (
+                 <div className="text-center">
+                     <h2 className="text-2xl font-bold text-yellow-500 mb-4">豊穣の市場</h2>
+                     {/* TODO: ShopMenuを表示 */}
+                     <p className="mb-4">いらっしゃいませ！</p>
+                     <button onClick={() => setActiveFacility('none')} className="mt-4 px-4 py-2 bg-gray-600 rounded hover:bg-gray-500">閉じる</button>
+                 </div>
+             )}
+             {activeFacility === 'status' && (
+                 <div className="text-center">
+                     <h2 className="text-2xl font-bold text-yellow-500 mb-4">ファミリアホーム</h2>
+                     {/* TODO: StatusUpgradeMenuを表示 */}
+                     <p className="mb-4">ステータスを更新しますか？</p>
+                     <button onClick={() => setActiveFacility('none')} className="mt-4 px-4 py-2 bg-gray-600 rounded hover:bg-gray-500">閉じる</button>
+                 </div>
+             )}
           </div>
         </div>
       )}
-      
-      {/* ... existing code ... */}
     </div>
   );
 };
