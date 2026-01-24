@@ -5,34 +5,45 @@ import { JobSelectScreen } from './components/JobSelectScreen';
 import { TownScreen } from './components/TownScreen';
 import { GameHUD } from './components/GameHUD';
 import { InventoryMenu } from './components/InventoryMenu';
+import { ResultScreen, ResultData } from './components/ResultScreen'; // 追加
 import { GODS, GodId } from './data/gods';
 import { JOBS, JobId } from './data/jobs';
+import { INITIAL_QUESTS } from './data/quests'; // クエストデータ
 import { GameScreen, Position, Direction, Stats, Entity, Item, GameState as GameDataType } from './types';
 import { useGameLoop } from './gameLogic';
 import { renderer } from './renderer';
 import { generateDungeon } from './dungeonGenerator';
 import { ENEMIES } from './data/enemies';
 
-// ゲームの状態を管理するメインコンポーネント
 function App() {
-  // GameScreen型を使用するように変更
   const [gameState, setGameState] = useState<GameScreen>('title');
   const [selectedGod, setSelectedGod] = useState<GodId>('warrior_god');
   const [selectedJob, setSelectedJob] = useState<JobId>('warrior');
   
-  // HUD表示用のステート
+  // プレイヤー基本ステータス
   const [playerStats, setPlayerStats] = useState<Stats>({
     maxHp: 100, hp: 100, attack: 10, defense: 0, level: 1, exp: 0, nextLevelExp: 100, speed: 4
   });
+  const [playerGold, setPlayerGold] = useState(0); // 所持金を追加
+
+  // クエスト状態管理
+  const [acceptedQuests, setAcceptedQuests] = useState<string[]>([]);
+  const [readyToReportQuests, setReadyToReportQuests] = useState<string[]>([]);
+  const [completedQuests, setCompletedQuests] = useState<string[]>([]);
+
+  // ダンジョン進行状態
   const [currentFloor, setCurrentFloor] = useState(1);
   const [gameLog, setGameLog] = useState<string[]>([]);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [inventory, setInventory] = useState<string[]>([]);
 
-  // レンダリング用のRef
+  // リザルト用一時データ
+  const [resultData, setResultData] = useState<ResultData>({
+    exp: 0, gold: 0, items: [], floorReached: 0
+  });
+
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // ゲームロジックフック
   const { 
     dungeon, 
     setDungeon, 
@@ -51,7 +62,7 @@ function App() {
     (inv) => setInventory(inv)
   );
 
-  // キャンバスのセットアップ
+  // キャンバス初期化
   useEffect(() => {
     if (gameState === 'playing' && containerRef.current) {
       const { canvas } = renderer.init(containerRef.current);
@@ -61,7 +72,7 @@ function App() {
     }
   }, [gameState]);
 
-  // ゲームループの開始/停止
+  // ゲームループ
   useEffect(() => {
     if (gameState === 'playing') {
       const loopId = requestAnimationFrame(function loop() {
@@ -74,6 +85,8 @@ function App() {
     }
   }, [gameState, gameLoop, selectedJob, selectedGod]);
 
+  // --- イベントハンドラ ---
+
   const handleGodSelect = (godId: GodId) => {
     setSelectedGod(godId);
     setGameState('jobSelect');
@@ -82,7 +95,7 @@ function App() {
   const handleJobSelect = (jobId: JobId) => {
     setSelectedJob(jobId);
     
-    // プレイヤーの初期化
+    // プレイヤー初期化
     const job = JOBS[jobId];
     if (job) {
       setPlayerStats({
@@ -96,35 +109,97 @@ function App() {
       });
     }
     
-    // 職選択後は「街」へ移動する
     setGameState('town');
   };
 
-  // 街からダンジョンへ出発する処理
   const handleGoToDungeon = () => {
     startGame();
   };
 
   const startGame = () => {
-    // ダンジョン生成と初期配置
     const newDungeon = generateDungeon(1);
     setDungeon(newDungeon);
     
-    // プレイヤー位置を最初の部屋の中心に
     const startRoom = newDungeon.rooms[0];
     const startX = startRoom.x + Math.floor(startRoom.width / 2);
     const startY = startRoom.y + Math.floor(startRoom.height / 2);
     
     setPlayerPos({ x: startX, y: startY });
-    setEntities([]); // 敵などの初期化
-    setInventory([]); // 本来は引き継ぐが、今は初期化
+    setEntities([]); 
+    setInventory([]); // 暫定：持ち込みアイテムなし
     setCurrentFloor(1);
     setGameLog(['ダンジョンに到達した。', '探索を開始する。']);
     setGameState('playing');
   };
 
+  // 帰還処理（ダンジョン → リザルト）
+  const handleReturnTown = () => {
+    // 獲得物を計算（今回は簡易計算）
+    const earnedExp = currentFloor * 50 + entities.length * 10; // 階層ボーナス + 倒した敵(仮)
+    const earnedGold = currentFloor * 100;
+    const earnedItems = [...inventory]; // インベントリの中身を持ち帰る
+
+    setResultData({
+      exp: earnedExp,
+      gold: earnedGold,
+      items: earnedItems,
+      floorReached: currentFloor
+    });
+
+    // クエスト達成判定（仮：生還すれば受注中のクエストは報告可能になる）
+    const newReady = [...readyToReportQuests];
+    acceptedQuests.forEach(qId => {
+      if (!completedQuests.includes(qId) && !newReady.includes(qId)) {
+        newReady.push(qId);
+      }
+    });
+    setReadyToReportQuests(newReady);
+
+    setGameState('result');
+  };
+
+  // リザルト確認後（リザルト → 街）
+  const handleBackToTownFromResult = () => {
+    // 経験値・ゴールドの反映
+    setPlayerStats(prev => ({
+      ...prev,
+      exp: prev.exp + resultData.exp
+      // レベルアップ処理はホーム画面等で行う想定だが、ここでは単純加算
+    }));
+    setPlayerGold(prev => prev + resultData.gold);
+
+    // インベントリは一旦リセットor倉庫へ（今回はリセット）
+    setInventory([]);
+    
+    setGameState('town');
+  };
+
   const handleUseItem = (index: number) => {
     logicHandleUseItem(index, playerStats);
+  };
+
+  // --- クエスト関連ハンドラ ---
+  const handleAcceptQuest = (questId: string) => {
+    if (!acceptedQuests.includes(questId)) {
+      setAcceptedQuests([...acceptedQuests, questId]);
+      alert('クエストを受注しました！');
+    }
+  };
+
+  const handleReportQuest = (questId: string) => {
+    const quest = INITIAL_QUESTS.find(q => q.id === questId);
+    if (quest) {
+      // 報酬付与
+      setPlayerGold(prev => prev + quest.reward.gold);
+      setPlayerStats(prev => ({ ...prev, exp: prev.exp + quest.reward.experience }));
+      
+      // 状態更新
+      setCompletedQuests([...completedQuests, questId]);
+      setAcceptedQuests(acceptedQuests.filter(id => id !== questId));
+      setReadyToReportQuests(readyToReportQuests.filter(id => id !== questId));
+      
+      alert(`クエスト「${quest.title}」を達成！\n報酬: ${quest.reward.gold}G, ${quest.reward.experience}Exp を獲得しました。`);
+    }
   };
 
   return (
@@ -147,11 +222,15 @@ function App() {
         />
       )}
 
-      {/* 街画面 */}
       {gameState === 'town' && (
         <TownScreen 
           onGoToDungeon={handleGoToDungeon}
           onBackToTitle={() => setGameState('title')}
+          acceptedQuests={acceptedQuests}
+          onAcceptQuest={handleAcceptQuest}
+          completedQuests={completedQuests}
+          readyToReportQuests={readyToReportQuests}
+          onReportQuest={handleReportQuest}
         />
       )}
 
@@ -165,6 +244,7 @@ function App() {
             jobId={selectedJob}
             gameLog={gameLog}
             onOpenInventory={() => setIsInventoryOpen(true)}
+            onReturnTown={handleReturnTown} // 帰還ボタン
           />
           {isInventoryOpen && (
             <InventoryMenu 
@@ -174,6 +254,13 @@ function App() {
             />
           )}
         </>
+      )}
+
+      {gameState === 'result' && (
+        <ResultScreen 
+          resultData={resultData}
+          onBackToTown={handleBackToTownFromResult}
+        />
       )}
 
       {gameState === 'gameOver' && (
@@ -189,10 +276,10 @@ function App() {
         </div>
       )}
 
+      {/* GameClear画面もResultScreenに統合可能だが、一旦残す */}
       {gameState === 'gameClear' && (
          <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center text-black z-50">
           <h1 className="text-6xl font-bold text-yellow-600 mb-8 tracking-widest">GAME CLEARED!</h1>
-          <p className="text-xl mb-8">ダンジョン制覇おめでとう！</p>
           <button 
             onClick={() => setGameState('title')}
             className="px-8 py-3 bg-black text-white font-bold text-xl rounded hover:bg-gray-800 transition-colors"
