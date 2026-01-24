@@ -5,10 +5,10 @@ import { JobSelectScreen } from './components/JobSelectScreen';
 import { TownScreen } from './components/TownScreen';
 import { GameHUD } from './components/GameHUD';
 import { InventoryMenu } from './components/InventoryMenu';
-import { ResultScreen, ResultData } from './components/ResultScreen'; // 追加
+import { ResultScreen, ResultData } from './components/ResultScreen';
 import { GODS, GodId } from './data/gods';
 import { JOBS, JobId } from './data/jobs';
-import { INITIAL_QUESTS } from './data/quests'; // クエストデータ
+import { INITIAL_QUESTS } from './data/quests';
 import { GameScreen, Position, Direction, Stats, Entity, Item, GameState as GameDataType } from './types';
 import { useGameLoop } from './gameLogic';
 import { renderer } from './renderer';
@@ -24,7 +24,7 @@ function App() {
   const [playerStats, setPlayerStats] = useState<Stats>({
     maxHp: 100, hp: 100, attack: 10, defense: 0, level: 1, exp: 0, nextLevelExp: 100, speed: 4
   });
-  const [playerGold, setPlayerGold] = useState(0); // 所持金を追加
+  const [playerGold, setPlayerGold] = useState(1000); // テスト用に初期所持金を付与
 
   // クエスト状態管理
   const [acceptedQuests, setAcceptedQuests] = useState<string[]>([]);
@@ -126,18 +126,16 @@ function App() {
     
     setPlayerPos({ x: startX, y: startY });
     setEntities([]); 
-    setInventory([]); // 暫定：持ち込みアイテムなし
+    // inventoryは維持する
     setCurrentFloor(1);
     setGameLog(['ダンジョンに到達した。', '探索を開始する。']);
     setGameState('playing');
   };
 
-  // 帰還処理（ダンジョン → リザルト）
   const handleReturnTown = () => {
-    // 獲得物を計算（今回は簡易計算）
-    const earnedExp = currentFloor * 50 + entities.length * 10; // 階層ボーナス + 倒した敵(仮)
+    const earnedExp = currentFloor * 50 + entities.length * 10;
     const earnedGold = currentFloor * 100;
-    const earnedItems = [...inventory]; // インベントリの中身を持ち帰る
+    const earnedItems = [...inventory]; 
 
     setResultData({
       exp: earnedExp,
@@ -146,7 +144,6 @@ function App() {
       floorReached: currentFloor
     });
 
-    // クエスト達成判定（仮：生還すれば受注中のクエストは報告可能になる）
     const newReady = [...readyToReportQuests];
     acceptedQuests.forEach(qId => {
       if (!completedQuests.includes(qId) && !newReady.includes(qId)) {
@@ -158,17 +155,14 @@ function App() {
     setGameState('result');
   };
 
-  // リザルト確認後（リザルト → 街）
   const handleBackToTownFromResult = () => {
-    // 経験値・ゴールドの反映
     setPlayerStats(prev => ({
       ...prev,
       exp: prev.exp + resultData.exp
-      // レベルアップ処理はホーム画面等で行う想定だが、ここでは単純加算
     }));
     setPlayerGold(prev => prev + resultData.gold);
 
-    // インベントリは一旦リセットor倉庫へ（今回はリセット）
+    // インベントリは一旦リセット（倉庫機能未実装のため）
     setInventory([]);
     
     setGameState('town');
@@ -178,7 +172,6 @@ function App() {
     logicHandleUseItem(index, playerStats);
   };
 
-  // --- クエスト関連ハンドラ ---
   const handleAcceptQuest = (questId: string) => {
     if (!acceptedQuests.includes(questId)) {
       setAcceptedQuests([...acceptedQuests, questId]);
@@ -189,17 +182,20 @@ function App() {
   const handleReportQuest = (questId: string) => {
     const quest = INITIAL_QUESTS.find(q => q.id === questId);
     if (quest) {
-      // 報酬付与
       setPlayerGold(prev => prev + quest.reward.gold);
       setPlayerStats(prev => ({ ...prev, exp: prev.exp + quest.reward.experience }));
       
-      // 状態更新
       setCompletedQuests([...completedQuests, questId]);
       setAcceptedQuests(acceptedQuests.filter(id => id !== questId));
       setReadyToReportQuests(readyToReportQuests.filter(id => id !== questId));
       
       alert(`クエスト「${quest.title}」を達成！\n報酬: ${quest.reward.gold}G, ${quest.reward.experience}Exp を獲得しました。`);
     }
+  };
+
+  // アイテム購入用ハンドラ
+  const handleAddItem = (itemId: string) => {
+    setInventory(prev => [...prev, itemId]);
   };
 
   return (
@@ -231,6 +227,12 @@ function App() {
           completedQuests={completedQuests}
           readyToReportQuests={readyToReportQuests}
           onReportQuest={handleReportQuest}
+          // 追加Props
+          playerGold={playerGold}
+          playerStats={playerStats}
+          onUpdateGold={setPlayerGold}
+          onUpdateStats={setPlayerStats}
+          onAddItem={handleAddItem}
         />
       )}
 
@@ -244,7 +246,7 @@ function App() {
             jobId={selectedJob}
             gameLog={gameLog}
             onOpenInventory={() => setIsInventoryOpen(true)}
-            onReturnTown={handleReturnTown} // 帰還ボタン
+            onReturnTown={handleReturnTown}
           />
           {isInventoryOpen && (
             <InventoryMenu 
@@ -276,7 +278,6 @@ function App() {
         </div>
       )}
 
-      {/* GameClear画面もResultScreenに統合可能だが、一旦残す */}
       {gameState === 'gameClear' && (
          <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center text-black z-50">
           <h1 className="text-6xl font-bold text-yellow-600 mb-8 tracking-widest">GAME CLEARED!</h1>
