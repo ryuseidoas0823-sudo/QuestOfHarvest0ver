@@ -8,9 +8,10 @@ import { Quest } from './types/quest';
 import { getDistance } from './utils';
 import { skills as skillData } from './data/skills';
 import { audioManager } from './utils/audioManager';
-import { visualManager } from './utils/visualManager'; // 追加
+import { visualManager } from './utils/visualManager';
+import { decideAction } from './utils/ai'; // AIロジックインポート
 
-// ... (Interface GameState は省略)
+// ... (Interface GameState は変更なし、省略)
 
 export const useGameLogic = (
   playerJob: Job,
@@ -19,7 +20,6 @@ export const useGameLogic = (
   onQuestUpdate: (questId: string, progress: number) => void,
   onPlayerDeath: () => void
 ) => {
-  // ... (useState等は変更なし)
   const [dungeon, setDungeon] = useState<DungeonMap | null>(null);
   const [playerPos, setPlayerPos] = useState({ x: 0, y: 0 });
   const [enemies, setEnemies] = useState<EnemyInstance[]>([]);
@@ -30,6 +30,7 @@ export const useGameLogic = (
   const playerMaxHp = playerJob.baseStats.maxHp;
   const playerAttack = playerJob.baseStats.attack;
   const [skillCooldowns, setSkillCooldowns] = useState<{ [key: string]: number }>({});
+  
   const playerPosRef = useRef({ x: 0, y: 0 });
   useEffect(() => { playerPosRef.current = playerPos; }, [playerPos]);
 
@@ -37,14 +38,13 @@ export const useGameLogic = (
     setMessageLog(prev => [msg, ...prev].slice(0, 5));
   }, []);
 
+  // ダンジョン初期化 (変更なし、省略)
   const initFloor = useCallback((floorNum: number) => {
-    visualManager.clear(); // 階層移動時にエフェクト消去
+    visualManager.clear();
     const newDungeon = generateDungeon(floorNum);
     setDungeon(newDungeon);
     setPlayerPos(newDungeon.playerStart);
     setFloor(floorNum);
-    
-    // ... (敵生成ロジックは変更なし)
     const newEnemies: EnemyInstance[] = [];
     const isBossFloor = floorNum % 5 === 0;
     
@@ -81,6 +81,11 @@ export const useGameLogic = (
         y: Math.floor(room.y + room.h / 2),
         faction: 'monster'
       });
+      // 救助対象
+      if (floorNum === 5 && activeQuests.some(q => q.id === 'mq_1_5')) {
+          const npcData = enemyData.find(e => e.id === 'injured_adventurer');
+          if (npcData) newEnemies.push({ ...npcData, uniqueId: 'npc', x: room.x+2, y: room.y+2, faction: 'player_ally', aiType: 'stationary' } as any);
+      }
     } else {
       newDungeon.rooms.forEach(room => {
         const count = Math.floor(Math.random() * 2) + 1;
@@ -99,21 +104,20 @@ export const useGameLogic = (
       });
     }
     setEnemies(newEnemies);
-  }, [chapter]);
+  }, [chapter, activeQuests]);
 
   useEffect(() => {
     initFloor(1);
   }, []);
 
+  // ダメージ適用ヘルパー
   const applyDamageToEnemy = (targetId: string, damage: number) => {
     audioManager.playSeAttack(); 
-
     setEnemies(prev => {
       const next = prev.map(e => {
         if (e.uniqueId === targetId) {
-            // エフェクト＆ポップアップ追加
             visualManager.addEffect(e.x, e.y, 'slash');
-            visualManager.addPopup(e.x, e.y, `${damage}`, '#ffffff'); // 白文字
+            visualManager.addPopup(e.x, e.y, `${damage}`, '#ffffff');
             return { ...e, hp: e.hp - damage };
         }
         return e;
@@ -141,6 +145,7 @@ export const useGameLogic = (
     });
   };
 
+  // --- ターン処理 (AI呼び出し導入によるリファクタリング) ---
   const processTurn = () => {
     setSkillCooldowns(prev => {
       const next = { ...prev };
@@ -160,77 +165,47 @@ export const useGameLogic = (
         if (actor.hp <= 0) return;
         if (actor.aiType === 'stationary') return;
 
-        const myState = nextEnemies[idx];
-        let newX = myState.x;
-        let newY = myState.y;
+        // AI思考
+        const decision = decideAction(actor, prevEnemies, currentPlayerPos, dungeon);
 
-        if (actor.faction === 'player_ally') {
-          const targets = nextEnemies
-            .filter(e => e.faction === 'monster' && e.hp > 0)
-            .map(e => ({
-              id: e.uniqueId,
-              x: e.x,
-              y: e.y,
-              dist: getDistance(myState.x, myState.y, e.x, e.y)
-            })).sort((a, b) => a.dist - b.dist);
-          
-          const target = targets[0];
-          if (target && target.dist <= 1.5) {
-             const targetIdx = nextEnemies.findIndex(e => e.uniqueId === target.id);
-             if (targetIdx !== -1) {
-               const dmg = Math.max(1, actor.attack - nextEnemies[targetIdx].defense);
-               nextEnemies[targetIdx].hp -= dmg;
-               addLog(`${actor.name}の攻撃！ ${nextEnemies[targetIdx].name}に${dmg}ダメージ`);
-               audioManager.playSeAttack();
-               
-               // 味方攻撃演出
-               visualManager.addEffect(nextEnemies[targetIdx].x, nextEnemies[targetIdx].y, 'slash');
-               visualManager.addPopup(nextEnemies[targetIdx].x, nextEnemies[targetIdx].y, `${dmg}`, '#cccccc');
-             }
-          } else if (target && target.dist <= 5) {
-             if (target.x > myState.x && dungeon.tiles[myState.y][myState.x + 1] !== 'wall') newX++;
-             else if (target.x < myState.x && dungeon.tiles[myState.y][myState.x - 1] !== 'wall') newX--;
-             else if (target.y > myState.y && dungeon.tiles[myState.y + 1][myState.x] !== 'wall') newY++;
-             else if (target.y < myState.y && dungeon.tiles[myState.y - 1][myState.x] !== 'wall') newY--;
-          } else {
-             if (currentPlayerPos.x > myState.x && dungeon.tiles[myState.y][myState.x + 1] !== 'wall') newX++;
-             else if (currentPlayerPos.x < myState.x && dungeon.tiles[myState.y][myState.x - 1] !== 'wall') newX--;
-             else if (currentPlayerPos.y > myState.y && dungeon.tiles[myState.y + 1][myState.x] !== 'wall') newY++;
-             else if (currentPlayerPos.y < myState.y && dungeon.tiles[myState.y - 1][myState.x] !== 'wall') newY--;
-          }
-        }
-        else if (actor.faction === 'monster') {
-           const distToPlayer = getDistance(myState.x, myState.y, currentPlayerPos.x, currentPlayerPos.y);
-           if (distToPlayer <= 1.5) {
-             const dmg = Math.max(1, actor.attack - 5);
-             setPlayerHp(prev => {
-               const next = prev - dmg;
-               if (next <= 0) {
-                 setGameOver(true);
-                 onPlayerDeath();
-               }
-               return next;
-             });
-             addLog(`${actor.name}の攻撃！ ${dmg}ダメージ`);
-             audioManager.playSeDamage();
-             
-             // プレイヤー被弾演出
-             visualManager.addEffect(currentPlayerPos.x, currentPlayerPos.y, 'slash');
-             visualManager.addPopup(currentPlayerPos.x, currentPlayerPos.y, `${dmg}`, '#ff0000'); // 赤文字
-           } else {
-             if (currentPlayerPos.x > myState.x && dungeon.tiles[myState.y][myState.x + 1] !== 'wall') newX++;
-             else if (currentPlayerPos.x < myState.x && dungeon.tiles[myState.y][myState.x - 1] !== 'wall') newX--;
-             else if (currentPlayerPos.y > myState.y && dungeon.tiles[myState.y + 1][myState.x] !== 'wall') newY++;
-             else if (currentPlayerPos.y < myState.y && dungeon.tiles[myState.y - 1][myState.x] !== 'wall') newY--;
-           }
-        }
-
-        const isBlocked = nextEnemies.some((e, i) => i !== idx && e.hp > 0 && e.x === newX && e.y === newY) ||
-                          (currentPlayerPos.x === newX && currentPlayerPos.y === newY);
-        
-        if (!isBlocked) {
-          nextEnemies[idx].x = newX;
-          nextEnemies[idx].y = newY;
+        if (decision.type === 'move') {
+            const { x, y } = decision;
+            // 衝突判定（最終チェック）
+            const isBlocked = nextEnemies.some((e, i) => i !== idx && e.hp > 0 && e.x === x && e.y === y) ||
+                              (currentPlayerPos.x === x && currentPlayerPos.y === y);
+            if (!isBlocked) {
+                nextEnemies[idx].x = x;
+                nextEnemies[idx].y = y;
+            }
+        } else if (decision.type === 'attack') {
+            const { targetId } = decision;
+            if (targetId === 'player') {
+                // プレイヤーへの攻撃
+                const dmg = Math.max(1, actor.attack - 5); // Player Defense Temp
+                setPlayerHp(prev => {
+                    const next = prev - dmg;
+                    if (next <= 0) {
+                        setGameOver(true);
+                        onPlayerDeath();
+                    }
+                    return next;
+                });
+                addLog(`${actor.name}の攻撃！ ${dmg}ダメージ`);
+                audioManager.playSeDamage();
+                visualManager.addEffect(currentPlayerPos.x, currentPlayerPos.y, 'slash');
+                visualManager.addPopup(currentPlayerPos.x, currentPlayerPos.y, `${dmg}`, '#ff0000');
+            } else {
+                // NPCへの攻撃
+                const targetIdx = nextEnemies.findIndex(e => e.uniqueId === targetId);
+                if (targetIdx !== -1) {
+                    const dmg = Math.max(1, actor.attack - nextEnemies[targetIdx].defense);
+                    nextEnemies[targetIdx].hp -= dmg;
+                    addLog(`${actor.name}の攻撃！ ${nextEnemies[targetIdx].name}に${dmg}ダメージ`);
+                    audioManager.playSeAttack();
+                    visualManager.addEffect(nextEnemies[targetIdx].x, nextEnemies[targetIdx].y, 'slash');
+                    visualManager.addPopup(nextEnemies[targetIdx].x, nextEnemies[targetIdx].y, `${dmg}`, '#cccccc');
+                }
+            }
         }
       });
 
@@ -239,70 +214,49 @@ export const useGameLogic = (
   };
 
   const useSkill = (skillId: string) => {
+    // ... (スキルロジックは変更なし、省略)
     if (gameOver || !dungeon) return;
-    
     if ((skillCooldowns[skillId] || 0) > 0) {
       addLog(`スキル準備中... (あと${skillCooldowns[skillId]}ターン)`);
       return;
     }
-
     const skill = skillData.find(s => s.id === skillId);
     if (!skill) return;
 
     let performed = false;
-
     if (skill.target === 'self') {
       if (skill.type === 'heal') {
         const healAmount = skill.power;
         setPlayerHp(prev => Math.min(playerMaxHp, prev + healAmount));
         addLog(`${skill.name}！ HPが${healAmount}回復した。`);
         audioManager.playSeSelect();
-        
-        // 回復演出
         visualManager.addEffect(playerPos.x, playerPos.y, 'heal');
-        visualManager.addPopup(playerPos.x, playerPos.y, `+${healAmount}`, '#00ff00'); // 緑文字
+        visualManager.addPopup(playerPos.x, playerPos.y, `+${healAmount}`, '#00ff00');
         performed = true;
       }
     } 
     else if (skill.type === 'attack') {
-      // 攻撃演出タイプ決定
       const effectType = skillId.includes('fire') ? 'fire' : 'slash';
-
       if (skill.target === 'single') {
-        const target = enemies
-          .filter(e => e.hp > 0 && e.faction === 'monster')
-          .map(e => ({ ...e, dist: getDistance(playerPos.x, playerPos.y, e.x, e.y) }))
-          .filter(e => e.dist <= skill.range)
-          .sort((a, b) => a.dist - b.dist)[0];
-
+        const target = enemies.filter(e => e.hp > 0 && e.faction === 'monster').map(e => ({ ...e, dist: getDistance(playerPos.x, playerPos.y, e.x, e.y) })).filter(e => e.dist <= skill.range).sort((a, b) => a.dist - b.dist)[0];
         if (target) {
           const damage = Math.floor(playerAttack * skill.power); 
           addLog(`${skill.name}！ ${target.name}に${damage}の大ダメージ！`);
           applyDamageToEnemy(target.uniqueId, damage);
-          audioManager.playSeAttack();
-          
-          // スキル演出
           visualManager.addEffect(target.x, target.y, effectType);
-          visualManager.addPopup(target.x, target.y, `${damage}`, '#ffff00'); // 黄色文字
+          visualManager.addPopup(target.x, target.y, `${damage}`, '#ffff00');
           performed = true;
         } else {
           addLog("対象が範囲内にいない！");
           return;
         }
       } else if (skill.target === 'area') {
-        const targets = enemies.filter(e => 
-          e.hp > 0 && 
-          e.faction === 'monster' && 
-          getDistance(playerPos.x, playerPos.y, e.x, e.y) <= skill.range
-        );
-        
+        const targets = enemies.filter(e => e.hp > 0 && e.faction === 'monster' && getDistance(playerPos.x, playerPos.y, e.x, e.y) <= skill.range);
         if (targets.length > 0) {
           addLog(`${skill.name}！ 周囲の敵を薙ぎ払った！`);
           targets.forEach(t => {
             const damage = Math.floor(playerAttack * skill.power);
             applyDamageToEnemy(t.uniqueId, damage);
-            
-            // 全体攻撃演出
             visualManager.addEffect(t.x, t.y, effectType);
             visualManager.addPopup(t.x, t.y, `${damage}`, '#ffff00');
           });
@@ -314,7 +268,6 @@ export const useGameLogic = (
         }
       }
     }
-
     if (performed) {
       setSkillCooldowns(prev => ({ ...prev, [skillId]: skill.cooldown }));
       processTurn();
@@ -325,7 +278,6 @@ export const useGameLogic = (
     if (gameOver || !dungeon) return;
     const newX = playerPos.x + dx;
     const newY = playerPos.y + dy;
-
     if (dungeon.tiles[newY][newX] === 'wall') return;
 
     const targetEnemy = enemies.find(e => e.x === newX && e.y === newY);
@@ -336,15 +288,12 @@ export const useGameLogic = (
             applyDamageToEnemy(targetEnemy.uniqueId, damage);
         } else if (targetEnemy.faction === 'player_ally') {
             setPlayerPos({ x: newX, y: newY });
-            setEnemies(prev => prev.map(e => 
-                e.uniqueId === targetEnemy.uniqueId ? { ...e, x: playerPos.x, y: playerPos.y } : e
-            ));
+            setEnemies(prev => prev.map(e => e.uniqueId === targetEnemy.uniqueId ? { ...e, x: playerPos.x, y: playerPos.y } : e));
             return;
         }
         processTurn();
         return;
     }
-
     setPlayerPos({ x: newX, y: newY });
     if (newX === dungeon.stairs.x && newY === dungeon.stairs.y) {
         addLog('階段を降りた。');
