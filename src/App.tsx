@@ -4,7 +4,7 @@ import { JobSelectScreen } from './components/JobSelectScreen';
 import { GodSelectScreen } from './components/GodSelectScreen';
 import { TownScreen } from './components/TownScreen';
 import { ResultScreen } from './components/ResultScreen';
-import { InventoryMenu } from './components/InventoryMenu'; // 追加
+import { InventoryMenu } from './components/InventoryMenu';
 import { renderDungeon } from './renderer';
 import { useGameLogic } from './gameLogic';
 import { Job } from './types/job';
@@ -14,13 +14,16 @@ import { quests as allQuests } from './data/quests';
 import { jobs } from './data/jobs';
 import { items as itemData } from './data/items';
 import { GameHUD } from './components/GameHUD';
+import { dialogues } from './data/dialogues';
 import { saveGame, loadGame, hasSaveData, clearSaveData } from './utils/storage';
 import { audioManager } from './utils/audioManager';
+// utilsから新しい計算ロジックをインポート
+import { calculateLevel, calculateExpForLevel } from './utils';
 
 // 画面遷移の状態
 type ScreenState = 'title' | 'jobSelect' | 'godSelect' | 'town' | 'dungeon' | 'result' | 'inventory';
 
-const calculateLevel = (exp: number) => Math.floor(Math.sqrt(exp / 100)) + 1;
+// 古い calculateLevel は削除し、インポートしたものを使用
 
 export default function App() {
   const [screen, setScreen] = useState<ScreenState>('title');
@@ -31,7 +34,6 @@ export default function App() {
   const [playerExp, setPlayerExp] = useState(0);
   const [gold, setGold] = useState(0);
   
-  // 基礎ステータス（レベル依存）
   const [baseStats, setBaseStats] = useState({
     level: 1,
     maxHp: 100,
@@ -41,13 +43,10 @@ export default function App() {
     str: 10, vit: 10, dex: 10, agi: 10, int: 10, luc: 10
   });
 
-  // 進行状況
   const [chapter, setChapter] = useState(1);
   const [activeQuests, setActiveQuests] = useState<Quest[]>([]);
   const [completedQuestIds, setCompletedQuestIds] = useState<string[]>([]);
-  // アイテムはIDの配列で管理
   const [inventory, setInventory] = useState<string[]>([]);
-  // 装備中アイテム { slot: itemId }
   const [equippedItems, setEquippedItems] = useState<{ [key: string]: string | null }>({
     weapon: null,
     armor: null,
@@ -57,12 +56,8 @@ export default function App() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // --- ステータス計算 (装備込み) ---
-  // useMemoを使って、装備やレベルが変わった時だけ再計算する
   const finalStats = useMemo(() => {
     let stats = { ...baseStats };
-    
-    // 装備補正を加算
     Object.values(equippedItems).forEach(itemId => {
       if (!itemId) return;
       const item = itemData.find(i => i.id === itemId);
@@ -72,10 +67,8 @@ export default function App() {
         if (item.equipStats.str) stats.str += item.equipStats.str;
         if (item.equipStats.vit) stats.vit += item.equipStats.vit;
         if (item.equipStats.maxHp) stats.maxHp += item.equipStats.maxHp;
-        // 他のステータスも同様に加算
       }
     });
-    
     return stats;
   }, [baseStats, equippedItems]);
 
@@ -83,14 +76,15 @@ export default function App() {
     setCanContinue(hasSaveData());
   }, []);
 
-  // --- セーブ・ロード ---
+  // ... (performAutoSave, initAudio, etc. は変更なし) ...
+  // スペース省略のため中略。必要なら以前のコードを参照してください。
   const performAutoSave = () => {
-    // 簡易実装: IDリストのみ保存
+    const inventoryIds = inventory; // string[]なのでそのまま
     const activeQuestIds = activeQuests.map(q => q.id);
 
     saveGame({
       playerJobId: playerJob.id,
-      playerStats: { ...baseStats, exp: playerExp }, // 保存するのはBaseStats
+      playerStats: { ...baseStats, exp: playerExp },
       gold,
       chapter,
       activeQuestIds,
@@ -102,34 +96,25 @@ export default function App() {
     setCanContinue(true);
   };
 
-  const handleStartGame = () => {
-    audioManager.playSeSelect();
-    clearSaveData();
-    setScreen('jobSelect');
-  };
+  useEffect(() => {
+    const initAudio = () => audioManager.init();
+    window.addEventListener('click', initAudio, { once: true });
+    window.addEventListener('keydown', initAudio, { once: true });
+    return () => {
+        window.removeEventListener('click', initAudio);
+        window.removeEventListener('keydown', initAudio);
+    };
+  }, []);
 
-  const handleContinueGame = () => {
-    audioManager.playSeSelect();
-    const data = loadGame();
-    if (data) {
-      const job = jobs.find(j => j.id === data.playerJobId) || jobs[0];
-      setPlayerJob(job);
-      setBaseStats(data.playerStats);
-      setPlayerExp(data.playerStats.exp);
-      setGold(data.gold);
-      setChapter(data.chapter);
-      setCompletedQuestIds(data.completedQuestIds);
-      setInventory(data.inventory);
-      setUnlockedCompanions(data.unlockedCompanions);
+  useEffect(() => {
+      if (screen === 'dungeon') {
+          audioManager.playBgmDungeon();
+      } else {
+          audioManager.stopBgm();
+      }
+  }, [screen]);
 
-      const restoredQuests = allQuests.filter(q => data.activeQuestIds.includes(q.id));
-      setActiveQuests(restoredQuests);
-
-      setScreen('town');
-    }
-  };
-
-  // --- ゲームロジック連携 ---
+  // GameLogic Hook
   const { 
     dungeon, 
     playerPos, 
@@ -150,25 +135,17 @@ export default function App() {
     () => handleGameOver()
   );
 
-  // HP同期用: useGameLogicの内部ステートを更新する手段がないため、
-  // 今回は簡易的に「ゲーム開始時」にLogicへStatsを渡す形になっているが、
-  // 本来はLogic側が外部からStatsを受け取る設計にすべき。
-  // ここではLogicのリファクタリングを避けるため、Logic内のHPはダンジョン中のみ有効とする。
-
-  // --- 入力処理 ---
+  // Keyboard Input (Keep same)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // インベントリを開く (Iキー)
       if (e.key === 'i' && (screen === 'town' || screen === 'dungeon')) {
         setScreen('inventory');
         return;
       }
-      // インベントリを閉じる (ESC)
       if (e.key === 'Escape' && screen === 'inventory') {
-        setScreen(dungeon ? 'dungeon' : 'town'); // 戻る場所判定
+        setScreen(dungeon ? 'dungeon' : 'town');
         return;
       }
-
       if (screen !== 'dungeon') return;
       
       switch(e.key) {
@@ -186,21 +163,16 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [screen, movePlayer, useSkill, playerJob, dungeon]);
 
-  // --- アイテムアクション ---
-  
+  // Handlers
   const handleUseItem = (itemId: string) => {
     const item = itemData.find(i => i.id === itemId);
     if (!item || !item.effect) return;
 
     if (item.effect.type === 'heal_hp') {
-        // ダンジョン内なら回復（Logic側への干渉が必要だが、ここではBaseStats回復 + ログのみ）
-        // 実際には useGameLogic に healPlayer 関数を追加して呼ぶ必要がある
-        // 簡易実装: BaseStatsのHPを回復
         setBaseStats(prev => ({ ...prev, hp: Math.min(prev.maxHp, prev.hp + item.effect!.value) }));
-        audioManager.playSeSelect(); // 回復音代用
+        audioManager.playSeSelect();
         alert(`${item.name}を使用しました。`);
         
-        // 消費: インベントリから1つ削除
         const idx = inventory.indexOf(itemId);
         if (idx > -1) {
             const newInv = [...inventory];
@@ -213,21 +185,42 @@ export default function App() {
   const handleEquipItem = (itemId: string) => {
     const item = itemData.find(i => i.id === itemId);
     if (!item) return;
-
-    // トグル動作 (既に装備中なら外す)
     const currentEquippedId = equippedItems[item.type];
     if (currentEquippedId === itemId) {
         setEquippedItems(prev => ({ ...prev, [item.type]: null }));
-        audioManager.playSeCancel(); // 外す音代用
+        audioManager.playSeCancel();
         return;
     }
-
-    // 装備する
     setEquippedItems(prev => ({ ...prev, [item.type]: itemId }));
-    audioManager.playSeSelect(); // 装備音代用
+    audioManager.playSeSelect();
   };
 
-  // --- その他ハンドラ ---
+  // ... (handleStartGame, handleContinueGame, etc. Same as before) ...
+  const handleStartGame = () => {
+    audioManager.playSeSelect();
+    clearSaveData();
+    setScreen('jobSelect');
+  };
+
+  const handleContinueGame = () => {
+    audioManager.playSeSelect();
+    const data = loadGame();
+    if (data) {
+      const job = jobs.find(j => j.id === data.playerJobId) || jobs[0];
+      setPlayerJob(job);
+      setBaseStats(data.playerStats);
+      setPlayerExp(data.playerStats.exp);
+      setGold(data.gold);
+      setChapter(data.chapter);
+      setCompletedQuestIds(data.completedQuestIds);
+      setInventory(data.inventory);
+      setUnlockedCompanions(data.unlockedCompanions);
+      const restoredQuests = allQuests.filter(q => data.activeQuestIds.includes(q.id));
+      setActiveQuests(restoredQuests);
+      setScreen('town');
+    }
+  };
+
   const handleSelectJob = (job: Job) => {
     audioManager.playSeSelect();
     setPlayerJob(job);
@@ -288,8 +281,10 @@ export default function App() {
     setActiveQuests(activeQuests.filter(q => q.id !== quest.id));
     setCompletedQuestIds([...completedQuestIds, quest.id]);
     
+    // レベルアップ計算 (新ロジック)
     const newLevel = calculateLevel(newExp);
     if (newLevel > baseStats.level) {
+        // レベルアップ演出などを入れても良い
         setBaseStats({ ...baseStats, level: newLevel });
     }
 
@@ -306,7 +301,7 @@ export default function App() {
     if (gold >= item.price) {
       audioManager.playSeSelect();
       setGold(gold - item.price);
-      setInventory([...inventory, item.id]); // IDのみ保存
+      setInventory([...inventory, item.id]);
       setTimeout(performAutoSave, 100);
     } else {
       audioManager.playSeCancel();
@@ -314,17 +309,24 @@ export default function App() {
   };
 
   const handleUpgradeStatus = (stat: 'str' | 'vit' | 'dex' | 'agi' | 'int' | 'luc') => {
+      // ステータス強化のコスト計算などは別途調整が必要だが、
+      // 経験値を消費する仕様ならレベルダウンする可能性があるため注意。
+      // 今回は「経験値消費」のままにするが、レベル計算と整合性を取るなら
+      // 「レベルアップでポイント獲得」方式に変えるのが一般的。
+      // 現状維持: EXPを消費してステータスを買う（レベルは下がる）
       if (playerExp >= 100) {
           audioManager.playSeSelect();
-          setPlayerExp(playerExp - 100);
-          setBaseStats({ ...baseStats, [stat]: baseStats[stat] + 1 });
+          const newExp = playerExp - 100;
+          setPlayerExp(newExp);
+          // レベル再計算 (下がった場合も反映)
+          const newLevel = calculateLevel(newExp);
+          setBaseStats({ ...baseStats, level: newLevel, [stat]: baseStats[stat] + 1 });
           setTimeout(performAutoSave, 100);
       } else {
           audioManager.playSeCancel();
       }
   };
 
-  // Canvas描画
   useEffect(() => {
     if (screen === 'dungeon' && canvasRef.current && dungeon) {
       renderDungeon(canvasRef.current, dungeon, playerPos, enemies);
@@ -358,17 +360,15 @@ export default function App() {
                 chapter={chapter}
                 activeQuests={activeQuests}
                 completedQuestIds={completedQuestIds}
-                items={inventory.map(id => ({ id, name: 'Item', price: 0 } as any))} // 型合わせ用仮変換
+                items={inventory.map(id => ({ id, name: 'Item', price: 0 } as any))}
                 onGoToDungeon={handleGoToDungeon}
                 onAcceptQuest={handleAcceptQuest}
                 onReportQuest={handleReportQuest}
                 onBuyItem={handleBuyItem}
                 onUpgradeStatus={handleUpgradeStatus}
-                playerStats={finalStats} // 装備込みステータスを渡す
+                playerStats={finalStats}
                 playerExp={playerExp}
             />
-            
-            {/* メニューボタン */}
             <div className="absolute top-2 right-2 z-50 flex space-x-2">
                 <button 
                     onClick={() => setScreen('inventory')}
@@ -404,10 +404,11 @@ export default function App() {
                 <GameHUD 
                     playerJob={playerJob}
                     level={finalStats.level}
-                    hp={playerHp} // 注: ダンジョン内HPはGameLogic管理
-                    maxHp={finalStats.maxHp} // 最大HPは装備込み
+                    hp={playerHp}
+                    maxHp={finalStats.maxHp}
                     exp={playerExp}
-                    nextExp={100 * finalStats.level}
+                    // 次のレベルに必要な累積経験値を渡す
+                    nextExp={calculateExpForLevel(finalStats.level + 1)}
                     floor={floor}
                     gold={gold}
                     skillCooldowns={skillCooldowns}
@@ -427,7 +428,6 @@ export default function App() {
                 ))}
             </div>
             
-            {/* ダンジョン内メニューボタン */}
             <div className="absolute top-16 right-2 z-50">
                 <button 
                     onClick={() => setScreen('inventory')}
