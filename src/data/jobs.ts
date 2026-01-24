@@ -1,49 +1,58 @@
-import { JobDefinition } from '../types/job';
+import { Job } from '../types/job';
 
-export const JOBS: Record<string, JobDefinition> = {
-  swordsman: {
-    id: 'swordsman',
-    name: '剣士',
-    description: '攻守のバランスに優れた前衛職。初心者におすすめ。',
-    baseStats: { maxHp: 100, attack: 10, defense: 5 },
-    growthRates: { maxHp: 10, attack: 2, defense: 1 },
-    learnableSkills: ['heavy_slash', 'guard_stance'],
-    assetKey: 'hero_swordsman',
-    allowedWeapons: ['sword']
-  },
-  warrior: {
+export const jobs: Job[] = [
+  {
     id: 'warrior',
-    name: '重戦士',
-    description: '高い防御力とHPを誇るタンク役。動きは遅いが頑丈。',
-    baseStats: { maxHp: 150, attack: 12, defense: 8 },
-    growthRates: { maxHp: 15, attack: 2, defense: 2 },
-    learnableSkills: ['shield_bash', 'warcry'],
-    assetKey: 'hero_warrior',
-    allowedWeapons: ['axe', 'mace']
+    name: '戦士',
+    description: '高い攻撃力と耐久力を誇る前衛職。',
+    baseStats: {
+      hp: 20, maxHp: 20, mp: 0, maxMp: 0,
+      attack: 5, defense: 2,
+      str: 8, vit: 8, dex: 4, agi: 4, int: 2, luc: 3,
+      level: 1, exp: 0
+    },
+    growthRates: {
+      hp: 5, maxHp: 5, mp: 0, maxMp: 0,
+      attack: 2, defense: 1,
+      str: 1.5, vit: 1.5, dex: 0.8, agi: 0.8, int: 0.5, luc: 0.8,
+      level: 0, exp: 0
+    },
+    skills: ['heavy_slash', 'round_slash']
   },
-  mage: {
+  {
     id: 'mage',
     name: '魔導士',
-    description: '強力な範囲魔法を操るが、打たれ弱い。',
-    baseStats: { maxHp: 60, attack: 15, defense: 2 },
-    growthRates: { maxHp: 5, attack: 4, defense: 0.5 },
-    learnableSkills: ['fireball', 'ice_wall'],
-    assetKey: 'hero_mage',
-    allowedWeapons: ['staff']
+    description: '強力な攻撃魔法を操る後衛職。',
+    baseStats: {
+      hp: 12, maxHp: 12, mp: 20, maxMp: 20,
+      attack: 2, defense: 1,
+      str: 3, vit: 4, dex: 5, agi: 5, int: 10, luc: 4,
+      level: 1, exp: 0
+    },
+    growthRates: {
+      hp: 3, maxHp: 3, mp: 5, maxMp: 5,
+      attack: 0.5, defense: 0.5,
+      str: 0.5, vit: 0.8, dex: 1.0, agi: 1.0, int: 2.0, luc: 1.0,
+      level: 0, exp: 0
+    },
+    skills: ['fireball', 'heal']
   },
-  archer: {
+  {
     id: 'archer',
     name: '狩人',
-    description: '遠距離からの攻撃が得意。接近戦は苦手。',
-    baseStats: { maxHp: 80, attack: 12, defense: 3 },
-    growthRates: { maxHp: 8, attack: 3, defense: 1 },
-    learnableSkills: ['double_shot', 'snare_trap'],
-    assetKey: 'hero_archer',
-    allowedWeapons: ['bow']
-  },
-  // 以下、拡張用
-  /*
-  rogue: { ... },
-  cleric: { ... }
-  */
-};
+    description: '遠距離からの精密射撃を得意とする。',
+    baseStats: {
+      hp: 15, maxHp: 15, mp: 5, maxMp: 5,
+      attack: 4, defense: 1,
+      str: 5, vit: 5, dex: 9, agi: 7, int: 3, luc: 5,
+      level: 1, exp: 0
+    },
+    growthRates: {
+      hp: 4, maxHp: 4, mp: 1, maxMp: 1,
+      attack: 1.5, defense: 0.8,
+      str: 1.0, vit: 1.0, dex: 1.8, agi: 1.4, int: 0.6, luc: 1.2,
+      level: 0, exp: 0
+    },
+    skills: ['snipe', 'round_slash']
+  }
+];
