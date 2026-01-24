@@ -1,51 +1,61 @@
 import { GameState, Position, Entity, Direction, Stats } from './types';
 import { JOBS } from './data/jobs';
+import { GODS } from './data/gods'; // 追加
 import { JobId } from './types/job';
 
-// グリッドサイズ定義（config.tsからインポートするのが望ましいが、ここでは仮定）
+// グリッドサイズ定義
 const GRID_SIZE = 40; 
-const MAP_WIDTH = 50; 
-const MAP_HEIGHT = 50;
 
 /**
- * 職業データに基づいてプレイヤーの初期ステータスを生成する
+ * 職業と信仰する神のデータに基づいてプレイヤーの初期ステータスを生成する
  */
-export const createInitialPlayer = (jobId: JobId, startPos: Position): Entity => {
+export const createInitialPlayer = (jobId: JobId, godId: string, startPos: Position): Entity => {
   const jobDef = JOBS[jobId];
+  const godDef = GODS[godId];
   
-  if (!jobDef) {
-    throw new Error(`Job definition not found for id: ${jobId}`);
-  }
+  if (!jobDef) throw new Error(`Job definition not found: ${jobId}`);
+  // godIdがnull/undefinedの場合はボーナスなしで進行する安全策をとっても良いが、今回は必須とする
+  if (!godDef) throw new Error(`God definition not found: ${godId}`);
 
-  // Stats型の整合性を取るためのマッピング
-  // src/types.ts の Stats 定義に合わせる
+  // 基本ステータス（職業）
+  let baseMaxHp = jobDef.baseStats.maxHp;
+  let baseAttack = jobDef.baseStats.attack;
+  let baseDefense = jobDef.baseStats.defense;
+
+  // 神の恩恵（パッシブボーナス）を加算
+  if (godDef.passiveBonus.maxHp) baseMaxHp += godDef.passiveBonus.maxHp;
+  if (godDef.passiveBonus.attack) baseAttack += godDef.passiveBonus.attack;
+  if (godDef.passiveBonus.defense) baseDefense += godDef.passiveBonus.defense;
+
+  // Statsオブジェクトの構築
   const stats: Stats = {
-    maxHp: jobDef.baseStats.maxHp,
-    hp: jobDef.baseStats.maxHp,
-    attack: jobDef.baseStats.attack,
-    defense: jobDef.baseStats.defense,
+    maxHp: baseMaxHp,
+    hp: baseMaxHp, // 現在HPも最大値にする
+    attack: baseAttack,
+    defense: baseDefense,
     level: 1,
     exp: 0,
     nextLevelExp: 100,
-    // 以下、JobDefinitionにないプロパティの初期値
-    speed: 1, 
-    // 必要に応じて他のStatsプロパティも初期化
+    speed: 1,
+    // 拡張ステータス（Stats型に本来定義すべきだが、JSオブジェクトとして保持）
+    critRate: godDef.passiveBonus.critRate || 0,
+    dropRate: godDef.passiveBonus.dropRate || 1.0,
   };
 
   return {
     id: 'player',
     type: 'player',
-    x: startPos.x * GRID_SIZE, // グリッド座標からピクセル座標へ変換
+    x: startPos.x * GRID_SIZE,
     y: startPos.y * GRID_SIZE,
     width: GRID_SIZE,
     height: GRID_SIZE,
-    color: '#00ff00', // デバッグ用色、実際はrendererでアセットを描画
+    color: godDef.color, // プレイヤーの色を神のテーマカラーにする（デバッグ的演出）
     direction: 'down',
     isMoving: false,
     stats: stats,
-    // 拡張プロパティ
     jobId: jobId, 
-    skills: [...jobDef.learnableSkills], // 初期習得スキル（必要ならレベル判定を入れる）
+    godId: godId, // 神IDも保持しておく
+    skills: [...jobDef.learnableSkills],
   } as Entity;
 };
 
