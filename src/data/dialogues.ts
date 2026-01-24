@@ -1,8 +1,19 @@
 import { Dialogue } from '../types/dialogue';
 
+/**
+ * NPC会話データ
+ * クエストの進行状況に合わせて、街の人々のセリフを定義します。
+ * priority: 
+ * 0: デフォルト
+ * 10: 章の進行
+ * 20: 特定クエスト受注可能
+ * 30: 特定クエスト受注中
+ * 40: 特定クエスト完了（報告前）
+ * 50: 報告完了直後など
+ */
 export const dialogues: Dialogue[] = [
   // ==========================================
-  // 女神 (Goddess)
+  // 女神 (Goddess) - ファミリアホーム
   // ==========================================
   {
     id: 'god_default',
@@ -10,6 +21,7 @@ export const dialogues: Dialogue[] = [
     text: 'おかえりなさい。怪我はない？ 無理だけはしないでね。',
     priority: 0
   },
+  // --- 第1章 ---
   {
     id: 'god_ch1_start',
     speakerId: 'goddess',
@@ -31,7 +43,7 @@ export const dialogues: Dialogue[] = [
     priority: 40,
     requirements: { questId: 'mq_1_5', questStatus: 'completed' }
   },
-  // 第2章
+  // --- 第2章 ---
   {
     id: 'god_ch2_start',
     speakerId: 'goddess',
@@ -39,9 +51,24 @@ export const dialogues: Dialogue[] = [
     priority: 10,
     requirements: { chapter: 2 }
   },
+  // --- 第3章 ---
+  {
+    id: 'god_ch3_start',
+    speakerId: 'goddess',
+    text: '……最近、ダンジョンの震動が激しくなっているわ。バベルの地下で、何かが目覚めようとしているのかもしれない。',
+    priority: 10,
+    requirements: { chapter: 3 }
+  },
+  {
+    id: 'god_ch3_black_stone',
+    speakerId: 'goddess',
+    text: '「黒い魔石」……？ 見せて。……これは、ただの魔石じゃない。神の恩恵を拒絶するような、呪われた力を感じるわ。',
+    priority: 30,
+    requirements: { questId: 'mq_3_3', questStatus: 'active' }
+  },
 
   // ==========================================
-  // ギルド受付 (Guild Receptionist)
+  // ギルド受付 (Guild Receptionist) - 冒険者ギルド
   // ==========================================
   {
     id: 'guild_default',
@@ -49,6 +76,8 @@ export const dialogues: Dialogue[] = [
     text: '本日はどのようなご用件でしょうか？ クエストの受注はこちらで承ります。',
     priority: 0
   },
+  
+  // --- CH1-1: 冒険の始まり ---
   {
     id: 'guild_mq1_1_accept',
     speakerId: 'guild_receptionist',
@@ -70,6 +99,8 @@ export const dialogues: Dialogue[] = [
     priority: 40,
     requirements: { questId: 'mq_1_1', questStatus: 'completed' }
   },
+
+  // --- CH1-2: 準備を整えよ (魔石収集) ---
   {
     id: 'guild_mq1_2_accept',
     speakerId: 'guild_receptionist',
@@ -77,6 +108,8 @@ export const dialogues: Dialogue[] = [
     priority: 20,
     requirements: { questId: 'mq_1_2', questStatus: 'can_accept' }
   },
+  
+  // --- CH1-3: 未知なる深層へ (B3F到達) ---
   {
     id: 'guild_mq1_3_accept',
     speakerId: 'guild_receptionist',
@@ -84,6 +117,8 @@ export const dialogues: Dialogue[] = [
     priority: 20,
     requirements: { questId: 'mq_1_3', questStatus: 'can_accept' }
   },
+
+  // --- CH1-4: 不穏な影 (オーク討伐) ---
   {
     id: 'guild_mq1_4_accept',
     speakerId: 'guild_receptionist',
@@ -98,6 +133,8 @@ export const dialogues: Dialogue[] = [
     priority: 30,
     requirements: { questId: 'mq_1_4', questStatus: 'active' }
   },
+
+  // --- CH1-5: 凶刃との遭遇 (ボス戦) ---
   {
     id: 'guild_mq1_5_accept',
     speakerId: 'guild_receptionist',
@@ -119,7 +156,8 @@ export const dialogues: Dialogue[] = [
     priority: 50,
     requirements: { questId: 'mq_1_5', questStatus: 'completed' }
   },
-  // 第2章
+
+  // --- 第2章 ---
   {
     id: 'guild_ch2_start',
     speakerId: 'guild_receptionist',
@@ -128,8 +166,24 @@ export const dialogues: Dialogue[] = [
     requirements: { chapter: 2 }
   },
 
+  // --- 第3章 ---
+  {
+    id: 'guild_ch3_mh_warning',
+    speakerId: 'guild_receptionist',
+    text: '【警告】現在、地下12階付近で「モンスターハウス」の発生率が異常上昇しています。単独行動は避け、パーティでの探索を強く推奨します。',
+    priority: 30,
+    requirements: { questId: 'mq_3_2', questStatus: 'active' }
+  },
+  {
+    id: 'guild_ch3_report',
+    speakerId: 'guild_receptionist',
+    text: '無事の帰還、何よりです……。黒い魔石の調査結果が出るまで、ギルドとしても警戒レベルを引き上げることになりました。',
+    priority: 40,
+    requirements: { questId: 'mq_3_3', questStatus: 'completed' }
+  },
+
   // ==========================================
-  // ショップ店員 (Shopkeeper)
+  // ショップ店員 (Shopkeeper) - 市場
   // ==========================================
   {
     id: 'shop_default',
