@@ -1,7 +1,7 @@
 export type Direction = 'up' | 'down' | 'left' | 'right';
 
-// 画面/進行状態の定義 (App.tsxでの画面遷移に使用)
-// 'town' を追加しています
+// 画面遷移の状態 (App.tsxでの画面制御に使用)
+// 'town' を追加し、名称を GameScreen に変更して区別します
 export type GameScreen = 'title' | 'godSelect' | 'jobSelect' | 'town' | 'playing' | 'gameOver' | 'gameClear';
 
 export interface Position {
@@ -73,18 +73,17 @@ export interface Equipment {
   armor: string | null;
 }
 
-// ダメージなどのポップアップ表示用
 export interface FloatingText {
   id: string;
   x: number;
   y: number;
   text: string;
   color: string;
-  lifeTime: number; // 表示時間 (ms)
-  velocityY: number; // 上昇速度
+  lifeTime: number;
+  velocityY: number;
 }
 
-// ゲームプレイ中の全データを管理するステート (gameLogicなどが使用)
+// ゲームプレイ中の全データ状態 (セーブデータや状態管理用)
 export interface GameState {
   player: Entity;
   enemies: Entity[];
