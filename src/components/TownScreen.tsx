@@ -11,13 +11,13 @@ type Facility = 'main' | 'guild' | 'home' | 'market' | 'tavern';
 
 export const TownScreen: React.FC<TownScreenProps> = ({ onGoToDungeon, onBackToTitle }) => {
   const [currentFacility, setCurrentFacility] = useState<Facility>('main');
+  // 簡易的な受注状態管理（リロードで消えますが、後のステップで永続化します）
   const [acceptedQuests, setAcceptedQuests] = useState<string[]>([]);
 
   const handleAcceptQuest = (questId: string) => {
     if (!acceptedQuests.includes(questId)) {
       setAcceptedQuests([...acceptedQuests, questId]);
-      // ここで実際のゲームステートに受注状態を保存する処理が入ります
-      alert('クエストを受注しました！');
+      // 将来的にはここでグローバルな状態管理を更新する
     }
   };
 
@@ -26,13 +26,13 @@ export const TownScreen: React.FC<TownScreenProps> = ({ onGoToDungeon, onBackToT
     switch (currentFacility) {
       case 'guild':
         return (
-          <div className="bg-slate-800 p-6 rounded-lg border-2 border-yellow-600 h-full overflow-hidden flex flex-col">
+          <div className="bg-slate-800 p-6 rounded-lg border-2 border-yellow-600 h-full overflow-hidden flex flex-col w-full">
             <h2 className="text-2xl font-bold text-yellow-500 mb-4 border-b border-yellow-700 pb-2 shrink-0">冒険者ギルド - 受付</h2>
             <div className="mb-4 text-slate-300 italic shrink-0">
               「新人さんね。まずは掲示板の依頼をこなして実力を示して。」 —— 受付嬢ミリア
             </div>
             
-            <div className="grid gap-4 overflow-y-auto pr-2 flex-grow">
+            <div className="flex-grow overflow-y-auto pr-2 space-y-4">
               {INITIAL_QUESTS.map((quest: Quest) => (
                 <div key={quest.id} className={`p-4 rounded border ${acceptedQuests.includes(quest.id) ? 'bg-slate-700 border-green-500' : 'bg-slate-900 border-slate-600'}`}>
                   <div className="flex justify-between items-start mb-2">
@@ -55,11 +55,11 @@ export const TownScreen: React.FC<TownScreenProps> = ({ onGoToDungeon, onBackToT
                       報酬: {quest.reward.gold} G / Exp {quest.reward.experience}
                     </div>
                     {acceptedQuests.includes(quest.id) ? (
-                      <span className="text-green-400 font-bold px-4 py-1 border border-green-400 rounded">受注中</span>
+                      <span className="text-green-400 font-bold px-4 py-1 border border-green-400 rounded bg-green-900/30">受注中</span>
                     ) : (
                       <button
                         onClick={() => handleAcceptQuest(quest.id)}
-                        className="bg-yellow-700 hover:bg-yellow-600 text-white px-4 py-1 rounded transition-colors"
+                        className="bg-yellow-700 hover:bg-yellow-600 text-white px-4 py-1 rounded transition-colors shadow"
                       >
                         受注する
                       </button>
@@ -80,10 +80,10 @@ export const TownScreen: React.FC<TownScreenProps> = ({ onGoToDungeon, onBackToT
 
       case 'home':
         return (
-          <div className="bg-indigo-900 p-6 rounded-lg border-2 border-indigo-400 h-full flex flex-col items-center justify-center">
-             <h2 className="text-2xl font-bold text-indigo-200 mb-4">ファミリア・ホーム</h2>
-             <p className="text-indigo-300 mb-8">「おかえりなさい！ 今日の成果をステータスに反映しましょう。」</p>
-             <div className="text-slate-400 mb-8">(ステータス更新・倉庫機能は開発中です)</div>
+          <div className="bg-indigo-900 p-6 rounded-lg border-2 border-indigo-400 h-full flex flex-col items-center justify-center w-full">
+             <h2 className="text-3xl font-bold text-indigo-200 mb-6">ファミリア・ホーム</h2>
+             <p className="text-indigo-300 mb-8 text-lg">「おかえりなさい！ 今日の成果をステータスに反映しましょう。」</p>
+             <div className="text-slate-400 mb-8 bg-black/30 p-4 rounded">(ステータス更新・倉庫機能は開発中です)</div>
              <button 
               onClick={() => setCurrentFacility('main')}
               className="text-slate-400 hover:text-white underline"
@@ -96,12 +96,12 @@ export const TownScreen: React.FC<TownScreenProps> = ({ onGoToDungeon, onBackToT
       case 'market':
       case 'tavern':
         return (
-           <div className="bg-slate-800 p-6 rounded-lg border-2 border-slate-600 h-full flex flex-col items-center justify-center">
-             <h2 className="text-2xl font-bold text-slate-200 mb-4">
+           <div className="bg-slate-800 p-6 rounded-lg border-2 border-slate-600 h-full flex flex-col items-center justify-center w-full">
+             <h2 className="text-3xl font-bold text-slate-200 mb-6">
                {currentFacility === 'market' ? '豊穣の市場 & 鍛冶工房' : '酒場『勇気の杯』'}
              </h2>
-             <p className="text-slate-400 mb-8">店主は留守のようだ...</p>
-             <div className="text-slate-500 mb-8">(ショップ機能は開発中です)</div>
+             <p className="text-slate-400 mb-8 text-lg">店主は留守のようだ...</p>
+             <div className="text-slate-500 mb-8 bg-black/30 p-4 rounded">(ショップ機能は開発中です)</div>
              <button 
               onClick={() => setCurrentFacility('main')}
               className="text-slate-400 hover:text-white underline"
@@ -114,60 +114,60 @@ export const TownScreen: React.FC<TownScreenProps> = ({ onGoToDungeon, onBackToT
       case 'main':
       default:
         return (
-          <div className="flex flex-col h-full justify-between py-4">
+          <div className="flex flex-col h-full justify-between py-4 w-full">
             <div className="text-center">
-              <h1 className="text-4xl font-bold text-white drop-shadow-md mb-2">迷宮都市 バベル</h1>
-              <p className="text-slate-300 text-lg">冒険の拠点</p>
+              <h1 className="text-5xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] mb-2 tracking-wider">迷宮都市 バベル</h1>
+              <p className="text-slate-300 text-xl tracking-widest">CENTER OF ADVENTURE</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 max-w-4xl mx-auto w-full px-8 flex-grow content-center">
+            <div className="grid grid-cols-2 gap-6 max-w-4xl mx-auto w-full px-8 flex-grow content-center">
               <button
                 onClick={() => setCurrentFacility('guild')}
-                className="bg-slate-800 hover:bg-slate-700 border-2 border-yellow-600 p-6 rounded-lg flex flex-col items-center group transition-all"
+                className="bg-slate-800/90 hover:bg-slate-700 border-2 border-yellow-600 p-8 rounded-xl flex flex-col items-center group transition-all transform hover:-translate-y-1 hover:shadow-yellow-900/50 hover:shadow-lg"
               >
-                <span className="text-4xl mb-2 group-hover:scale-110 transition-transform">📜</span>
-                <span className="font-bold text-yellow-500 text-xl">冒険者ギルド</span>
+                <span className="text-5xl mb-4 group-hover:scale-110 transition-transform">📜</span>
+                <span className="font-bold text-yellow-500 text-2xl">冒険者ギルド</span>
                 <span className="text-sm text-slate-400 mt-2">クエスト受注・換金</span>
               </button>
 
               <button
                 onClick={() => setCurrentFacility('home')}
-                className="bg-slate-800 hover:bg-slate-700 border-2 border-indigo-500 p-6 rounded-lg flex flex-col items-center group transition-all"
+                className="bg-slate-800/90 hover:bg-slate-700 border-2 border-indigo-500 p-8 rounded-xl flex flex-col items-center group transition-all transform hover:-translate-y-1 hover:shadow-indigo-900/50 hover:shadow-lg"
               >
-                <span className="text-4xl mb-2 group-hover:scale-110 transition-transform">🏠</span>
-                <span className="font-bold text-indigo-400 text-xl">ファミリアホーム</span>
+                <span className="text-5xl mb-4 group-hover:scale-110 transition-transform">🏠</span>
+                <span className="font-bold text-indigo-400 text-2xl">ファミリアホーム</span>
                 <span className="text-sm text-slate-400 mt-2">ステータス更新・倉庫</span>
               </button>
 
               <button
                 onClick={() => setCurrentFacility('market')}
-                className="bg-slate-800 hover:bg-slate-700 border-2 border-orange-500 p-6 rounded-lg flex flex-col items-center group transition-all"
+                className="bg-slate-800/90 hover:bg-slate-700 border-2 border-orange-500 p-8 rounded-xl flex flex-col items-center group transition-all transform hover:-translate-y-1 hover:shadow-orange-900/50 hover:shadow-lg"
               >
-                <span className="text-4xl mb-2 group-hover:scale-110 transition-transform">⚒️</span>
-                <span className="font-bold text-orange-400 text-xl">市場 & 工房</span>
+                <span className="text-5xl mb-4 group-hover:scale-110 transition-transform">⚒️</span>
+                <span className="font-bold text-orange-400 text-2xl">市場 & 工房</span>
                 <span className="text-sm text-slate-400 mt-2">装備購入・強化</span>
               </button>
 
               <button
                 onClick={() => setCurrentFacility('tavern')}
-                className="bg-slate-800 hover:bg-slate-700 border-2 border-amber-700 p-6 rounded-lg flex flex-col items-center group transition-all"
+                className="bg-slate-800/90 hover:bg-slate-700 border-2 border-amber-700 p-8 rounded-xl flex flex-col items-center group transition-all transform hover:-translate-y-1 hover:shadow-amber-900/50 hover:shadow-lg"
               >
-                <span className="text-4xl mb-2 group-hover:scale-110 transition-transform">🍺</span>
-                <span className="font-bold text-amber-500 text-xl">酒場</span>
+                <span className="text-5xl mb-4 group-hover:scale-110 transition-transform">🍺</span>
+                <span className="font-bold text-amber-500 text-2xl">酒場</span>
                 <span className="text-sm text-slate-400 mt-2">情報収集・食事</span>
               </button>
             </div>
 
-            <div className="flex justify-center gap-4 mt-4">
+            <div className="flex justify-center gap-6 mt-6">
               <button
                 onClick={onBackToTitle}
-                className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-8 rounded shadow-lg transition-colors"
+                className="bg-gray-700 hover:bg-gray-600 text-gray-300 font-bold py-3 px-8 rounded shadow-lg transition-colors border border-gray-600"
               >
                 タイトルへ
               </button>
               <button
                 onClick={onGoToDungeon}
-                className="bg-red-700 hover:bg-red-600 text-white font-bold py-3 px-12 rounded shadow-lg border-2 border-red-500 animate-pulse transition-all transform hover:scale-105"
+                className="bg-gradient-to-r from-red-800 to-red-600 hover:from-red-700 hover:to-red-500 text-white font-bold py-4 px-16 rounded shadow-lg border-2 border-red-400 animate-pulse transition-all transform hover:scale-105 text-xl tracking-wider"
               >
                 ダンジョンへ出発
               </button>
@@ -178,16 +178,18 @@ export const TownScreen: React.FC<TownScreenProps> = ({ onGoToDungeon, onBackToT
   };
 
   return (
-    <div className="absolute inset-0 bg-slate-900 text-white overflow-hidden flex flex-col">
-      {/* 簡易的な背景装飾 */}
-      <div className="absolute inset-0 opacity-20 pointer-events-none">
-        <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-blue-900 to-transparent"></div>
+    <div className="absolute inset-0 bg-slate-900 text-white overflow-hidden flex flex-col font-sans">
+      {/* 背景装飾 */}
+      <div className="absolute inset-0 opacity-30 pointer-events-none">
+        <div className="absolute top-0 left-0 w-full h-2/3 bg-gradient-to-b from-blue-900/50 to-transparent"></div>
         <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-black to-transparent"></div>
+        {/* 都市のシルエットのようなパターンをCSSで表現する場合ここに配置 */}
+        <div className="absolute bottom-0 w-full h-32 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjAwIDEyMCIgcHJlc2VydmVBc3BlY3RSYXRpbz0ibm9uZSI+PHBhdGggZD0iTTAgMGw1MCAxMjBoNTAgbDUwIC02MGg1MCBsNTAgNjBoNTBsNTAgLTEyMGg1MCIgZmlsbD0iIzAwMCIgZmlsbC1vcGFjaXR5PSIwLjMiLz48L3N2Zz4=')] bg-repeat-x opacity-20"></div>
       </div>
       
       {/* メインコンテンツエリア */}
-      <div className="relative z-10 w-full h-full p-4 flex flex-col items-center justify-center">
-        <div className="w-full max-w-5xl h-[90%] bg-black/60 backdrop-blur-sm rounded-xl overflow-hidden shadow-2xl border border-slate-700">
+      <div className="relative z-10 w-full h-full p-6 flex flex-col items-center justify-center">
+        <div className="w-full max-w-6xl h-[95%] bg-black/70 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl border border-slate-600 flex flex-col items-center">
           {renderFacilityContent()}
         </div>
       </div>
