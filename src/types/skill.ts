@@ -1,40 +1,15 @@
-/**
- * スキルの効果タイプ
- */
-export type SkillEffectType = 
-  | 'damage'      // 直接ダメージ
-  | 'heal'        // HP回復
-  | 'buff_atk'    // 攻撃力アップ
-  | 'buff_def'    // 防御力アップ
-  | 'dash'        // 高速移動
-  | 'projectile'; // 遠距離攻撃（弾発射）
+export type SkillType = 'attack' | 'heal' | 'buff';
+export type TargetType = 'single' | 'area' | 'self';
 
-/**
- * スキルの定義データ
- */
-export interface SkillDefinition {
+export interface Skill {
   id: string;
   name: string;
   description: string;
-  
-  // クールダウン（ミリ秒）
-  cooldown: number;
-  
-  // 消費コスト（MPやSPなどを想定、現在は仮置き）
-  cost: number;
-  
-  // 射程距離（グリッド数）
-  range: number;
-  
-  // 効果の種類
-  effectType: SkillEffectType;
-  
-  // 効果量（ダメージ倍率や回復量など）
-  value: number;
-  
-  // エフェクトアニメーションのキー
-  animationKey: string;
-
-  // ターゲットタイプ
-  target: 'enemy' | 'self' | 'ally' | 'area';
+  type: SkillType;
+  target: TargetType;
+  power: number; // 攻撃倍率 または 回復量
+  cost: number; // 消費MP (今回は簡易実装のため未使用だが定義しておく)
+  cooldown: number; // クールダウンに必要なターン数
+  range: number; // 射程距離
+  assetKey?: string; // アイコン用アセットキー
 }
