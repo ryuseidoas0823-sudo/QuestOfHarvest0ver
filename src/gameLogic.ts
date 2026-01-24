@@ -15,7 +15,9 @@ const TILE_FLOOR = 0;
 const TILE_WALL = 1;
 const TILE_LAVA = 2;        // ダメージ床
 const TILE_LOCKED_DOOR = 3; // 鍵付き扉
-const TILE_SECRET_WALL = 4; // 隠し壁（壊せる壁）
+const TILE_SECRET_WALL = 4; // 隠し壁
+const TILE_STAIRS = 5;      // 階段 (新規)
+const TILE_BOSS_DOOR = 6;   // ボス部屋の封印扉 (新規)
 
 // MapData型の拡張
 interface ExtendedMapData extends MapData {
@@ -45,7 +47,7 @@ export const createInitialPlayer = (jobId: JobId, godId: string, startPos: Posit
     defense: baseDefense,
     level: 1,
     exp: 0,
-    nextLevelExp: 100,
+    nextLevelExp: 100, // 初期必要経験値
     speed: 1,
     critRate: godDef.passiveBonus.critRate || 0,
     dropRate: godDef.passiveBonus.dropRate || 1.0,
@@ -78,9 +80,6 @@ const getDirectionVector = (dir: Direction): { x: number, y: number } => {
   }
 };
 
-/**
- * 衝突判定ヘルパー
- */
 const checkCollision = (x: number, y: number, width: number, height: number, map: any): boolean => {
     const corners = [
         { x: x, y: y },
@@ -95,13 +94,13 @@ const checkCollision = (x: number, y: number, width: number, height: number, map
         if (gridY < 0 || gridY >= map.height || gridX < 0 || gridX >= map.width) return true;
         
         const tile = map.tiles[gridY][gridX];
-        // 壁、鍵付き扉、隠し壁は通行不可
-        if (tile === TILE_WALL || tile === TILE_LOCKED_DOOR || tile === TILE_SECRET_WALL) return true;
+        // 階段(5)は通行可、ボス扉(6)は通行不可
+        if (tile === TILE_WALL || tile === TILE_LOCKED_DOOR || tile === TILE_SECRET_WALL || tile === TILE_BOSS_DOOR) return true;
     }
     return false;
 };
 
-// ... activateSkill ...
+// ... activateSkill (変更なし)...
 export const activateSkill = (state: GameState, skillId: string): GameState => {
   const { player, gameTime } = state;
   const skill = SKILLS[skillId];
@@ -184,7 +183,7 @@ export const activateSkill = (state: GameState, skillId: string): GameState => {
   return newState;
 };
 
-// ... checkDungeonEvents ...
+// ... checkDungeonEvents (変更なし)...
 const checkDungeonEvents = (state: GameState): GameState => {
     let newState = { ...state };
     const { player, map, gameTime } = newState;
@@ -231,11 +230,35 @@ const checkDungeonEvents = (state: GameState): GameState => {
 };
 
 // ==========================================
-// 更新ロジック (Movement & Secret Wall)
+// レベルアップ処理
+// ==========================================
+const checkLevelUp = (player: Entity, messages: string[]): { player: Entity, messages: string[] } => {
+    let newPlayer = { ...player };
+    let newMessages = [...messages];
+
+    while (newPlayer.stats.exp >= newPlayer.stats.nextLevelExp) {
+        newPlayer.stats.exp -= newPlayer.stats.nextLevelExp;
+        newPlayer.stats.level += 1;
+        newPlayer.stats.nextLevelExp = Math.floor(newPlayer.stats.nextLevelExp * 1.2); // 必要経験値増加
+
+        // ステータス上昇 (職業補正を考慮すべきだが今回は固定値+割合)
+        newPlayer.stats.maxHp += 10;
+        newPlayer.stats.hp = newPlayer.stats.maxHp; // 全回復
+        newPlayer.stats.attack += 2;
+        newPlayer.stats.defense += 1;
+
+        newMessages = [`レベルアップ！ Lv.${newPlayer.stats.level} になった！`, ...newMessages].slice(0, 10);
+    }
+    return { player: newPlayer, messages: newMessages };
+};
+
+// ==========================================
+// 更新ロジック (階段 & LevelUp対応)
 // ==========================================
 export const updateGameLogic = (state: GameState, input: { keys: Record<string, boolean> }): GameState => {
   let newState = { ...state };
   
+  // 1. プレイヤー移動
   const speed = state.player.stats.speed * 3;
   let dx = 0;
   let dy = 0;
@@ -254,7 +277,7 @@ export const updateGameLogic = (state: GameState, input: { keys: Record<string, 
           newState.player.x = targetX;
           newState.player.y = targetY;
       } else {
-          // 特殊インタラクション判定 (鍵付き扉など)
+          // 特殊インタラクション (扉など)
           const centerX = newState.player.x + newState.player.width / 2;
           const centerY = newState.player.y + newState.player.height / 2;
           const checkX = Math.floor((centerX + dx * 2) / GRID_SIZE);
@@ -272,19 +295,48 @@ export const updateGameLogic = (state: GameState, input: { keys: Record<string, 
                       newTiles[checkY][checkX] = TILE_FLOOR;
                       newState.map = { ...newState.map, tiles: newTiles };
                       newState.messages = ['宝物庫の鍵を使った！', ...newState.messages].slice(0, 10);
-                  } else {
-                      // newState.messages = ['鍵がかかっている...', ...newState.messages].slice(0, 10);
                   }
+              } else if (tile === TILE_BOSS_DOOR) {
+                  newState.messages = ['強力な封印が施されている...ボスを倒さねば。', ...newState.messages].slice(0, 10);
               }
           }
       }
   } else {
       newState.player.isMoving = false;
   }
+
+  // 2. 階段移動チェック (Enterキー)
+  if (input.keys['Enter']) {
+      const cx = newState.player.x + newState.player.width / 2;
+      const cy = newState.player.y + newState.player.height / 2;
+      const gridX = Math.floor(cx / GRID_SIZE);
+      const gridY = Math.floor(cy / GRID_SIZE);
+
+      if (gridX >= 0 && gridX < MAP_WIDTH && gridY >= 0 && gridY < MAP_HEIGHT) {
+          if (newState.map.tiles[gridY][gridX] === TILE_STAIRS) {
+              // 次の階層へ！
+              const nextFloor = newState.floor + 1;
+              const dungeonData = generateDungeon(nextFloor, newState.player);
+              
+              // 状態を一新して返す
+              return {
+                  ...newState,
+                  floor: nextFloor,
+                  map: dungeonData.map,
+                  enemies: dungeonData.enemies,
+                  items: dungeonData.items,
+                  player: dungeonData.player,
+                  projectiles: [], // 弾は消去
+                  messages: [`地下 ${nextFloor} 階に到達した。`, ...newState.messages].slice(0, 10),
+                  // インベントリやステータスは維持
+              };
+          }
+      }
+  }
   
   newState = checkDungeonEvents(newState);
 
-  // プロジェクタイル更新 (隠し壁破壊ロジック追加)
+  // 3. プロジェクタイル更新
   if (newState.projectiles && newState.projectiles.length > 0) {
     const updatedProjectiles: Projectile[] = [];
     newState.projectiles.forEach(p => {
@@ -294,19 +346,17 @@ export const updateGameLogic = (state: GameState, input: { keys: Record<string, 
       p.lifeTime -= 16;
       if (p.lifeTime <= 0) return;
       
-      // プロジェクタイルが隠し壁に当たったら破壊する
       const gridX = Math.floor((nextX + p.width/2) / GRID_SIZE);
       const gridY = Math.floor((nextY + p.height/2) / GRID_SIZE);
       
       if (gridX >= 0 && gridX < MAP_WIDTH && gridY >= 0 && gridY < MAP_HEIGHT) {
           if (newState.map.tiles[gridY][gridX] === TILE_SECRET_WALL) {
-              // 隠し壁破壊！
               const newTiles = [...newState.map.tiles];
               newTiles[gridY] = [...newTiles[gridY]];
               newTiles[gridY][gridX] = TILE_FLOOR;
               newState.map = { ...newState.map, tiles: newTiles };
               newState.messages = ['壁が崩れ落ちた！', ...newState.messages].slice(0, 10);
-              return; // プロジェクタイルも消滅
+              return; 
           }
       }
 
@@ -331,6 +381,38 @@ export const updateGameLogic = (state: GameState, input: { keys: Record<string, 
       });
       if (hit) {
         newState.enemies = hitEnemies.filter(e => e.stats.hp > 0);
+        
+        // 敵死亡時の処理
+        if (newState.enemies.length !== hitEnemies.filter(e => e.stats.hp > 0).length) {
+            // 経験値獲得
+            // 倒した敵の経験値を取得（簡易的に固定値 + レベル補正）
+            const expGain = 10 + newState.floor * 2;
+            newState.player.stats.exp += expGain;
+            
+            // レベルアップチェック
+            const res = checkLevelUp(newState.player, newState.messages);
+            newState.player = res.player;
+            newState.messages = res.messages;
+
+            // ボス撃破判定 (簡易: IDに'boss'が含まれていたら)
+            const defeated = hitEnemies.find(e => e.stats.hp <= 0);
+            if (defeated && defeated.id.includes('enemy_999')) { // Boss ID Suffix
+                 newState.messages = ['フロアの主を倒した！封印が解かれる音がする...', ...newState.messages].slice(0, 10);
+                 
+                 // ボス扉を開放 (Tile 6 -> Tile 0)
+                 const newTiles = [...newState.map.tiles];
+                 // マップ全体走査は非効率だがボス階層は小さいのでOK
+                 for(let y=0; y<newState.map.height; y++) {
+                     for(let x=0; x<newState.map.width; x++) {
+                         if (newTiles[y][x] === TILE_BOSS_DOOR) {
+                             newTiles[y] = [...newTiles[y]];
+                             newTiles[y][x] = TILE_FLOOR;
+                         }
+                     }
+                 }
+                 newState.map = { ...newState.map, tiles: newTiles };
+            }
+        }
         return;
       }
       updatedProjectiles.push(p);
@@ -373,7 +455,7 @@ export const moveEntity = (entity: Entity, dx: number, dy: number, map: any): En
 
 
 // ==========================================
-// ダンジョン生成ロジック (完全版)
+// ダンジョン生成ロジック
 // ==========================================
 
 type DungeonGeneratorFunc = (floor: number, player: Entity) => Pick<GameState, 'map' | 'enemies' | 'items' | 'player'>;
@@ -384,7 +466,31 @@ const initTiles = (width: number, height: number, fillVal = TILE_WALL) => {
   return tiles;
 };
 
-// ヘルパー関数群
+// 階段配置ヘルパー
+const placeStairs = (tiles: number[][], rooms: any[], type: 'grid' | 'other' = 'grid') => {
+    // 最後の部屋、または遠い場所に階段を置く
+    if (rooms.length > 0) {
+        const lastRoom = rooms[rooms.length - 1];
+        const sx = Math.floor(lastRoom.x + lastRoom.w / 2);
+        const sy = Math.floor(lastRoom.y + lastRoom.h / 2);
+        
+        // 壁でなければ配置
+        if (tiles[sy][sx] === TILE_FLOOR) {
+            tiles[sy][sx] = TILE_STAIRS;
+        } else {
+            // 床を探す
+            for(let y=lastRoom.y; y<lastRoom.y+lastRoom.h; y++) {
+                for(let x=lastRoom.x; x<lastRoom.x+lastRoom.w; x++) {
+                    if (tiles[y][x] === TILE_FLOOR) {
+                        tiles[y][x] = TILE_STAIRS;
+                        return;
+                    }
+                }
+            }
+        }
+    }
+};
+
 const fillRoom = (tiles: number[][], room: {x:number, y:number, w:number, h:number}, tileType: number = TILE_FLOOR) => {
     for (let y = room.y; y < room.y + room.h; y++) {
         for (let x = room.x; x < room.x + room.w; x++) {
@@ -416,9 +522,9 @@ const createEnemyInstance = (key: string, gx: number, gy: number, idSuffix: numb
         direction: 'down',
         isMoving: false,
         stats: {
-            maxHp: enemyDef.baseStats.maxHp,
-            hp: enemyDef.baseStats.maxHp,
-            attack: enemyDef.baseStats.attack,
+            maxHp: Math.floor(enemyDef.baseStats.maxHp * (1 + floor * 0.1)), // 階層補正
+            hp: Math.floor(enemyDef.baseStats.maxHp * (1 + floor * 0.1)),
+            attack: Math.floor(enemyDef.baseStats.attack * (1 + floor * 0.05)),
             defense: enemyDef.baseStats.defense,
             level: floor,
             exp: enemyDef.expReward,
@@ -482,7 +588,7 @@ const placeEntities = (rooms: any[], floor: number) => {
 };
 
 /**
- * Type A: スタンダード・グリッド (隠し部屋対応)
+ * Type A: スタンダード・グリッド
  */
 const generateGridDungeon: DungeonGeneratorFunc = (floor, player) => {
   const width = MAP_WIDTH;
@@ -520,8 +626,6 @@ const generateGridDungeon: DungeonGeneratorFunc = (floor, player) => {
                  roomObj.type = 'monster_house';
                  roomObj.triggered = false;
              }
-             
-             // 隠し部屋抽選 (5%)
              if (!isLava && roomObj.type !== 'monster_house' && Math.random() < 0.05) {
                  roomObj.type = 'secret';
              }
@@ -530,7 +634,6 @@ const generateGridDungeon: DungeonGeneratorFunc = (floor, player) => {
       }
   }
 
-  // 通路生成
   for (let i = 0; i < rooms.length - 1; i++) {
       const r1 = rooms[i];
       const r2 = rooms[i + 1];
@@ -548,9 +651,7 @@ const generateGridDungeon: DungeonGeneratorFunc = (floor, player) => {
       }
   }
 
-  // 扉と隠し壁の設置
   rooms.forEach(room => {
-      // 宝物庫の扉
       if (room.type === 'treasury') {
           for (let x = room.x; x < room.x + room.w; x++) {
               if (tiles[room.y - 1][x] === TILE_FLOOR) tiles[room.y][x] = TILE_LOCKED_DOOR;
@@ -561,7 +662,6 @@ const generateGridDungeon: DungeonGeneratorFunc = (floor, player) => {
               if (tiles[y][room.x + room.w] === TILE_FLOOR) tiles[y][room.x + room.w - 1] = TILE_LOCKED_DOOR;
           }
       }
-      // 隠し部屋の壁
       else if (room.type === 'secret') {
           for (let x = room.x; x < room.x + room.w; x++) {
               if (tiles[room.y - 1][x] === TILE_FLOOR) tiles[room.y][x] = TILE_SECRET_WALL;
@@ -578,6 +678,9 @@ const generateGridDungeon: DungeonGeneratorFunc = (floor, player) => {
   startRoom.type = 'normal';
   fillRoom(tiles, startRoom, TILE_FLOOR);
 
+  // 階段配置
+  placeStairs(tiles, rooms);
+
   const newPlayer = { ...player, x: (startRoom.x + startRoom.w/2)*GRID_SIZE, y: (startRoom.y + startRoom.h/2)*GRID_SIZE };
   const { enemies, items } = placeEntities(rooms, floor);
 
@@ -585,21 +688,17 @@ const generateGridDungeon: DungeonGeneratorFunc = (floor, player) => {
 };
 
 /**
- * Type B: 大広間 (Open Field)
+ * Type B: 大広間
  */
 const generateOpenDungeon: DungeonGeneratorFunc = (floor, player) => {
     const width = MAP_WIDTH;
     const height = MAP_HEIGHT;
     const tiles = initTiles(width, height, TILE_FLOOR); 
-
-    // 外周を壁に
     for(let y = 0; y < height; y++) {
         for(let x = 0; x < width; x++) {
             if (y === 0 || y === height - 1 || x === 0 || x === width - 1) tiles[y][x] = TILE_WALL;
         }
     }
-    
-    // 一部のエリアを溶岩にする
     for(let i=0; i<10; i++) {
          const lx = 5 + Math.floor(Math.random() * (width - 10));
          const ly = 5 + Math.floor(Math.random() * (height - 10));
@@ -609,7 +708,6 @@ const generateOpenDungeon: DungeonGeneratorFunc = (floor, player) => {
     const rooms = [{ x: 1, y: 1, w: width - 2, h: height - 2 }];
     const newPlayer = { ...player, x: 5 * GRID_SIZE, y: 5 * GRID_SIZE };
     
-    // 敵生成ロジック
     const enemies: Entity[] = [];
     const items: Item[] = [];
     const enemyKeys = Object.keys(ENEMIES);
@@ -621,25 +719,26 @@ const generateOpenDungeon: DungeonGeneratorFunc = (floor, player) => {
         const offsetRange = 20; 
         const ex = Math.floor(centerX + (Math.random() * offsetRange - offsetRange/2));
         const ey = Math.floor(centerY + (Math.random() * offsetRange - offsetRange/2));
-
         if (Math.abs(ex - 5) < 5 && Math.abs(ey - 5) < 5) continue;
         if (ex > 1 && ex < width - 1 && ey > 1 && ey < height - 1) {
              enemies.push(createEnemyInstance(enemyKey, ex, ey, i, floor));
         }
     }
     
+    // 階段配置
+    placeStairs(tiles, rooms);
+
     return { map: { width, height, tiles, rooms }, enemies, items, player: newPlayer };
 };
 
 /**
- * Type C: 三柱の間 (Vertical Pillars)
+ * Type C: 三柱の間
  */
 const generatePillarsDungeon: DungeonGeneratorFunc = (floor, player) => {
     const width = MAP_WIDTH;
     const height = MAP_HEIGHT;
     const tiles = initTiles(width, height);
     const rooms: any[] = [];
-
     const margin = 4;
     const colWidth = Math.floor((width - margin * 4) / 3);
     const roomH = height - 10;
@@ -651,7 +750,6 @@ const generatePillarsDungeon: DungeonGeneratorFunc = (floor, player) => {
         fillRoom(tiles, room); 
         rooms.push(room);
     }
-
     for (let i = 0; i < 2; i++) {
         const r1 = rooms[i];
         const r2 = rooms[i+1];
@@ -664,12 +762,14 @@ const generatePillarsDungeon: DungeonGeneratorFunc = (floor, player) => {
     const startRoom = rooms[1]; 
     const newPlayer = { ...player, x: (startRoom.x + startRoom.w/2)*GRID_SIZE, y: (startRoom.y + startRoom.h - 2)*GRID_SIZE };
     const { enemies, items } = placeEntities(rooms, floor);
+    
+    placeStairs(tiles, rooms);
 
     return { map: { width, height, tiles, rooms }, enemies, items, player: newPlayer };
 };
 
 /**
- * Type D: 蛇行回廊 (Snake Road)
+ * Type D: 蛇行回廊
  */
 const generateSnakeDungeon: DungeonGeneratorFunc = (floor, player) => {
     const width = 50;
@@ -719,11 +819,12 @@ const generateSnakeDungeon: DungeonGeneratorFunc = (floor, player) => {
     const startRoom = rooms[0];
     const newPlayer = { ...player, x: (startRoom.x + startRoom.w/2)*GRID_SIZE, y: (startRoom.y + startRoom.h/2)*GRID_SIZE };
     const { enemies, items } = placeEntities(rooms, floor);
+    placeStairs(tiles, rooms);
     return { map: { width, height, tiles, rooms }, enemies, items, player: newPlayer };
 };
 
 /**
- * Type E: トライアル・メイズ (Maze)
+ * Type E: トライアル・メイズ
  */
 const generateMazeDungeon: DungeonGeneratorFunc = (floor, player) => {
     const width = 41; 
@@ -735,7 +836,6 @@ const generateMazeDungeon: DungeonGeneratorFunc = (floor, player) => {
     tiles[startY][startX] = TILE_FLOOR;
 
     const directions = [{ x: 0, y: -2 }, { x: 0, y: 2 }, { x: -2, y: 0 }, { x: 2, y: 0 }];
-
     const dig = (x: number, y: number) => {
         const dirs = [...directions].sort(() => Math.random() - 0.5);
         for (const dir of dirs) {
@@ -773,11 +873,20 @@ const generateMazeDungeon: DungeonGeneratorFunc = (floor, player) => {
         const enemyKey = enemyKeys[Math.floor(Math.random() * enemyKeys.length)];
         enemies.push(createEnemyInstance(enemyKey, ex, ey, i, floor));
     }
+    
+    // 迷路のゴール地点に階段
+    let sx, sy;
+    do {
+        sx = Math.floor(Math.random() * width);
+        sy = Math.floor(Math.random() * height);
+    } while(tiles[sy][sx] === TILE_WALL || (Math.abs(sx - startX) < 20 && Math.abs(sy - startY) < 20));
+    tiles[sy][sx] = TILE_STAIRS;
+
     return { map: { width, height, tiles, rooms }, enemies, items, player: newPlayer };
 };
 
 /**
- * Type F: ボス階層 (Boss Floor)
+ * Type F: ボス階層
  */
 const generateBossFloor: DungeonGeneratorFunc = (floor, player) => {
     const width = 40; 
@@ -797,13 +906,19 @@ const generateBossFloor: DungeonGeneratorFunc = (floor, player) => {
     fillRoom(tiles, treasureRoom);
     rooms.push(treasureRoom);
 
+    // 通路
     createVCorridor(tiles, restRoom.y, bossRoom.y + bossRoom.h, 20);
+    // ボス部屋と宝部屋の間には「封印された扉」を配置
+    // 通路を掘ってから、特定座標を扉にする
     createVCorridor(tiles, bossRoom.y, treasureRoom.y + treasureRoom.h, 20);
+    // ボス部屋上部の通路を扉で塞ぐ
+    tiles[bossRoom.y - 1][20] = TILE_BOSS_DOOR; 
+    tiles[bossRoom.y - 2][20] = TILE_BOSS_DOOR; 
 
     const newPlayer = { ...player, x: (restRoom.x + restRoom.w/2)*GRID_SIZE, y: (restRoom.y + restRoom.h/2)*GRID_SIZE };
 
     const enemies: Entity[] = [];
-    const bossKey = 'orc'; 
+    const bossKey = 'orc'; // 仮ボス
     const bossX = (bossRoom.x + bossRoom.w / 2);
     const bossY = (bossRoom.y + bossRoom.h / 2);
     
@@ -817,6 +932,11 @@ const generateBossFloor: DungeonGeneratorFunc = (floor, player) => {
 
     enemies.push(createEnemyInstance('goblin', bossX - 3, bossY + 3, 901, floor));
     enemies.push(createEnemyInstance('goblin', bossX + 3, bossY + 3, 902, floor));
+    
+    // 階段は宝部屋に配置
+    const tx = treasureRoom.x + 2;
+    const ty = treasureRoom.y + 2;
+    tiles[ty][tx] = TILE_STAIRS;
 
     return { map: { width, height, tiles, rooms }, enemies, items: [], player: newPlayer };
 };
@@ -824,7 +944,6 @@ const generateBossFloor: DungeonGeneratorFunc = (floor, player) => {
 // ==========================================
 // メイン生成関数
 // ==========================================
-
 export const generateDungeon: DungeonGeneratorFunc = (floor, player) => {
     if (floor % 5 === 0) {
         console.log(`Generating Boss Floor for Level ${floor}`);
@@ -835,19 +954,16 @@ export const generateDungeon: DungeonGeneratorFunc = (floor, player) => {
     const rand = Math.random();
 
     if (floor <= 4) {
-        // 1-4F: A(80%), C(20%)
         if (rand < 0.2) dungeonData = generatePillarsDungeon(floor, player);
         else dungeonData = generateGridDungeon(floor, player);
     } 
     else if (floor <= 10) {
-        // 6-9F: A(40%), B(20%), D(20%), E(20%)
         if (rand < 0.2) dungeonData = generateOpenDungeon(floor, player);
         else if (rand < 0.4) dungeonData = generateSnakeDungeon(floor, player);
         else if (rand < 0.6) dungeonData = generateMazeDungeon(floor, player);
         else dungeonData = generateGridDungeon(floor, player);
     }
     else {
-        // 11F+: 完全ランダム
         const type = Math.floor(Math.random() * 5); 
         switch(type) {
             case 0: dungeonData = generateGridDungeon(floor, player); break;
@@ -859,8 +975,6 @@ export const generateDungeon: DungeonGeneratorFunc = (floor, player) => {
         }
     }
 
-    // 暗闇ゾーン判定 (15%の確率で暗闇)
     (dungeonData.map as ExtendedMapData).isDark = Math.random() < 0.15;
-
     return dungeonData;
 };
