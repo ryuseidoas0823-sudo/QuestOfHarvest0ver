@@ -11,15 +11,21 @@ const C = {
   P: '#9B59B6', // 紫
   BR: '#8D6E63', // 茶色
   GR: '#95A5A6', // グレー
-  DR: '#34495E', // ダークグレー（壁など）
+  DR: '#34495E', // ダークグレー
   SK: '#FFCC80', // 肌色
   BL: '#3498DB', // プレイヤーの服
   ST: '#7F8C8D', // 石
+  SL: '#BDC3C7', // 銀（剣など）
+  // エフェクト用
+  CY: '#00FFFF', // シアン
+  MG: '#FF00FF', // マゼンタ
 };
 
 // 12x12 ピクセルアート定義
-// キー文字に対応する色が描画されます
 export const pixelArtData: Record<string, { palette: any, grid: string[] }> = {
+  // ... (既存のデータ: player, wall, floor, stairs, goblin, slime, orc, boss, ally, skill_*) ...
+  // ※既存データは保持したまま、以下を追加してください
+
   // --- プレイヤー ---
   'player': {
     palette: C,
@@ -38,12 +44,11 @@ export const pixelArtData: Record<string, { palette: any, grid: string[] }> = {
       "__KK____KK__"
     ]
   },
-  
   // --- マップチップ ---
   'wall': {
     palette: C,
     grid: [
-      "BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR", // カンマ区切りではないが便宜上
+      "BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR",
       "BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR",
       "BR,DR,DR,DR,BR,DR,DR,DR,DR,BR,DR,DR",
       "BR,DR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR",
@@ -55,7 +60,7 @@ export const pixelArtData: Record<string, { palette: any, grid: string[] }> = {
       "BR,DR,DR,BR,DR,DR,DR,DR,BR,DR,DR,DR",
       "BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR",
       "BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR"
-    ].map(s => s.replace(/,/g, '')) // 文字列調整
+    ].map(s => s.replace(/,/g, ''))
   },
   'floor': {
     palette: C,
@@ -91,7 +96,6 @@ export const pixelArtData: Record<string, { palette: any, grid: string[] }> = {
       "KKKKKKKKKKKK"
     ]
   },
-
   // --- モンスター ---
   'goblin': {
     palette: C,
@@ -144,7 +148,6 @@ export const pixelArtData: Record<string, { palette: any, grid: string[] }> = {
       "__KK____KK__"
     ]
   },
-  // ボス汎用（大きく表示されるので少し細かく見える）
   'boss': {
     palette: C,
     grid: [
@@ -162,7 +165,6 @@ export const pixelArtData: Record<string, { palette: any, grid: string[] }> = {
       "__KK_KK_KK__"
     ]
   },
-  // 味方
   'ally': {
     palette: C,
     grid: [
@@ -180,7 +182,6 @@ export const pixelArtData: Record<string, { palette: any, grid: string[] }> = {
       "__KK____KK__"
     ]
   },
-  // 宝箱
   'chest': {
     palette: C,
     grid: [
@@ -195,6 +196,145 @@ export const pixelArtData: Record<string, { palette: any, grid: string[] }> = {
       "KRRRRKRRRRRK",
       "KRRRRRRRRRRK",
       "KKKKKKKKKKKK",
+      "____________"
+    ]
+  },
+  // --- スキルアイコン ---
+  'skill_sword': {
+    palette: C,
+    grid: [
+      "_____SL_____",
+      "____SLSL____",
+      "___SLSL_____",
+      "__SLSL______",
+      "_SLSL_______",
+      "SLSL__WW____",
+      "LSL__WWWW___",
+      "BR__WWWWWW__",
+      "_BR__WWWW___",
+      "__BR__WW____",
+      "___BR_______",
+      "____BR______"
+    ]
+  },
+  'skill_round': {
+    palette: C,
+    grid: [
+      "____WWWW____",
+      "__WW____WW__",
+      "_W________W_",
+      "_W___SL___W_",
+      "W___SLSL___W",
+      "W____SL____W",
+      "W____BR____W",
+      "_W________W_",
+      "_W________W_",
+      "__WW____WW__",
+      "____WWWW____",
+      "____________"
+    ]
+  },
+  'skill_fire': {
+    palette: C,
+    grid: [
+      "_____R______",
+      "____ROR_____",
+      "___ROROR____",
+      "__ROROROR___",
+      "__OROYORO___",
+      "__ROYOYOR___",
+      "___ROROR____",
+      "____ROR_____",
+      "_____R______",
+      "____________",
+      "____________",
+      "____________"
+    ]
+  },
+  'skill_heal': {
+    palette: C,
+    grid: [
+      "____________",
+      "_____G______",
+      "____GGG_____",
+      "___GGGGG____",
+      "__GG_G_GG___",
+      "__G_GGG_G___",
+      "____GGG_____",
+      "____GGG_____",
+      "____GGG_____",
+      "____GGG_____",
+      "____________",
+      "____________"
+    ]
+  },
+  'skill_bow': {
+    palette: C,
+    grid: [
+      "__BR____BR__",
+      "_BR______BR_",
+      "BR___SL___BR",
+      "BR___SL___BR",
+      "BR___SL___BR",
+      "BR___SL___BR",
+      "_BR__SL__BR_",
+      "__BR_SL_BR__",
+      "___BRSLBR___",
+      "____BRBR____",
+      "_____BR_____",
+      "____________"
+    ]
+  },
+
+  // --- Visual Effects ---
+  'effect_slash': {
+    palette: C,
+    grid: [
+      "W___________",
+      "_W__________",
+      "__W____W____",
+      "___W__W_____",
+      "____WW______",
+      "____WW______",
+      "___W__W_____",
+      "__W____W____",
+      "_W__________",
+      "W___________",
+      "____________",
+      "____________"
+    ]
+  },
+  'effect_fire': {
+    palette: C,
+    grid: [
+      "____R_R_____",
+      "___ROROR____",
+      "__RORRROR___",
+      "__OROYORO___",
+      "__ROROROR___",
+      "___ROROR____",
+      "____R_R_____",
+      "____________",
+      "____________",
+      "____________",
+      "____________",
+      "____________"
+    ]
+  },
+  'effect_heal': {
+    palette: C,
+    grid: [
+      "____GG______",
+      "___GWWG_____",
+      "___GW G_____",
+      "__G WW G____",
+      "__G    G____",
+      "___G  G_____",
+      "____GG______",
+      "____________",
+      "____________",
+      "____________",
+      "____________",
       "____________"
     ]
   }
