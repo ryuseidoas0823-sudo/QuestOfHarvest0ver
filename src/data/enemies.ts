@@ -71,7 +71,7 @@ export const enemies: Enemy[] = [
   {
     id: 'dark_mage',
     name: '闇の魔導士',
-    type: 'magic', // ※魔法攻撃ロジック未実装時は接近戦挙動
+    type: 'magic',
     maxHp: 40,
     attack: 25,
     defense: 2,
@@ -89,6 +89,34 @@ export const enemies: Enemy[] = [
     defense: 10,
     exp: 150,
     dropItems: [{ itemId: 'potion_high', rate: 0.3 }],
+    faction: 'monster',
+    aiType: 'aggressive'
+  },
+
+  // ==========================================
+  // Monsters (Ch5: 最深層)
+  // ==========================================
+  {
+    id: 'tower_sentinel',
+    name: '塔の歩哨',
+    type: 'melee',
+    maxHp: 200,
+    attack: 40,
+    defense: 15,
+    exp: 300,
+    dropItems: [{ itemId: 'magic_stone_small', rate: 0.5 }],
+    faction: 'monster',
+    aiType: 'aggressive'
+  },
+  {
+    id: 'ancient_dragon_whelp',
+    name: '古竜の幼体',
+    type: 'magic', // ブレス攻撃想定
+    maxHp: 180,
+    attack: 50,
+    defense: 10,
+    exp: 400,
+    dropItems: [{ itemId: 'elixir', rate: 0.1 }],
     faction: 'monster',
     aiType: 'aggressive'
   },
@@ -145,6 +173,19 @@ export const enemies: Enemy[] = [
     defense: 25,
     exp: 2000,
     dropItems: [{ itemId: 'elixir', rate: 1.0 }],
+    faction: 'monster',
+    aiType: 'aggressive'
+  },
+  // 第5章ラスボス
+  {
+    id: 'fallen_hero',
+    name: '堕ちた英雄',
+    type: 'boss',
+    maxHp: 1500,
+    attack: 60,
+    defense: 30,
+    exp: 10000,
+    dropItems: [{ itemId: 'hero_badge', rate: 1.0 }], // クリア証
     faction: 'monster',
     aiType: 'aggressive'
   },
