@@ -2,14 +2,11 @@ import { Quest } from '../types/quest';
 
 /**
  * クエストデータ定義
- * ID命名規則:
- * - メインクエスト: mq_{chapter}_{subChapter} (例: mq_1_1)
- * - サブクエスト: sq_{region}_{number} (例: sq_forest_01)
- * - デイリー/他: dq_{number}, ev_{eventName}_{number}
+ * ID命名規則: mq_{chapter}_{subChapter}
  */
 export const quests: Quest[] = [
   // ==========================================
-  // 第1章：駆け出し冒険者の洗礼 (Main Quest)
+  // 第1章：駆け出し冒険者の洗礼
   // ==========================================
   {
     id: 'mq_1_1',
@@ -23,9 +20,7 @@ export const quests: Quest[] = [
     targetAmount: 3,
     rewardGold: 100,
     rewardExp: 50,
-    requirements: {
-      minLevel: 1
-    },
+    requirements: { minLevel: 1 },
     recommendedLevel: 1
   },
   {
@@ -36,13 +31,11 @@ export const quests: Quest[] = [
     title: 'CH1-2: 準備を整えよ',
     description: 'ダンジョンは危険だ。魔石を少し集めて換金し、装備やアイテムを整える資金にしよう。',
     type: 'collect',
-    targetId: 'magic_stone_small', // 雑魚敵からドロップする汎用アイテムを想定
+    targetId: 'magic_stone_small',
     targetAmount: 5,
     rewardGold: 200,
     rewardExp: 80,
-    requirements: {
-      questCompleted: ['mq_1_1']
-    },
+    requirements: { questCompleted: ['mq_1_1'] },
     recommendedLevel: 2
   },
   {
@@ -53,13 +46,10 @@ export const quests: Quest[] = [
     title: 'CH1-3: 未知なる深層へ',
     description: '少し腕が立ってきたようだ。地下3階（B3F）まで到達し、より強いモンスターの生態を確認せよ。',
     type: 'reach',
-    targetAmount: 3, // 階層数 (B3F)
+    targetAmount: 3,
     rewardGold: 300,
     rewardExp: 150,
-    requirements: {
-      minLevel: 3,
-      questCompleted: ['mq_1_2']
-    },
+    requirements: { minLevel: 3, questCompleted: ['mq_1_2'] },
     recommendedLevel: 3
   },
   {
@@ -70,13 +60,11 @@ export const quests: Quest[] = [
     title: 'CH1-4: 不穏な影',
     description: '浅層にはいないはずの強力なオークが目撃されている。斥候（スカウト）を倒し、脅威を排除せよ。',
     type: 'hunt',
-    targetId: 'orc', // 通常より少し強い敵を設定
+    targetId: 'orc',
     targetAmount: 1,
     rewardGold: 500,
     rewardExp: 300,
-    requirements: {
-      questCompleted: ['mq_1_3']
-    },
+    requirements: { questCompleted: ['mq_1_3'] },
     recommendedLevel: 4
   },
   {
@@ -87,22 +75,53 @@ export const quests: Quest[] = [
     title: 'CH1-5: 凶刃との遭遇',
     description: '【ボス討伐】不穏な気配の元凶を見つけた。奥地で待ち構える「オーク・ジェネラル」を討伐せよ。生存者がいるかもしれない、注意して進め。',
     type: 'hunt',
-    targetId: 'orc_general', // 第1章ボス
+    targetId: 'orc_general',
     targetAmount: 1,
     rewardGold: 1000,
     rewardExp: 1000,
-    rewardItems: [
-      { itemId: 'potion_high', amount: 3 }
-    ],
-    requirements: {
-      minLevel: 5,
-      questCompleted: ['mq_1_4']
-    },
+    rewardItems: [{ itemId: 'potion_high', amount: 3 }],
+    requirements: { minLevel: 5, questCompleted: ['mq_1_4'] },
     recommendedLevel: 5
   },
 
   // ==========================================
-  // サブクエスト (Sub Quest) - 拡張の余地
+  // 第2章：背中を預ける絆
+  // ==========================================
+  {
+    id: 'mq_2_1',
+    category: 'main',
+    chapter: 2,
+    subChapter: 1,
+    title: 'CH2-1: 二人の連携',
+    description: '救出した冒険者「エリアス」が恩返しに協力してくれるそうだ。彼と共にダンジョンへ潜り、連携の感覚を掴め。',
+    type: 'hunt',
+    targetId: 'slime', // 連携練習用
+    targetAmount: 5,
+    rewardGold: 300,
+    rewardExp: 200,
+    requirements: { 
+      questCompleted: ['mq_1_5'],
+      minLevel: 6 
+    },
+    recommendedLevel: 6
+  },
+  {
+    id: 'mq_2_2',
+    category: 'main',
+    chapter: 2,
+    subChapter: 2,
+    title: 'CH2-2: 死角なき行軍',
+    description: '中層への道が開かれた。エリアスと共に地下6階を目指し、新たな素材を持ち帰れ。',
+    type: 'reach',
+    targetAmount: 6,
+    rewardGold: 500,
+    rewardExp: 300,
+    requirements: { questCompleted: ['mq_2_1'] },
+    recommendedLevel: 7
+  },
+  
+  // ==========================================
+  // サブクエスト
   // ==========================================
   {
     id: 'sq_town_1',
@@ -114,9 +133,7 @@ export const quests: Quest[] = [
     targetAmount: 5,
     rewardGold: 50,
     rewardExp: 20,
-    requirements: {
-      minLevel: 1
-    },
+    requirements: { minLevel: 1 },
     recommendedLevel: 1
   },
   {
@@ -129,9 +146,7 @@ export const quests: Quest[] = [
     targetAmount: 3,
     rewardGold: 80,
     rewardExp: 30,
-    requirements: {
-      minLevel: 2
-    },
+    requirements: { minLevel: 2 },
     recommendedLevel: 2
   }
 ];
