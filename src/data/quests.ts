@@ -5,7 +5,9 @@ import { Quest } from '../types/quest';
  * ID命名規則: mq_{chapter}_{subChapter}
  */
 export const quests: Quest[] = [
-  // ... existing Chapter 1 & 2 quests ...
+  // ==========================================
+  // 第1章：駆け出し冒険者の洗礼
+  // ==========================================
   {
     id: 'mq_1_1',
     category: 'main',
@@ -81,6 +83,10 @@ export const quests: Quest[] = [
     requirements: { minLevel: 5, questCompleted: ['mq_1_4'] },
     recommendedLevel: 5
   },
+
+  // ==========================================
+  // 第2章：背中を預ける絆
+  // ==========================================
   {
     id: 'mq_2_1',
     category: 'main',
@@ -170,10 +176,7 @@ export const quests: Quest[] = [
     targetAmount: 11,
     rewardGold: 1000,
     rewardExp: 800,
-    requirements: { 
-      questCompleted: ['mq_2_5'],
-      minLevel: 12 
-    },
+    requirements: { questCompleted: ['mq_2_5'], minLevel: 12 },
     recommendedLevel: 12
   },
   {
@@ -184,7 +187,7 @@ export const quests: Quest[] = [
     title: 'CH3-2: 絶望の宴',
     description: '【危険】調査隊からの連絡が途絶えた。地下12階で「モンスターハウス」の発生が疑われる。準備を万全にして生存者を捜索せよ。',
     type: 'hunt',
-    targetId: 'orc', // 大量発生する敵の代表
+    targetId: 'orc', 
     targetAmount: 10,
     rewardGold: 1500,
     rewardExp: 1200,
@@ -228,12 +231,121 @@ export const quests: Quest[] = [
     title: 'CH3-5: 融合する異形',
     description: '【ボス討伐】異変の元凶と思われる反応がある。機械と生物が融合した「キメラ・ゴーレム」を破壊せよ。',
     type: 'hunt',
-    targetId: 'chimera_golem', // 第3章ボス
+    targetId: 'chimera_golem',
     targetAmount: 1,
     rewardGold: 4000,
     rewardExp: 3000,
     rewardItems: [{ itemId: 'hero_badge', amount: 1 }],
     requirements: { minLevel: 15, questCompleted: ['mq_3_4'] },
     recommendedLevel: 16
+  },
+
+  // ==========================================
+  // 第4章：決戦前夜
+  // ==========================================
+  {
+    id: 'mq_4_1',
+    category: 'main',
+    chapter: 4,
+    subChapter: 1,
+    title: 'CH4-1: 緊急招集',
+    description: 'ギルドから全ファミリアへ緊急招集がかかった。ダンジョンからの魔物の流出「スタンピード」の予兆があるという。',
+    type: 'reach', // ギルドへ顔を出すイメージ
+    targetAmount: 1, // 実質会話のみでクリア等の処理を想定
+    rewardGold: 500,
+    rewardExp: 500,
+    requirements: { questCompleted: ['mq_3_5'] },
+    recommendedLevel: 17
+  },
+  {
+    id: 'mq_4_2',
+    category: 'main',
+    chapter: 4,
+    subChapter: 2,
+    title: 'CH4-2: 前線の防衛',
+    description: '地下16階〜17階にかけて、深層から魔物が溢れ出している。防衛ラインを維持するため、敵を掃討せよ。',
+    type: 'hunt',
+    targetId: 'minotaur', // 強敵
+    targetAmount: 3,
+    rewardGold: 2500,
+    rewardExp: 2000,
+    requirements: { questCompleted: ['mq_4_1'] },
+    recommendedLevel: 17
+  },
+  {
+    id: 'mq_4_3',
+    category: 'main',
+    chapter: 4,
+    subChapter: 3,
+    title: 'CH4-3: 闇の軍勢',
+    description: '魔物の中に統率された動きを見せる「骸骨兵」の部隊が確認された。指揮系統を乱すため、スケルトン兵を排除せよ。',
+    type: 'hunt',
+    targetId: 'skeleton_soldier',
+    targetAmount: 10,
+    rewardGold: 3000,
+    rewardExp: 2200,
+    requirements: { questCompleted: ['mq_4_2'] },
+    recommendedLevel: 18
+  },
+  {
+    id: 'mq_4_4',
+    category: 'main',
+    chapter: 4,
+    subChapter: 4,
+    title: 'CH4-4: 決戦準備',
+    description: '敵の本隊との決戦が近い。鍛冶師が「対魔装備」を作るために必要な素材を集めてきてほしい。',
+    type: 'collect',
+    targetId: 'magic_stone_small', // 本当はレア素材が良いが既存アイテムで代用
+    targetAmount: 20,
+    rewardGold: 4000,
+    rewardExp: 2500,
+    requirements: { questCompleted: ['mq_4_3'] },
+    recommendedLevel: 19
+  },
+  {
+    id: 'mq_4_5',
+    category: 'main',
+    chapter: 4,
+    subChapter: 5,
+    title: 'CH4-5: 深淵の指揮官',
+    description: '【ボス討伐】魔物の軍勢を率いる指揮官の居場所を突き止めた。街への侵攻を阻止するため、「深淵の指揮官」を討て！',
+    type: 'hunt',
+    targetId: 'abyss_commander', // 第4章ボス
+    targetAmount: 1,
+    rewardGold: 10000,
+    rewardExp: 5000,
+    rewardItems: [{ itemId: 'elixir', amount: 3 }],
+    requirements: { minLevel: 20, questCompleted: ['mq_4_4'] },
+    recommendedLevel: 20
+  },
+
+  // ==========================================
+  // サブクエスト
+  // ==========================================
+  {
+    id: 'sq_town_1',
+    category: 'sub',
+    title: '害獣駆除の依頼',
+    description: '街の食料庫を荒らす大ネズミを退治してほしい。',
+    type: 'hunt',
+    targetId: 'rat',
+    targetAmount: 5,
+    rewardGold: 50,
+    rewardExp: 20,
+    requirements: { minLevel: 1 },
+    recommendedLevel: 1
+  },
+  {
+    id: 'sq_collect_1',
+    category: 'sub',
+    title: '薬草の納品',
+    description: 'ポーションの材料となる薬草が不足している。スライムなどが落とす薬草を集めてくれ。',
+    type: 'collect',
+    targetId: 'herb',
+    targetAmount: 3,
+    rewardGold: 80,
+    rewardExp: 30,
+    requirements: { minLevel: 2 },
+    recommendedLevel: 2
   }
 ];
