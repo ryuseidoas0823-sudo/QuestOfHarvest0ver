@@ -26,3 +26,25 @@ export interface Dialogue {
   // 優先度（条件が重複した場合、数値が高い方を優先表示する）
   priority: number;
 }
+
+// 以下、ビルドエラー修正のために追加した型定義
+
+export interface DialogueChoice {
+  text: string;
+  nextId: string | null; // nullなら会話終了
+  action?: string; // 選択時に実行するアクションID
+}
+
+export interface DialogueNode {
+  id: string;
+  speakerId: SpeakerId;
+  text: string;
+  choices?: DialogueChoice[]; // 選択肢がない場合は「次へ」ボタンまたは終了
+  nextId?: string | null; // 選択肢がない場合の遷移先
+}
+
+export interface DialogueTree {
+  id: string;
+  rootNodeId: string;
+  nodes: { [key: string]: DialogueNode };
+}
