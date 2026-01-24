@@ -1,93 +1,63 @@
 import React from 'react';
-import { JOBS } from '../data/jobs';
-import { JobId } from '../types/job';
-import { getAsset } from '../assets/assetRegistry';
+import { jobs } from '../data/jobs';
+import { Job } from '../types/job';
+import { PixelSprite } from './PixelSprite';
 
 interface JobSelectScreenProps {
-  onSelectJob: (jobId: JobId) => void;
+  onSelectJob: (job: Job) => void;
 }
 
-const JobSelectScreen: React.FC<JobSelectScreenProps> = ({ onSelectJob }) => {
-  // JOBSオブジェクトを配列に変換してマップ処理
-  const jobList = Object.values(JOBS);
-
+export const JobSelectScreen: React.FC<JobSelectScreenProps> = ({ onSelectJob }) => {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-8">
-      <h2 className="text-4xl font-bold mb-8 text-yellow-400">職業を選択してください</h2>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4"
+         style={{
+             backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)), url(https://images.unsplash.com/photo-1542256810-5449255255d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80)',
+             backgroundSize: 'cover',
+             backgroundPosition: 'center'
+         }}>
+      <h2 className="text-4xl font-bold mb-8 text-yellow-500" style={{ fontFamily: 'monospace' }}>職業選択</h2>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full max-w-6xl">
-        {jobList.map((job) => {
-          // アセットの取得（ここでは単純化していますが、実際のアセット形式に合わせて描画してください）
-          // 例: アセットファイルがReactコンポーネントをdefault exportしている場合など
-          const AssetModule = getAsset(job.assetKey);
-          
-          return (
-            <div 
-              key={job.id}
-              className="bg-gray-800 border-2 border-gray-700 rounded-xl p-6 flex flex-col items-center hover:border-yellow-500 hover:bg-gray-750 transition-all cursor-pointer shadow-lg transform hover:-translate-y-1"
-              onClick={() => onSelectJob(job.id)}
-            >
-              {/* キャラクタープレビュー領域 */}
-              <div className="w-32 h-32 mb-4 bg-gray-900 rounded-full flex items-center justify-center overflow-hidden border border-gray-600">
-                {/* アセットの描画: 
-                  実際の実装に合わせて <AssetModule.Default /> や <img src={...} /> 等に書き換えてください。
-                  ここではプレビュー用に職業名の頭文字を表示します。
-                */}
-                <span className="text-4xl font-bold text-gray-500">
-                  {AssetModule ? 'SVG' : job.name[0]}
-                </span>
-              </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl w-full">
+        {jobs.map((job) => (
+          <div 
+            key={job.id}
+            onClick={() => onSelectJob(job)}
+            className="bg-gray-800 border-2 border-gray-600 rounded-lg p-6 hover:border-yellow-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:scale-105 flex flex-col items-center"
+          >
+            {/* ドット絵アイコンの表示 */}
+            <div className="mb-4 p-2 bg-gray-900 rounded-full border border-gray-600">
+                {/* job.id や job.assetKey をキーとして渡す */}
+                <PixelSprite spriteKey={job.id} size={64} />
+            </div>
 
-              <h3 className="text-2xl font-bold mb-2">{job.name}</h3>
-              
-              <div className="text-sm text-gray-400 text-center mb-4 min-h-[3rem]">
-                {job.description}
+            <h3 className="text-2xl font-bold mb-2">{job.name}</h3>
+            <p className="text-gray-400 text-sm mb-4 text-center h-10">{job.description}</p>
+            
+            <div className="w-full space-y-2 text-sm bg-gray-900 p-3 rounded">
+              <div className="flex justify-between">
+                <span className="text-red-400">STR (筋力):</span>
+                <span>{job.baseStats.str}</span>
               </div>
-
-              {/* ステータスバー（簡易表示） */}
-              <div className="w-full space-y-2 text-xs">
-                <div className="flex items-center">
-                  <span className="w-8 text-red-400">HP</span>
-                  <div className="flex-1 bg-gray-700 h-2 rounded-full overflow-hidden">
-                    <div className="bg-red-500 h-full" style={{ width: `${(job.baseStats.maxHp / 150) * 100}%` }}></div>
-                  </div>
-                  <span className="ml-2 w-6 text-right">{job.baseStats.maxHp}</span>
-                </div>
-                <div className="flex items-center">
-                  <span className="w-8 text-yellow-400">ATK</span>
-                  <div className="flex-1 bg-gray-700 h-2 rounded-full overflow-hidden">
-                    <div className="bg-yellow-500 h-full" style={{ width: `${(job.baseStats.attack / 20) * 100}%` }}></div>
-                  </div>
-                  <span className="ml-2 w-6 text-right">{job.baseStats.attack}</span>
-                </div>
-                <div className="flex items-center">
-                  <span className="w-8 text-blue-400">DEF</span>
-                  <div className="flex-1 bg-gray-700 h-2 rounded-full overflow-hidden">
-                    <div className="bg-blue-500 h-full" style={{ width: `${(job.baseStats.defense / 10) * 100}%` }}></div>
-                  </div>
-                  <span className="ml-2 w-6 text-right">{job.baseStats.defense}</span>
-                </div>
+              <div className="flex justify-between">
+                <span className="text-green-400">VIT (体力):</span>
+                <span>{job.baseStats.vit}</span>
               </div>
-
-              {/* 習得スキル（バッジ表示） */}
-              <div className="mt-4 flex flex-wrap justify-center gap-2">
-                {job.learnableSkills.slice(0, 2).map(skillId => (
-                  <span key={skillId} className="px-2 py-1 bg-gray-700 rounded text-xs text-gray-300">
-                    {/* 本来は SKILLS[skillId].name を参照すべきですが、ここではIDを表示 */}
-                    {skillId}
-                  </span>
-                ))}
+              <div className="flex justify-between">
+                <span className="text-yellow-400">DEX (器用):</span>
+                <span>{job.baseStats.dex}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-blue-400">INT (知力):</span>
+                <span>{job.baseStats.int}</span>
               </div>
             </div>
-          );
-        })}
-      </div>
-      
-      <div className="mt-12 text-gray-500 text-sm">
-        ※ 職業によって成長率と習得スキルが異なります
+
+            <button className="mt-6 w-full py-2 bg-yellow-600 hover:bg-yellow-500 rounded text-white font-bold">
+              決定
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );
 };
-
-export default JobSelectScreen;
