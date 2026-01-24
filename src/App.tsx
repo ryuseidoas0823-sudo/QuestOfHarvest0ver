@@ -7,7 +7,7 @@ import { GameHUD } from './components/GameHUD';
 import { InventoryMenu } from './components/InventoryMenu';
 import { GODS, GodId } from './data/gods';
 import { JOBS, JobId } from './data/jobs';
-import { GameState, Position, Direction } from './types';
+import { GameScreen, Position, Direction, Stats, Entity, Item, GameState as GameDataType } from './types'; // 型インポート修正
 import { useGameLoop } from './gameLogic';
 import { renderer } from './renderer';
 import { generateDungeon } from './dungeonGenerator';
@@ -16,10 +16,12 @@ import { ENEMIES } from './data/enemies';
 // ... existing code ...
 
 function App() {
-  const [gameState, setGameState] = useState<GameState>('title');
-  // ... existing code ...
-
-  // 職選択完了時の処理を修正
+  // GameScreen型を使用するように変更
+  const [gameState, setGameState] = useState<GameScreen>('title');
+  const [selectedGod, setSelectedGod] = useState<GodId>('warrior_god');
+  const [selectedJob, setSelectedJob] = useState<JobId>('warrior');
+  
+    // プレイヤーの初期化
   const handleJobSelect = (jobId: JobId) => {
     setSelectedJob(jobId);
     
@@ -31,16 +33,17 @@ function App() {
         maxHp: job.baseStats.hp,
         exp: 0,
         level: 1,
-        skillPoints: 0
+        skillPoints: 0,
+        nextLevelExp: 100, // 追加
+        speed: job.baseStats.speed || 4, // デフォルト値
       });
-      // ジョブごとの初期装備などはここで設定可
     }
     
-    // 街へ移動 (以前は playing だった)
+    // 職選択後は「街」へ移動する
     setGameState('town');
   };
 
-  // 街からダンジョンへ出発する処理を追加
+  // 街からダンジョンへ出発する処理
   const handleGoToDungeon = () => {
     startGame();
   };
@@ -83,7 +86,7 @@ function App() {
         />
       )}
 
-      {/* 街画面のレンダリングを追加 */}
+      {/* 街画面の追加 */}
       {gameState === 'town' && (
         <TownScreen 
           onGoToDungeon={handleGoToDungeon}
@@ -112,6 +115,7 @@ function App() {
         </>
       )}
 
+      {/* ... existing code ... */}
       {gameState === 'gameOver' && (
         <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white z-50">
           <h1 className="text-6xl font-bold text-red-600 mb-8">YOU DIED</h1>
@@ -125,7 +129,18 @@ function App() {
         </div>
       )}
 
-      {/* ... existing gameClear rendering ... */}
+      {gameState === 'gameClear' && (
+         <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center text-black z-50">
+          <h1 className="text-6xl font-bold text-yellow-600 mb-8">GAME CLEARED!</h1>
+          <p className="text-xl mb-8">ダンジョン制覇おめでとう！</p>
+          <button 
+            onClick={() => setGameState('title')}
+            className="px-8 py-3 bg-black text-white font-bold text-xl rounded hover:bg-gray-800"
+          >
+            タイトルへ戻る
+          </button>
+        </div>
+      )}
     </div>
   );
 }
