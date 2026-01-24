@@ -14,7 +14,6 @@ export interface Quest {
   reward: QuestReward;
   isKeyQuest?: boolean; // メインシナリオの分岐に関わる重要クエストか
   requiredLevel?: number;
-  // 分岐ルートのタグ（例: 'law', 'chaos' など）は将来的に拡張
 }
 
 export type QuestStatus = 'available' | 'accepted' | 'completed' | 'failed';
