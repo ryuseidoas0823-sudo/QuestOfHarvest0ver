@@ -1,42 +1,37 @@
-import { Stats } from '../types';
+// ... existing code ...
 
-/**
- * 敵の行動タイプ
- */
-export type EnemyBehavior = 
-  | 'aggressive' // プレイヤーを発見すると追いかける
-  | 'passive'    // 攻撃されるまで動かない、または逃げる
-  | 'patrol'     // 決まったルートを巡回する
-  | 'boss';      // ボス用AI
+export type EnemyType = 'melee' | 'ranged' | 'magic' | 'boss';
 
-/**
- * 敵キャラクターの定義データ
- */
-export interface EnemyDefinition {
+// 追加: 勢力の定義
+export type Faction = 'monster' | 'player_ally' | 'neutral';
+
+export interface Enemy {
   id: string;
   name: string;
+  type: EnemyType;
+  maxHp: number;
+  attack: number;
+  defense: number;
+  exp: number;
+  dropItems: { itemId: string; rate: number }[]; // itemId, drop rate (0-1)
   
-  // 基本ステータス
-  baseStats: Pick<Stats, 'maxHp' | 'attack' | 'defense'>;
+  // 追加: 勢力（指定がない場合は 'monster'）
+  faction?: Faction;
   
-  // 経験値
-  expReward: number;
+  // 追加: 見た目のアセットID（enemy_orc, npc_injured_adventurer など）
+  assetId?: string;
   
-  // ドロップアイテム（アイテムIDと確率）
-  dropTable: {
-    itemId: string;
-    chance: number; // 0.0 ~ 1.0
-  }[];
+  // 追加: AIの挙動タイプ
+  aiType?: 'aggressive' | 'defensive' | 'stationary'; // stationary = 動かない（救助対象など）
+}
 
-  // 行動パターン
-  behavior: EnemyBehavior;
+// 動的な敵インスタンス（ゲーム中で使用）
+export interface EnemyInstance extends Enemy {
+  uniqueId: string;
+  hp: number;
+  x: number;
+  y: number;
   
-  // 感知範囲（グリッド数）
-  aggroRange: number;
-  
-  // 攻撃範囲
-  attackRange: number;
-  
-  // アセットキー
-  assetKey: string;
+  // 状態異常などが必要ならここに追加
+  lastAttackTime?: number;
 }
