@@ -1,49 +1,64 @@
-import { JobDefinition } from '../types/job';
+import { Skill } from '../types/skill';
 
-export const JOBS: Record<string, JobDefinition> = {
-  swordsman: {
-    id: 'swordsman',
-    name: '剣士',
-    description: '攻守のバランスに優れた前衛職。初心者におすすめ。',
-    baseStats: { maxHp: 100, attack: 10, defense: 5 },
-    growthRates: { maxHp: 10, attack: 2, defense: 1 },
-    learnableSkills: ['heavy_slash', 'guard_stance'],
-    assetKey: 'hero_swordsman',
-    allowedWeapons: ['sword']
+export const skills: Skill[] = [
+  {
+    id: 'heavy_slash',
+    name: '強撃',
+    description: '渾身の力で武器を振り下ろす強烈な一撃。',
+    type: 'attack',
+    target: 'single',
+    power: 2.5,
+    cost: 0,
+    cooldown: 5,
+    range: 1.5,
+    assetKey: 'skill_sword'
   },
-  warrior: {
-    id: 'warrior',
-    name: '重戦士',
-    description: '高い防御力とHPを誇るタンク役。動きは遅いが頑丈。',
-    baseStats: { maxHp: 150, attack: 12, defense: 8 },
-    growthRates: { maxHp: 15, attack: 2, defense: 2 },
-    learnableSkills: ['shield_bash', 'warcry'],
-    assetKey: 'hero_warrior',
-    allowedWeapons: ['axe', 'mace']
+  {
+    id: 'round_slash',
+    name: '回転斬り',
+    description: '周囲の敵をまとめて薙ぎ払う範囲攻撃。',
+    type: 'attack',
+    target: 'area',
+    power: 1.2,
+    cost: 0,
+    cooldown: 8,
+    range: 1.5,
+    assetKey: 'skill_round'
   },
-  mage: {
-    id: 'mage',
-    name: '魔導士',
-    description: '強力な範囲魔法を操るが、打たれ弱い。',
-    baseStats: { maxHp: 60, attack: 15, defense: 2 },
-    growthRates: { maxHp: 5, attack: 4, defense: 0.5 },
-    learnableSkills: ['fireball', 'ice_wall'],
-    assetKey: 'hero_mage',
-    allowedWeapons: ['staff']
+  {
+    id: 'fireball',
+    name: 'ファイアボルト',
+    description: '遠くの敵を焼き払う火球を放つ。',
+    type: 'attack',
+    target: 'single',
+    power: 1.8,
+    cost: 5,
+    cooldown: 4,
+    range: 4,
+    assetKey: 'skill_fire'
   },
-  archer: {
-    id: 'archer',
-    name: '狩人',
-    description: '遠距離からの攻撃が得意。接近戦は苦手。',
-    baseStats: { maxHp: 80, attack: 12, defense: 3 },
-    growthRates: { maxHp: 8, attack: 3, defense: 1 },
-    learnableSkills: ['double_shot', 'snare_trap'],
-    assetKey: 'hero_archer',
-    allowedWeapons: ['bow']
+  {
+    id: 'heal',
+    name: 'ヒール',
+    description: '傷を癒やす魔法。HPを回復する。',
+    type: 'heal',
+    target: 'self',
+    power: 50,
+    cost: 10,
+    cooldown: 15,
+    range: 0,
+    assetKey: 'skill_heal'
   },
-  // 以下、拡張用
-  /*
-  rogue: { ... },
-  cleric: { ... }
-  */
-};
+  {
+    id: 'snipe',
+    name: '狙い撃ち',
+    description: '急所を狙った正確な射撃。',
+    type: 'attack',
+    target: 'single',
+    power: 2.2,
+    cost: 0,
+    cooldown: 4,
+    range: 5,
+    assetKey: 'skill_bow'
+  }
+];
