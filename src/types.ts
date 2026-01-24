@@ -64,10 +64,20 @@ export interface MapData {
   isDark?: boolean;
 }
 
-// 装備スロット
 export interface Equipment {
-  mainHand: string | null; // 武器ID
-  armor: string | null;    // 防具ID
+  mainHand: string | null;
+  armor: string | null;
+}
+
+// 新規追加: ダメージなどのポップアップ表示用
+export interface FloatingText {
+  id: string;
+  x: number;
+  y: number;
+  text: string;
+  color: string;
+  lifeTime: number; // 表示時間 (ms)
+  velocityY: number; // 上昇速度
 }
 
 export interface GameState {
@@ -75,8 +85,9 @@ export interface GameState {
   enemies: Entity[];
   items: Item[];
   projectiles: Projectile[];
+  floatingTexts: FloatingText[]; // 追加
   inventory: string[];
-  equipment: Equipment; // 追加
+  equipment: Equipment;
   map: MapData;
   gameTime: number;
   floor: number;
