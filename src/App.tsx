@@ -18,40 +18,29 @@ import { dialogues } from './data/dialogues';
 import { saveGame, loadGame, hasSaveData, clearSaveData } from './utils/storage';
 import { audioManager } from './utils/audioManager';
 import { calculateLevel, calculateExpForLevel } from './utils';
-import { visualManager } from './utils/visualManager'; // 追加
+import { visualManager } from './utils/visualManager';
+import { MAX_INVENTORY_SIZE } from './config'; // 定数インポート
 
-// 画面遷移の状態
 type ScreenState = 'title' | 'jobSelect' | 'godSelect' | 'town' | 'dungeon' | 'result' | 'inventory';
 
 export default function App() {
   const [screen, setScreen] = useState<ScreenState>('title');
   const [canContinue, setCanContinue] = useState(false);
-  
-  // プレイヤーデータ
   const [playerJob, setPlayerJob] = useState<Job>(jobs[0]);
   const [playerExp, setPlayerExp] = useState(0);
   const [gold, setGold] = useState(0);
-  
   const [baseStats, setBaseStats] = useState({
-    level: 1,
-    maxHp: 100,
-    hp: 100,
-    attack: 10,
-    defense: 5,
+    level: 1, maxHp: 100, hp: 100, attack: 10, defense: 5,
     str: 10, vit: 10, dex: 10, agi: 10, int: 10, luc: 10
   });
-
   const [chapter, setChapter] = useState(1);
   const [activeQuests, setActiveQuests] = useState<Quest[]>([]);
   const [completedQuestIds, setCompletedQuestIds] = useState<string[]>([]);
   const [inventory, setInventory] = useState<string[]>([]);
   const [equippedItems, setEquippedItems] = useState<{ [key: string]: string | null }>({
-    weapon: null,
-    armor: null,
-    accessory: null
+    weapon: null, armor: null, accessory: null
   });
   const [unlockedCompanions, setUnlockedCompanions] = useState<string[]>([]);
-
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const finalStats = useMemo(() => {
@@ -70,14 +59,10 @@ export default function App() {
     return stats;
   }, [baseStats, equippedItems]);
 
-  useEffect(() => {
-    setCanContinue(hasSaveData());
-  }, []);
+  useEffect(() => { setCanContinue(hasSaveData()); }, []);
 
   const performAutoSave = () => {
-    const inventoryIds = inventory;
     const activeQuestIds = activeQuests.map(q => q.id);
-
     saveGame({
       playerJobId: playerJob.id,
       playerStats: { ...baseStats, exp: playerExp },
@@ -103,26 +88,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-      if (screen === 'dungeon') {
-          audioManager.playBgmDungeon();
-      } else {
-          audioManager.stopBgm();
-      }
+      if (screen === 'dungeon') audioManager.playBgmDungeon();
+      else audioManager.stopBgm();
   }, [screen]);
 
-  // GameLogic Hook
   const { 
-    dungeon, 
-    playerPos, 
-    enemies, 
-    floor, 
-    gameOver, 
-    messageLog, 
-    movePlayer,
-    useSkill,
-    skillCooldowns,
-    playerHp,
-    playerMaxHp
+    dungeon, playerPos, enemies, floor, gameOver, messageLog, movePlayer, useSkill, skillCooldowns, playerHp, playerMaxHp
   } = useGameLogic(
     playerJob,
     chapter,
@@ -131,35 +102,25 @@ export default function App() {
     () => handleGameOver()
   );
 
-  // --- Animation Loop ---
   useEffect(() => {
     if (screen !== 'dungeon' || !dungeon || !canvasRef.current) return;
-
     let animationFrameId: number;
-
     const renderLoop = () => {
       visualManager.update();
       renderDungeon(canvasRef.current!, dungeon, playerPos, enemies);
       animationFrameId = requestAnimationFrame(renderLoop);
     };
-
     renderLoop();
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [screen, dungeon, playerPos, enemies]);
 
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, [screen, dungeon, playerPos, enemies]); // 依存関係が変わるとループ再起動
-
-  // Keyboard Input
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'i' && (screen === 'town' || screen === 'dungeon')) {
-        setScreen('inventory');
-        return;
+        setScreen('inventory'); return;
       }
       if (e.key === 'Escape' && screen === 'inventory') {
-        setScreen(dungeon ? 'dungeon' : 'town');
-        return;
+        setScreen(dungeon ? 'dungeon' : 'town'); return;
       }
       if (screen !== 'dungeon') return;
       
@@ -178,16 +139,13 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [screen, movePlayer, useSkill, playerJob, dungeon]);
 
-  // Handlers
   const handleUseItem = (itemId: string) => {
     const item = itemData.find(i => i.id === itemId);
     if (!item || !item.effect) return;
-
     if (item.effect.type === 'heal_hp') {
         setBaseStats(prev => ({ ...prev, hp: Math.min(prev.maxHp, prev.hp + item.effect!.value) }));
         audioManager.playSeSelect();
         alert(`${item.name}を使用しました。`);
-        
         const idx = inventory.indexOf(itemId);
         if (idx > -1) {
             const newInv = [...inventory];
@@ -210,131 +168,56 @@ export default function App() {
     audioManager.playSeSelect();
   };
 
-  const handleStartGame = () => {
-    audioManager.playSeSelect();
-    clearSaveData();
-    setScreen('jobSelect');
-  };
-
+  // ... (handleStartGame等 省略なし)
+  const handleStartGame = () => { audioManager.playSeSelect(); clearSaveData(); setScreen('jobSelect'); };
   const handleContinueGame = () => {
     audioManager.playSeSelect();
     const data = loadGame();
     if (data) {
       const job = jobs.find(j => j.id === data.playerJobId) || jobs[0];
-      setPlayerJob(job);
-      setBaseStats(data.playerStats);
-      setPlayerExp(data.playerStats.exp);
-      setGold(data.gold);
-      setChapter(data.chapter);
-      setCompletedQuestIds(data.completedQuestIds);
-      setInventory(data.inventory);
+      setPlayerJob(job); setBaseStats(data.playerStats); setPlayerExp(data.playerStats.exp); setGold(data.gold);
+      setChapter(data.chapter); setCompletedQuestIds(data.completedQuestIds); setInventory(data.inventory);
       setUnlockedCompanions(data.unlockedCompanions);
-      const restoredQuests = allQuests.filter(q => data.activeQuestIds.includes(q.id));
-      setActiveQuests(restoredQuests);
+      setActiveQuests(allQuests.filter(q => data.activeQuestIds.includes(q.id)));
       setScreen('town');
     }
   };
-
   const handleSelectJob = (job: Job) => {
-    audioManager.playSeSelect();
-    setPlayerJob(job);
-    setBaseStats({
-      ...baseStats,
-      maxHp: job.baseStats.vit * 10,
-      hp: job.baseStats.vit * 10,
-      attack: job.baseStats.str * 2,
-      str: job.baseStats.str,
-      vit: job.baseStats.vit,
-      dex: job.baseStats.dex,
-      agi: job.baseStats.agi,
-      int: job.baseStats.int,
-      luc: job.baseStats.luc,
-    });
+    audioManager.playSeSelect(); setPlayerJob(job);
+    setBaseStats({ ...baseStats, maxHp: job.baseStats.vit * 10, hp: job.baseStats.vit * 10, attack: job.baseStats.str * 2, str: job.baseStats.str, vit: job.baseStats.vit, dex: job.baseStats.dex, agi: job.baseStats.agi, int: job.baseStats.int, luc: job.baseStats.luc });
     setScreen('godSelect');
   };
-
-  const handleSelectGod = (godId: string) => {
-    audioManager.playSeSelect();
-    setScreen('town');
-    setTimeout(performAutoSave, 100); 
-  };
-
-  const handleGoToDungeon = () => {
-    audioManager.playSeSelect();
-    setScreen('dungeon');
-  };
-
-  const handleGameOver = () => {
-    setScreen('result');
-  };
-  
-  const handleReturnToTown = () => {
-    audioManager.playSeSelect();
-    setBaseStats(prev => ({ ...prev, hp: prev.maxHp }));
-    setScreen('town');
-    setTimeout(performAutoSave, 100);
-  };
-
-  const handleAcceptQuest = (quest: Quest) => {
-    audioManager.playSeSelect();
-    if (!activeQuests.find(q => q.id === quest.id)) {
-      setActiveQuests([...activeQuests, quest]);
-    }
-  };
-
-  const handleQuestUpdate = (questId: string, progress: number) => {
-     console.log(`Quest Updated: ${questId}, Progress: ${progress}`);
-  };
-
+  const handleSelectGod = (godId: string) => { audioManager.playSeSelect(); setScreen('town'); setTimeout(performAutoSave, 100); };
+  const handleGoToDungeon = () => { audioManager.playSeSelect(); setScreen('dungeon'); };
+  const handleGameOver = () => { setScreen('result'); };
+  const handleReturnToTown = () => { audioManager.playSeSelect(); setBaseStats(prev => ({ ...prev, hp: prev.maxHp })); setScreen('town'); setTimeout(performAutoSave, 100); };
+  const handleAcceptQuest = (quest: Quest) => { audioManager.playSeSelect(); if (!activeQuests.find(q => q.id === quest.id)) setActiveQuests([...activeQuests, quest]); };
+  const handleQuestUpdate = (questId: string, progress: number) => { console.log(`Quest Updated: ${questId}, Progress: ${progress}`); };
   const handleReportQuest = (quest: Quest) => {
-    audioManager.playSeLevelUp();
-    setGold(gold + quest.rewardGold);
-    const newExp = playerExp + quest.rewardExp;
-    setPlayerExp(newExp);
-    
-    setActiveQuests(activeQuests.filter(q => q.id !== quest.id));
-    setCompletedQuestIds([...completedQuestIds, quest.id]);
-    
-    const newLevel = calculateLevel(newExp);
-    if (newLevel > baseStats.level) {
-        setBaseStats({ ...baseStats, level: newLevel });
-    }
-
-    if (quest.id === 'mq_1_5') {
-        setChapter(2);
-        setUnlockedCompanions(prev => [...prev, 'elias']);
-        alert("Chapter 2へ進みました！");
-    }
-    
+    audioManager.playSeLevelUp(); setGold(gold + quest.rewardGold); setPlayerExp(playerExp + quest.rewardExp);
+    setActiveQuests(activeQuests.filter(q => q.id !== quest.id)); setCompletedQuestIds([...completedQuestIds, quest.id]);
+    const newLevel = calculateLevel(playerExp + quest.rewardExp);
+    if (newLevel > baseStats.level) setBaseStats({ ...baseStats, level: newLevel });
+    if (quest.id === 'mq_1_5') { setChapter(2); setUnlockedCompanions(prev => [...prev, 'elias']); alert("Chapter 2へ進みました！"); }
     setTimeout(performAutoSave, 500);
   };
-
   const handleBuyItem = (item: ShopItem) => {
     if (gold >= item.price) {
-      audioManager.playSeSelect();
-      setGold(gold - item.price);
-      setInventory([...inventory, item.id]);
-      setTimeout(performAutoSave, 100);
-    } else {
-      audioManager.playSeCancel();
-    }
+      if (inventory.length >= MAX_INVENTORY_SIZE) { // インベントリ制限チェック
+          alert("持ち物がいっぱいです！");
+          audioManager.playSeCancel();
+          return;
+      }
+      audioManager.playSeSelect(); setGold(gold - item.price); setInventory([...inventory, item.id]); setTimeout(performAutoSave, 100);
+    } else { audioManager.playSeCancel(); }
   };
-
   const handleUpgradeStatus = (stat: 'str' | 'vit' | 'dex' | 'agi' | 'int' | 'luc') => {
       if (playerExp >= 100) {
-          audioManager.playSeSelect();
-          const newExp = playerExp - 100;
-          setPlayerExp(newExp);
-          const newLevel = calculateLevel(newExp);
-          setBaseStats({ ...baseStats, level: newLevel, [stat]: baseStats[stat] + 1 });
-          setTimeout(performAutoSave, 100);
-      } else {
-          audioManager.playSeCancel();
-      }
+          audioManager.playSeSelect(); const newExp = playerExp - 100; setPlayerExp(newExp); const newLevel = calculateLevel(newExp);
+          setBaseStats({ ...baseStats, level: newLevel, [stat]: baseStats[stat] + 1 }); setTimeout(performAutoSave, 100);
+      } else { audioManager.playSeCancel(); }
   };
 
-  // Canvas描画ロジックは Animation Loop に統合されたため、
-  // 単発の useEffect は削除してもよいが、画面遷移直後の初回描画のために残しておくのが安全
   useEffect(() => {
     if (screen === 'dungeon' && canvasRef.current && dungeon) {
       renderDungeon(canvasRef.current, dungeon, playerPos, enemies);
@@ -343,122 +226,13 @@ export default function App() {
 
   return (
     <div className="w-full h-screen bg-black text-white font-sans">
-      {screen === 'title' && (
-          <div className="flex flex-col items-center justify-center h-full space-y-4 bg-gray-900">
-              <TitleScreen onStart={handleStartGame} />
-              {canContinue && (
-                  <button 
-                    onClick={handleContinueGame}
-                    className="px-8 py-3 bg-blue-600 hover:bg-blue-500 rounded text-xl font-bold animate-pulse border-2 border-blue-400"
-                  >
-                      続きから始める
-                  </button>
-              )}
-          </div>
-      )}
-      
+      {screen === 'title' && <div className="flex flex-col items-center justify-center h-full space-y-4 bg-gray-900"><TitleScreen onStart={handleStartGame} />{canContinue && <button onClick={handleContinueGame} className="px-8 py-3 bg-blue-600 hover:bg-blue-500 rounded text-xl font-bold animate-pulse border-2 border-blue-400">続きから始める</button>}</div>}
       {screen === 'jobSelect' && <JobSelectScreen onSelectJob={handleSelectJob} />}
       {screen === 'godSelect' && <GodSelectScreen onSelectGod={handleSelectGod} />}
-      
-      {screen === 'town' && (
-        <>
-            <TownScreen
-                playerJob={playerJob}
-                gold={gold}
-                chapter={chapter}
-                activeQuests={activeQuests}
-                completedQuestIds={completedQuestIds}
-                items={inventory.map(id => ({ id, name: 'Item', price: 0 } as any))}
-                onGoToDungeon={handleGoToDungeon}
-                onAcceptQuest={handleAcceptQuest}
-                onReportQuest={handleReportQuest}
-                onBuyItem={handleBuyItem}
-                onUpgradeStatus={handleUpgradeStatus}
-                playerStats={finalStats}
-                playerExp={playerExp}
-            />
-            <div className="absolute top-2 right-2 z-50 flex space-x-2">
-                <button 
-                    onClick={() => setScreen('inventory')}
-                    className="px-3 py-1 bg-blue-700 text-xs rounded border border-blue-500 hover:bg-blue-600"
-                >
-                    🎒 アイテム
-                </button>
-                <button 
-                    onClick={performAutoSave}
-                    className="px-3 py-1 bg-gray-700 text-xs rounded border border-gray-500 hover:bg-gray-600"
-                >
-                    💾 セーブ
-                </button>
-            </div>
-        </>
-      )}
-
-      {screen === 'inventory' && (
-          <div className="absolute inset-0 bg-black bg-opacity-95 z-50 p-4">
-              <InventoryMenu 
-                  inventory={inventory}
-                  equippedItems={equippedItems}
-                  onUseItem={handleUseItem}
-                  onEquipItem={handleEquipItem}
-                  onClose={() => setScreen(dungeon ? 'dungeon' : 'town')}
-              />
-          </div>
-      )}
-      
-      {screen === 'dungeon' && (
-        <div className="relative w-full h-full flex flex-col items-center justify-center">
-            <div className="absolute top-0 left-0 w-full z-10">
-                <GameHUD 
-                    playerJob={playerJob}
-                    level={finalStats.level}
-                    hp={playerHp}
-                    maxHp={finalStats.maxHp}
-                    exp={playerExp}
-                    // 次のレベルに必要な累積経験値を渡す
-                    nextExp={calculateExpForLevel(finalStats.level + 1)}
-                    floor={floor}
-                    gold={gold}
-                    skillCooldowns={skillCooldowns}
-                />
-            </div>
-
-            <canvas 
-                ref={canvasRef} 
-                width={800} 
-                height={600} 
-                className="border-4 border-gray-700 bg-gray-900 shadow-2xl"
-            />
-            
-            <div className="absolute bottom-4 left-4 bg-black bg-opacity-70 p-4 rounded max-w-md pointer-events-none">
-                {messageLog.map((log, i) => (
-                    <div key={i} className="text-sm text-gray-200">{log}</div>
-                ))}
-            </div>
-            
-            <div className="absolute top-16 right-2 z-50">
-                <button 
-                    onClick={() => setScreen('inventory')}
-                    className="px-3 py-1 bg-blue-700 text-xs rounded border border-blue-500 hover:bg-blue-600 opacity-80"
-                >
-                    🎒 アイテム
-                </button>
-            </div>
-
-            {gameOver && (
-                <div className="absolute inset-0 bg-red-900 bg-opacity-80 flex items-center justify-center flex-col z-20">
-                    <h2 className="text-4xl font-bold mb-4">YOU DIED</h2>
-                    <button onClick={handleGameOver} className="px-6 py-3 bg-white text-black font-bold rounded hover:bg-gray-200">
-                        Continue
-                    </button>
-                </div>
-            )}
-        </div>
-      )}
-
-      {screen === 'result' && (
-          <ResultScreen onReturnToTown={handleReturnToTown} />
-      )}
+      {screen === 'town' && <><TownScreen playerJob={playerJob} gold={gold} chapter={chapter} activeQuests={activeQuests} completedQuestIds={completedQuestIds} items={inventory.map(id => ({ id, name: 'Item', price: 0 } as any))} onGoToDungeon={handleGoToDungeon} onAcceptQuest={handleAcceptQuest} onReportQuest={handleReportQuest} onBuyItem={handleBuyItem} onUpgradeStatus={handleUpgradeStatus} playerStats={finalStats} playerExp={playerExp} /><div className="absolute top-2 right-2 z-50 flex space-x-2"><button onClick={() => setScreen('inventory')} className="px-3 py-1 bg-blue-700 text-xs rounded border border-blue-500 hover:bg-blue-600">🎒 アイテム</button><button onClick={performAutoSave} className="px-3 py-1 bg-gray-700 text-xs rounded border border-gray-500 hover:bg-gray-600">💾 セーブ</button></div></>}
+      {screen === 'inventory' && <div className="absolute inset-0 bg-black bg-opacity-95 z-50 p-4"><InventoryMenu inventory={inventory} equippedItems={equippedItems} onUseItem={handleUseItem} onEquipItem={handleEquipItem} onClose={() => setScreen(dungeon ? 'dungeon' : 'town')} /></div>}
+      {screen === 'dungeon' && <div className="relative w-full h-full flex flex-col items-center justify-center"><div className="absolute top-0 left-0 w-full z-10"><GameHUD playerJob={playerJob} level={finalStats.level} hp={playerHp} maxHp={finalStats.maxHp} exp={playerExp} nextExp={calculateExpForLevel(finalStats.level + 1)} floor={floor} gold={gold} skillCooldowns={skillCooldowns} /></div><canvas ref={canvasRef} width={800} height={600} className="border-4 border-gray-700 bg-gray-900 shadow-2xl" /><div className="absolute bottom-4 left-4 bg-black bg-opacity-70 p-4 rounded max-w-md pointer-events-none">{messageLog.map((log, i) => <div key={i} className="text-sm text-gray-200">{log}</div>)}</div><div className="absolute top-16 right-2 z-50"><button onClick={() => setScreen('inventory')} className="px-3 py-1 bg-blue-700 text-xs rounded border border-blue-500 hover:bg-blue-600 opacity-80">🎒 アイテム</button></div>{gameOver && <div className="absolute inset-0 bg-red-900 bg-opacity-80 flex items-center justify-center flex-col z-20"><h2 className="text-4xl font-bold mb-4">YOU DIED</h2><button onClick={handleGameOver} className="px-6 py-3 bg-white text-black font-bold rounded hover:bg-gray-200">Continue</button></div>}</div>}
+      {screen === 'result' && <ResultScreen onReturnToTown={handleReturnToTown} />}
     </div>
   );
 }
