@@ -1,7 +1,9 @@
 import { Enemy } from '../types/enemy';
 
 export const enemies: Enemy[] = [
-  // ... existing enemies ...
+  // ==========================================
+  // Monsters
+  // ==========================================
   {
     id: 'goblin',
     name: 'ゴブリン',
@@ -39,6 +41,19 @@ export const enemies: Enemy[] = [
     aiType: 'aggressive'
   },
   {
+    id: 'rat',
+    name: '大ネズミ',
+    type: 'melee',
+    maxHp: 12,
+    attack: 4,
+    defense: 0,
+    exp: 5,
+    dropItems: [{ itemId: 'magic_stone_small', rate: 0.2 }],
+    faction: 'monster',
+    aiType: 'aggressive'
+  },
+  // --- Bosses ---
+  {
     id: 'orc_general',
     name: 'オーク・ジェネラル',
     type: 'boss',
@@ -50,19 +65,46 @@ export const enemies: Enemy[] = [
     faction: 'monster',
     aiType: 'aggressive'
   },
-  
-  // --- 第1章イベント用NPC ---
+  {
+    id: 'cerberus',
+    name: 'ケルベロス',
+    type: 'boss',
+    maxHp: 300,
+    attack: 25,
+    defense: 12,
+    exp: 500,
+    dropItems: [{ itemId: 'elixir', rate: 1.0 }],
+    faction: 'monster',
+    aiType: 'aggressive'
+  },
+
+  // ==========================================
+  // NPCs / Allies
+  // ==========================================
   {
     id: 'injured_adventurer',
     name: '負傷した冒険者',
-    type: 'melee', // 便宜上melee
-    maxHp: 50, // ボスの攻撃を数発耐えられる程度
+    type: 'melee',
+    maxHp: 50,
     attack: 0,
     defense: 0,
     exp: 0,
     dropItems: [],
-    faction: 'player_ally', // プレイヤーの味方扱い
-    aiType: 'stationary',   // 動かない
-    assetId: 'npc_injured'  // 専用アセットがあれば指定
+    faction: 'player_ally',
+    aiType: 'stationary',
+    assetId: 'npc_injured'
+  },
+  {
+    id: 'elias_ally',
+    name: 'エリアス',
+    type: 'melee',
+    maxHp: 120,
+    attack: 15,
+    defense: 5,
+    exp: 0,
+    dropItems: [],
+    faction: 'player_ally',
+    aiType: 'aggressive', // プレイヤーと共に戦う
+    assetId: 'npc_ally_warrior'
   }
 ];
