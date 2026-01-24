@@ -2,7 +2,7 @@ import { Enemy } from '../types/enemy';
 
 export const enemies: Enemy[] = [
   // ==========================================
-  // Monsters
+  // Monsters (Ch1 & Ch2)
   // ==========================================
   {
     id: 'goblin',
@@ -52,7 +52,49 @@ export const enemies: Enemy[] = [
     faction: 'monster',
     aiType: 'aggressive'
   },
-  // --- Bosses ---
+  // ==========================================
+  // Monsters (Ch3 & Ch4 - New!)
+  // ==========================================
+  {
+    id: 'skeleton_soldier',
+    name: 'スケルトン兵',
+    type: 'melee',
+    maxHp: 60,
+    attack: 15,
+    defense: 5,
+    exp: 50,
+    dropItems: [{ itemId: 'magic_stone_small', rate: 0.4 }],
+    faction: 'monster',
+    aiType: 'aggressive'
+  },
+  {
+    id: 'dark_mage',
+    name: '闇の魔導士',
+    type: 'magic', // 遠距離攻撃持ち（ロジック未実装ならmelee扱い）
+    maxHp: 40,
+    attack: 25,
+    defense: 2,
+    exp: 70,
+    dropItems: [{ itemId: 'potion_high', rate: 0.15 }],
+    faction: 'monster',
+    aiType: 'aggressive'
+  },
+  {
+    id: 'minotaur',
+    name: 'ミノタウロス',
+    type: 'melee',
+    maxHp: 120,
+    attack: 30,
+    defense: 10,
+    exp: 150,
+    dropItems: [{ itemId: 'potion_high', rate: 0.3 }],
+    faction: 'monster',
+    aiType: 'aggressive'
+  },
+
+  // ==========================================
+  // Bosses
+  // ==========================================
   {
     id: 'orc_general',
     name: 'オーク・ジェネラル',
@@ -73,6 +115,32 @@ export const enemies: Enemy[] = [
     attack: 25,
     defense: 12,
     exp: 500,
+    dropItems: [{ itemId: 'elixir', rate: 1.0 }],
+    faction: 'monster',
+    aiType: 'aggressive'
+  },
+  // --- 第3章ボス ---
+  {
+    id: 'chimera_golem',
+    name: 'キメラ・ゴーレム',
+    type: 'boss',
+    maxHp: 500,
+    attack: 35,
+    defense: 20,
+    exp: 1000,
+    dropItems: [{ itemId: 'hero_badge', rate: 1.0 }],
+    faction: 'monster',
+    aiType: 'aggressive'
+  },
+  // --- 第4章ボス ---
+  {
+    id: 'abyss_commander',
+    name: '深淵の指揮官',
+    type: 'boss',
+    maxHp: 800,
+    attack: 45,
+    defense: 25,
+    exp: 2000,
     dropItems: [{ itemId: 'elixir', rate: 1.0 }],
     faction: 'monster',
     aiType: 'aggressive'
@@ -104,7 +172,7 @@ export const enemies: Enemy[] = [
     exp: 0,
     dropItems: [],
     faction: 'player_ally',
-    aiType: 'aggressive', // プレイヤーと共に戦う
+    aiType: 'aggressive',
     assetId: 'npc_ally_warrior'
   }
 ];
