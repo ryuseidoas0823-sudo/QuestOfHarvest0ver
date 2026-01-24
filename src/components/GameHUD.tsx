@@ -1,94 +1,86 @@
 import React from 'react';
-import { Stats } from '../types';
-import { GodId, GODS } from '../data/gods';
-import { JobId, JOBS } from '../data/jobs';
+import { Job } from '../types/job';
+import { PixelSprite } from './PixelSprite';
 
 interface GameHUDProps {
-  playerStats: Stats;
-  currentFloor: number;
-  godId: GodId;
-  jobId: JobId;
-  gameLog: string[];
-  onOpenInventory: () => void;
-  onReturnTown: () => void; // 追加
+  playerJob: Job;
+  level: number;
+  hp: number;
+  maxHp: number;
+  exp: number;
+  nextExp: number;
+  floor: number;
+  gold: number;
 }
 
 export const GameHUD: React.FC<GameHUDProps> = ({ 
-  playerStats, 
-  currentFloor, 
-  godId, 
-  jobId, 
-  gameLog,
-  onOpenInventory,
-  onReturnTown
+  playerJob, 
+  level, 
+  hp, 
+  maxHp, 
+  exp, 
+  nextExp,
+  floor,
+  gold
 }) => {
-  const god = GODS[godId];
-  const job = JOBS[jobId];
-
-  // HPバーの計算
-  const hpPercentage = Math.max(0, Math.min(100, (playerStats.hp / playerStats.maxHp) * 100));
-  // EXPバーの計算
-  const expPercentage = Math.max(0, Math.min(100, (playerStats.exp / playerStats.nextLevelExp) * 100));
+  const hpPercentage = Math.max(0, Math.min(100, (hp / maxHp) * 100));
+  const expPercentage = Math.max(0, Math.min(100, (exp / nextExp) * 100));
 
   return (
-    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4">
-      {/* 上部ステータスバー */}
-      <div className="flex justify-between items-start pointer-events-auto">
-        <div className="bg-slate-900/80 p-3 rounded-lg border border-slate-700 text-white w-64 shadow-lg backdrop-blur-sm">
-          <div className="flex justify-between items-baseline mb-1">
-            <span className="font-bold text-yellow-500">{job?.name || '冒険者'} Lv.{playerStats.level}</span>
-            <span className="text-xs text-slate-400">{god?.name || '無所属'}</span>
+    <div className="bg-gray-900 border-b-2 border-gray-700 p-2 text-white shadow-lg">
+      <div className="max-w-4xl mx-auto flex items-center justify-between">
+        
+        {/* 左側: キャラクター情報 */}
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 bg-gray-800 rounded border border-gray-600 flex items-center justify-center overflow-hidden">
+             {/* PixelSpriteを使用 */}
+             <PixelSprite spriteKey={playerJob.id} size={40} />
           </div>
           
-          {/* HP Bar */}
-          <div className="w-full bg-slate-700 h-4 rounded-full overflow-hidden mb-1 border border-slate-600">
-            <div 
-              className="bg-gradient-to-r from-red-600 to-red-500 h-full transition-all duration-300 ease-out" 
-              style={{ width: `${hpPercentage}%` }}
-            />
-          </div>
-          <div className="text-xs text-right mb-1">{playerStats.hp} / {playerStats.maxHp}</div>
-
-          {/* EXP Bar */}
-          <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden border border-slate-600">
-            <div 
-              className="bg-blue-500 h-full transition-all duration-300" 
-              style={{ width: `${expPercentage}%` }}
-            />
+          <div>
+            <div className="flex items-baseline space-x-2">
+              <span className="font-bold text-yellow-500">{playerJob.name}</span>
+              <span className="text-sm text-gray-400">Lv.{level}</span>
+            </div>
+            
+            {/* HP Bar */}
+            <div className="w-32 h-3 bg-gray-700 rounded-full mt-1 relative overflow-hidden">
+              <div 
+                className="absolute top-0 left-0 h-full bg-red-500 transition-all duration-300"
+                style={{ width: `${hpPercentage}%` }}
+              ></div>
+              <span className="absolute w-full text-center text-[10px] leading-3 text-white drop-shadow-md">
+                {hp} / {maxHp}
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 items-end">
-          <div className="bg-black/50 text-white px-4 py-2 rounded font-mono text-xl border border-slate-600 backdrop-blur-sm">
-            B{currentFloor}F
-          </div>
-          
-          {/* メニューボタン群 */}
-          <div className="flex gap-2">
-            <button 
-              className="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1 rounded border border-slate-600 text-sm pointer-events-auto transition-colors"
-              onClick={onReturnTown}
-            >
-              帰還
-            </button>
-            <button 
-              className="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1 rounded border border-slate-600 text-sm pointer-events-auto transition-colors"
-              onClick={onOpenInventory}
-            >
-              アイテム
-            </button>
-          </div>
-        </div>
-      </div>
+        {/* 中央: フロア情報 */}
+        {floor > 0 && (
+            <div className="text-center">
+                <div className="text-xs text-gray-400">現在地</div>
+                <div className="text-xl font-bold text-blue-400">B{floor}F</div>
+            </div>
+        )}
 
-      {/* ログウィンドウ */}
-      <div className="w-full max-w-lg bg-black/60 p-2 rounded text-sm text-slate-200 h-32 overflow-hidden flex flex-col-reverse pointer-events-auto backdrop-blur-sm border border-slate-700/50">
-        {gameLog.map((log, index) => (
-          <div key={index} className="truncate drop-shadow-sm">
-            <span className="opacity-50 text-xs mr-2">[{index}]</span>
-            {log}
-          </div>
-        ))}
+        {/* 右側: 経験値 & ゴールド */}
+        <div className="flex flex-col items-end min-w-[100px]">
+           <div className="flex items-center text-yellow-400 font-mono mb-1">
+             <span className="text-lg mr-1">G</span>
+             <span>{gold.toLocaleString()}</span>
+           </div>
+           
+           {/* EXP Bar */}
+           <div className="w-24 h-2 bg-gray-700 rounded-full relative overflow-hidden" title={`Next Lv: ${nextExp - exp}`}>
+              <div 
+                className="absolute top-0 left-0 h-full bg-blue-500"
+                style={{ width: `${expPercentage}%` }}
+              ></div>
+           </div>
+           <span className="text-[10px] text-gray-500">EXP {Math.floor(expPercentage)}%</span>
+        </div>
+
       </div>
     </div>
   );
