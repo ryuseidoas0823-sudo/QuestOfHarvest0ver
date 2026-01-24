@@ -138,7 +138,7 @@ export const quests: Quest[] = [
     title: 'CH2-4: ライバルの嘲笑',
     description: '他のファミリアの団員たちと小競り合いになった。実力を示し、彼らを黙らせるためにオーク・リーダーを討伐せよ。',
     type: 'hunt',
-    targetId: 'orc', // 強化個体想定（IDは同じだがレベル補正で対応）
+    targetId: 'orc',
     targetAmount: 5,
     rewardGold: 800,
     rewardExp: 500,
@@ -187,7 +187,7 @@ export const quests: Quest[] = [
     title: 'CH3-2: 絶望の宴',
     description: '【危険】調査隊からの連絡が途絶えた。地下12階で「モンスターハウス」の発生が疑われる。準備を万全にして生存者を捜索せよ。',
     type: 'hunt',
-    targetId: 'orc', // 雑魚敵代表
+    targetId: 'orc',
     targetAmount: 10,
     rewardGold: 1500,
     rewardExp: 1200,
@@ -251,7 +251,7 @@ export const quests: Quest[] = [
     title: 'CH4-1: 緊急招集',
     description: 'ギルドから全ファミリアへ緊急招集がかかった。ダンジョンからの魔物の流出「スタンピード」の予兆があるという。',
     type: 'reach',
-    targetAmount: 1, // 会話イベント等で達成扱いにする想定
+    targetAmount: 1,
     rewardGold: 500,
     rewardExp: 500,
     requirements: { questCompleted: ['mq_3_5'] },
@@ -317,6 +317,84 @@ export const quests: Quest[] = [
     rewardItems: [{ itemId: 'elixir', amount: 3 }],
     requirements: { minLevel: 20, questCompleted: ['mq_4_4'] },
     recommendedLevel: 20
+  },
+
+  // ==========================================
+  // 第5章：神々の真実（最終決戦）
+  // ==========================================
+  {
+    id: 'mq_5_1',
+    category: 'main',
+    chapter: 5,
+    subChapter: 1,
+    title: 'CH5-1: 最深層へ',
+    description: '街の危機は去った。しかし、ダンジョンの最深部にはまだ何かが眠っている。地下25階を目指し、真実を確かめろ。',
+    type: 'reach',
+    targetAmount: 25,
+    rewardGold: 5000,
+    rewardExp: 4000,
+    requirements: { questCompleted: ['mq_4_5'], minLevel: 22 },
+    recommendedLevel: 22
+  },
+  {
+    id: 'mq_5_2',
+    category: 'main',
+    chapter: 5,
+    subChapter: 2,
+    title: 'CH5-2: 塔の守護者',
+    description: '「無限の塔」への入り口を守る強力なガーディアンが行く手を阻んでいる。彼らを突破し、先へ進め。',
+    type: 'hunt',
+    targetId: 'tower_sentinel',
+    targetAmount: 5,
+    rewardGold: 6000,
+    rewardExp: 5000,
+    requirements: { questCompleted: ['mq_5_1'] },
+    recommendedLevel: 23
+  },
+  {
+    id: 'mq_5_3',
+    category: 'main',
+    chapter: 5,
+    subChapter: 3,
+    title: 'CH5-3: 過去の遺恨',
+    description: 'ダンジョン内で「古竜の幼体」を発見。かつて神々に封印された厄災の一部が漏れ出しているようだ。',
+    type: 'hunt',
+    targetId: 'ancient_dragon_whelp',
+    targetAmount: 3,
+    rewardGold: 8000,
+    rewardExp: 6000,
+    requirements: { questCompleted: ['mq_5_2'] },
+    recommendedLevel: 24
+  },
+  {
+    id: 'mq_5_4',
+    category: 'main',
+    chapter: 5,
+    subChapter: 4,
+    title: 'CH5-4: 閉ざされた扉',
+    description: 'ついに最下層の扉の前まで到達した。扉を開くには、各階層のボスが持っていた魔力が必要だ。準備を整えよ。',
+    type: 'reach',
+    targetAmount: 30, // 便宜上30階
+    rewardGold: 10000,
+    rewardExp: 8000,
+    requirements: { questCompleted: ['mq_5_3'] },
+    recommendedLevel: 25
+  },
+  {
+    id: 'mq_5_5',
+    category: 'main',
+    chapter: 5,
+    subChapter: 5,
+    title: 'CH5-5: 神々の真実',
+    description: '【最終決戦】塔の扉の前に立つのは、かつてこの街を救おうとして堕ちた英雄の成れの果てだった。彼を解放し、新たな伝説を始めよう。',
+    type: 'hunt',
+    targetId: 'fallen_hero',
+    targetAmount: 1,
+    rewardGold: 50000,
+    rewardExp: 20000,
+    rewardItems: [{ itemId: 'hero_badge', amount: 1 }],
+    requirements: { minLevel: 25, questCompleted: ['mq_5_4'] },
+    recommendedLevel: 25
   },
 
   // ==========================================
