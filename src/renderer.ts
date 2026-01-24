@@ -1,112 +1,107 @@
-import { GameState } from './types';
+import { DungeonMap, TileType } from './types';
+import { EnemyInstance } from './types/enemy';
+
+export const TILE_SIZE = 40; // タイルサイズ
 
 /**
- * ゲーム画面の描画クラス
- * Canvas APIを使用してワールド、エンティティ、エフェクトを描画します。
+ * ダンジョンを描画する
  */
-export class GameRenderer {
-  private ctx: CanvasRenderingContext2D;
-  private canvas: HTMLCanvasElement;
-  private tileSize: number = 48;
+export const renderDungeon = (
+  canvas: HTMLCanvasElement,
+  dungeon: DungeonMap,
+  playerPos: { x: number; y: number },
+  enemies: EnemyInstance[],
+  showGrid: boolean = true
+) => {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
 
-  constructor(canvas: HTMLCanvasElement) {
-    this.canvas = canvas;
-    this.ctx = canvas.getContext('2d')!;
-  }
+  const width = canvas.width;
+  const height = canvas.height;
 
-  public render(state: GameState) {
-    const { ctx, canvas, tileSize } = this;
-    const { player, worldMap, enemies, camera } = state;
+  // 背景クリア
+  ctx.fillStyle = '#1a1a1a'; // 暗いグレー
+  ctx.fillRect(0, 0, width, height);
 
-    // 背景クリア
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // カメラ位置計算 (プレイヤー中心)
+  const cameraX = playerPos.x * TILE_SIZE - width / 2 + TILE_SIZE / 2;
+  const cameraY = playerPos.y * TILE_SIZE - height / 2 + TILE_SIZE / 2;
 
-    // カメラオフセットの計算 (カメラが未定義の場合はプレイヤー中心)
-    const camX = camera?.x ?? player.x;
-    const camY = camera?.y ?? player.y;
-    const offsetX = canvas.width / 2 - camX * tileSize;
-    const offsetY = canvas.height / 2 - camY * tileSize;
+  // マップ描画
+  const startX = Math.floor(cameraX / TILE_SIZE);
+  const startY = Math.floor(cameraY / TILE_SIZE);
+  const endX = startX + Math.ceil(width / TILE_SIZE) + 1;
+  const endY = startY + Math.ceil(height / TILE_SIZE) + 1;
 
-    // 1. ワールドマップ描画
-    if (worldMap) {
-      for (let y = 0; y < worldMap.length; y++) {
-        for (let x = 0; x < worldMap[y].length; x++) {
-          const tile = worldMap[y][x];
-          ctx.fillStyle = tile === 1 ? '#2563eb' : '#065f46';
-          ctx.fillRect(x * tileSize + offsetX, y * tileSize + offsetY, tileSize, tileSize);
-          
-          // グリッド線
-          ctx.strokeStyle = 'rgba(0,0,0,0.1)';
-          ctx.strokeRect(x * tileSize + offsetX, y * tileSize + offsetY, tileSize, tileSize);
+  for (let y = startY; y < endY; y++) {
+    for (let x = startX; x < endX; x++) {
+      if (y < 0 || y >= dungeon.height || x < 0 || x >= dungeon.width) continue;
+
+      const tile = dungeon.tiles[y][x];
+      const screenX = x * TILE_SIZE - cameraX;
+      const screenY = y * TILE_SIZE - cameraY;
+
+      if (tile === 'wall') {
+        ctx.fillStyle = '#333';
+        ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
+        ctx.strokeStyle = '#444';
+        if (showGrid) ctx.strokeRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
+      } else if (tile === 'floor' || tile === 'stairs') {
+        ctx.fillStyle = '#555';
+        ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
+        ctx.strokeStyle = '#666';
+        if (showGrid) ctx.strokeRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
+        
+        if (tile === 'stairs') {
+            ctx.fillStyle = '#fbbf24'; // 階段（黄色）
+            ctx.font = '20px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('⚡', screenX + TILE_SIZE / 2, screenY + TILE_SIZE / 2);
         }
       }
     }
-
-    // 2. ドロップアイテム描画
-    state.droppedItems?.forEach(item => {
-      ctx.fillStyle = '#fbbf24';
-      ctx.beginPath();
-      ctx.arc(item.x * tileSize + offsetX + tileSize / 2, item.y * tileSize + offsetY + tileSize / 2, 4, 0, Math.PI * 2);
-      ctx.fill();
-    });
-
-    // 3. 敵キャラクター描画
-    enemies.forEach(enemy => {
-      this.drawEntity(ctx, enemy, offsetX, offsetY);
-    });
-
-    // 4. プレイヤー描画
-    this.drawEntity(ctx, player, offsetX, offsetY);
-
-    // 5. パーティクル
-    state.particles?.forEach(p => {
-      ctx.fillStyle = p.color || '#fff';
-      ctx.globalAlpha = p.life || 1;
-      ctx.fillRect(p.x * tileSize + offsetX, p.y * tileSize + offsetY, 2, 2);
-    });
-    ctx.globalAlpha = 1.0;
-
-    // 6. フローティングテキスト
-    state.floatingTexts?.forEach(t => {
-      ctx.fillStyle = t.color || '#fff';
-      ctx.font = 'bold 16px sans-serif';
-      ctx.fillText(t.text, t.x * tileSize + offsetX, t.y * tileSize + offsetY);
-    });
   }
 
-  private drawEntity(ctx: CanvasRenderingContext2D, entity: any, offsetX: number, offsetY: number) {
-    const { tileSize } = this;
-    const x = entity.x * tileSize + offsetX;
-    const y = entity.y * tileSize + offsetY;
+  // 敵・NPC描画
+  enemies.forEach(enemy => {
+    const screenX = enemy.x * TILE_SIZE - cameraX;
+    const screenY = enemy.y * TILE_SIZE - cameraY;
 
-    // 反転処理 (direction が 'left' の場合)
-    ctx.save();
-    if (entity.direction === 'left') {
-      ctx.translate(x + tileSize, y);
-      ctx.scale(-1, 1);
-      ctx.translate(-x, -y);
+    // 画面外スキップ
+    if (screenX < -TILE_SIZE || screenX > width || screenY < -TILE_SIZE || screenY > height) return;
+
+    // Factionに応じた色分け
+    if (enemy.faction === 'player_ally') {
+        ctx.fillStyle = '#4ade80'; // 味方NPC: 明るい緑
+    } else if (enemy.type === 'boss') {
+        ctx.fillStyle = '#ef4444'; // ボス: 赤
+    } else {
+        ctx.fillStyle = '#f87171'; // 通常敵: 薄い赤
     }
 
-    // エンティティの本体 (プレースホルダーまたは色付き矩形)
-    ctx.fillStyle = entity.color || (entity.id === 'player-1' ? '#3b82f6' : '#ef4444');
-    const vWidth = entity.visualWidth || tileSize;
-    const vHeight = entity.visualHeight || tileSize;
-    ctx.fillRect(x + (tileSize - vWidth) / 2, y + (tileSize - vHeight), vWidth, vHeight);
+    // サイズ調整（ボスは大きく）
+    const size = enemy.type === 'boss' ? TILE_SIZE * 0.9 : TILE_SIZE * 0.7;
+    const offset = (TILE_SIZE - size) / 2;
 
-    ctx.restore();
+    ctx.fillRect(screenX + offset, screenY + offset, size, size);
 
-    // HPバー
-    if (entity.hp < entity.maxHp) {
-      const barW = tileSize * 0.8;
-      const barH = 4;
-      const barX = x + (tileSize - barW) / 2;
-      const barY = y - 10;
-      
-      ctx.fillStyle = '#1e293b';
-      ctx.fillRect(barX, barY, barW, barH);
-      ctx.fillStyle = '#ef4444';
-      ctx.fillRect(barX, barY, barW * (entity.hp / entity.maxHp), barH);
-    }
-  }
-}
+    // HPバー (簡易)
+    const hpPercent = enemy.hp / enemy.maxHp;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(screenX, screenY - 5, TILE_SIZE, 4);
+    ctx.fillStyle = enemy.faction === 'player_ally' ? '#22c55e' : '#dc2626';
+    ctx.fillRect(screenX, screenY - 5, TILE_SIZE * hpPercent, 4);
+  });
+
+  // プレイヤー描画
+  const playerScreenX = playerPos.x * TILE_SIZE - cameraX;
+  const playerScreenY = playerPos.y * TILE_SIZE - cameraY;
+  
+  ctx.fillStyle = '#3b82f6'; // プレイヤー: 青
+  ctx.beginPath();
+  ctx.arc(playerScreenX + TILE_SIZE / 2, playerScreenY + TILE_SIZE / 2, TILE_SIZE * 0.35, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // プレイヤーの向きや装飾があればここで追加
+};
