@@ -1,18 +1,8 @@
 import { Dialogue } from '../types/dialogue';
 
-/**
- * NPC会話データ
- * クエストの進行状況に合わせて、街の人々のセリフを定義します。
- * priority: 
- * 0: デフォルト
- * 10: 章の進行
- * 20: 特定クエスト受注可能
- * 30: 特定クエスト受注中
- * 40: 特定クエスト完了（報告前）
- */
 export const dialogues: Dialogue[] = [
   // ==========================================
-  // 女神 (Goddess) - ファミリアホーム
+  // 女神 (Goddess)
   // ==========================================
   {
     id: 'god_default',
@@ -20,7 +10,6 @@ export const dialogues: Dialogue[] = [
     text: 'おかえりなさい。怪我はない？ 無理だけはしないでね。',
     priority: 0
   },
-  // 第1章 オープニング
   {
     id: 'god_ch1_start',
     speakerId: 'goddess',
@@ -28,7 +17,6 @@ export const dialogues: Dialogue[] = [
     priority: 10,
     requirements: { chapter: 1, questId: 'mq_1_1', questStatus: 'can_accept' }
   },
-  // ボス戦前 (不穏な気配)
   {
     id: 'god_ch1_boss_pre',
     speakerId: 'goddess',
@@ -36,7 +24,6 @@ export const dialogues: Dialogue[] = [
     priority: 30,
     requirements: { questId: 'mq_1_5', questStatus: 'active' }
   },
-  // ボス撃破後 (救助成功)
   {
     id: 'god_ch1_boss_post',
     speakerId: 'goddess',
@@ -44,9 +31,17 @@ export const dialogues: Dialogue[] = [
     priority: 40,
     requirements: { questId: 'mq_1_5', questStatus: 'completed' }
   },
+  // 第2章
+  {
+    id: 'god_ch2_start',
+    speakerId: 'goddess',
+    text: '助けた冒険者さん、エリアス君と言ったかしら。彼、あなたに随分感謝していたわよ。たまには二人で潜るのも良い経験になるわ。',
+    priority: 10,
+    requirements: { chapter: 2 }
+  },
 
   // ==========================================
-  // ギルド受付 (Guild Receptionist) - 冒険者ギルド
+  // ギルド受付 (Guild Receptionist)
   // ==========================================
   {
     id: 'guild_default',
@@ -54,8 +49,6 @@ export const dialogues: Dialogue[] = [
     text: '本日はどのようなご用件でしょうか？ クエストの受注はこちらで承ります。',
     priority: 0
   },
-  
-  // --- CH1-1: 冒険の始まり ---
   {
     id: 'guild_mq1_1_accept',
     speakerId: 'guild_receptionist',
@@ -77,8 +70,6 @@ export const dialogues: Dialogue[] = [
     priority: 40,
     requirements: { questId: 'mq_1_1', questStatus: 'completed' }
   },
-
-  // --- CH1-2: 準備を整えよ (魔石収集) ---
   {
     id: 'guild_mq1_2_accept',
     speakerId: 'guild_receptionist',
@@ -86,8 +77,6 @@ export const dialogues: Dialogue[] = [
     priority: 20,
     requirements: { questId: 'mq_1_2', questStatus: 'can_accept' }
   },
-  
-  // --- CH1-3: 未知なる深層へ (B3F到達) ---
   {
     id: 'guild_mq1_3_accept',
     speakerId: 'guild_receptionist',
@@ -95,8 +84,6 @@ export const dialogues: Dialogue[] = [
     priority: 20,
     requirements: { questId: 'mq_1_3', questStatus: 'can_accept' }
   },
-
-  // --- CH1-4: 不穏な影 (オーク討伐) ---
   {
     id: 'guild_mq1_4_accept',
     speakerId: 'guild_receptionist',
@@ -111,8 +98,6 @@ export const dialogues: Dialogue[] = [
     priority: 30,
     requirements: { questId: 'mq_1_4', questStatus: 'active' }
   },
-
-  // --- CH1-5: 凶刃との遭遇 (ボス戦) ---
   {
     id: 'guild_mq1_5_accept',
     speakerId: 'guild_receptionist',
@@ -124,12 +109,27 @@ export const dialogues: Dialogue[] = [
     id: 'guild_mq1_5_active',
     speakerId: 'guild_receptionist',
     text: 'ご武運を……！ 生還者の情報があれば、救助もお願いします！',
-    priority: 40, // 優先度高め
+    priority: 40,
     requirements: { questId: 'mq_1_5', questStatus: 'active' }
+  },
+  {
+    id: 'guild_mq1_5_report',
+    speakerId: 'guild_receptionist',
+    text: '無事でしたか！ 救助された方も命に別状はないようです。……貴方は、この街の英雄になるかもしれませんね。',
+    priority: 50,
+    requirements: { questId: 'mq_1_5', questStatus: 'completed' }
+  },
+  // 第2章
+  {
+    id: 'guild_ch2_start',
+    speakerId: 'guild_receptionist',
+    text: '先日助けた冒険者エリアス様が、貴方とのパーティ結成を希望されています。「パーティ編成」が可能になりましたよ。',
+    priority: 20,
+    requirements: { chapter: 2 }
   },
 
   // ==========================================
-  // ショップ店員 (Shopkeeper) - 市場
+  // ショップ店員 (Shopkeeper)
   // ==========================================
   {
     id: 'shop_default',
