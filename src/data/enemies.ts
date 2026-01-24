@@ -52,6 +52,7 @@ export const enemies: Enemy[] = [
     faction: 'monster',
     aiType: 'aggressive'
   },
+  
   // ==========================================
   // Monsters (Ch3 & Ch4 - New!)
   // ==========================================
@@ -70,7 +71,7 @@ export const enemies: Enemy[] = [
   {
     id: 'dark_mage',
     name: '闇の魔導士',
-    type: 'magic', // 遠距離攻撃持ち（ロジック未実装ならmelee扱い）
+    type: 'magic', // 遠距離攻撃（ロジック未実装なら接近戦扱い）
     maxHp: 40,
     attack: 25,
     defense: 2,
@@ -119,7 +120,6 @@ export const enemies: Enemy[] = [
     faction: 'monster',
     aiType: 'aggressive'
   },
-  // --- 第3章ボス ---
   {
     id: 'chimera_golem',
     name: 'キメラ・ゴーレム',
@@ -132,7 +132,6 @@ export const enemies: Enemy[] = [
     faction: 'monster',
     aiType: 'aggressive'
   },
-  // --- 第4章ボス ---
   {
     id: 'abyss_commander',
     name: '深淵の指揮官',
