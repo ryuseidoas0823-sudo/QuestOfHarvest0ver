@@ -2,7 +2,7 @@ import { Enemy } from '../types/enemy';
 
 export const enemies: Enemy[] = [
   // ==========================================
-  // Monsters (Ch1 & Ch2)
+  // Monsters (Ch1 & Ch2: 浅層〜中層)
   // ==========================================
   {
     id: 'goblin',
@@ -29,18 +29,6 @@ export const enemies: Enemy[] = [
     aiType: 'aggressive'
   },
   {
-    id: 'orc',
-    name: 'オーク',
-    type: 'melee',
-    maxHp: 45,
-    attack: 10,
-    defense: 3,
-    exp: 30,
-    dropItems: [{ itemId: 'potion', rate: 0.2 }],
-    faction: 'monster',
-    aiType: 'aggressive'
-  },
-  {
     id: 'rat',
     name: '大ネズミ',
     type: 'melee',
@@ -52,9 +40,21 @@ export const enemies: Enemy[] = [
     faction: 'monster',
     aiType: 'aggressive'
   },
+  {
+    id: 'orc',
+    name: 'オーク',
+    type: 'melee',
+    maxHp: 45,
+    attack: 10,
+    defense: 3,
+    exp: 30,
+    dropItems: [{ itemId: 'potion', rate: 0.2 }],
+    faction: 'monster',
+    aiType: 'aggressive'
+  },
   
   // ==========================================
-  // Monsters (Ch3 & Ch4 - New!)
+  // Monsters (Ch3 & Ch4: 深層〜決戦)
   // ==========================================
   {
     id: 'skeleton_soldier',
@@ -71,7 +71,7 @@ export const enemies: Enemy[] = [
   {
     id: 'dark_mage',
     name: '闇の魔導士',
-    type: 'magic', // 遠距離攻撃（ロジック未実装なら接近戦扱い）
+    type: 'magic', // ※魔法攻撃ロジック未実装時は接近戦挙動
     maxHp: 40,
     attack: 25,
     defense: 2,
@@ -96,6 +96,7 @@ export const enemies: Enemy[] = [
   // ==========================================
   // Bosses
   // ==========================================
+  // 第1章ボス
   {
     id: 'orc_general',
     name: 'オーク・ジェネラル',
@@ -108,6 +109,7 @@ export const enemies: Enemy[] = [
     faction: 'monster',
     aiType: 'aggressive'
   },
+  // 第2章ボス
   {
     id: 'cerberus',
     name: 'ケルベロス',
@@ -120,6 +122,7 @@ export const enemies: Enemy[] = [
     faction: 'monster',
     aiType: 'aggressive'
   },
+  // 第3章ボス
   {
     id: 'chimera_golem',
     name: 'キメラ・ゴーレム',
@@ -132,6 +135,7 @@ export const enemies: Enemy[] = [
     faction: 'monster',
     aiType: 'aggressive'
   },
+  // 第4章ボス
   {
     id: 'abyss_commander',
     name: '深淵の指揮官',
