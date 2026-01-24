@@ -43,6 +43,10 @@ function App() {
       if (phase !== 'game') return;
       if (e.key === 'i' || e.key === 'I') setIsInventoryOpen(prev => !prev);
       if (e.key === 'Escape') setIsInventoryOpen(false);
+      
+      // Enterキーで階段操作 (updateGameLogic側で処理されるが、念のため明示)
+      // ここでは特別なUIトグルはないのでkeysPressedに任せる
+
       if (gameState && !isInventoryOpen) {
         let skillIndex = -1;
         if (e.key === 'q' || e.key === 'Q') skillIndex = 0;
@@ -84,14 +88,13 @@ function App() {
       map: dungeonData.map,
       gameTime: 0,
       floor: 1,
-      messages: ['迷宮に入った...', 'WASDで移動、Q/Eでスキル、Iでインベントリ'],
+      messages: ['迷宮に入った...', '階段の上で[Enter]キーを押すと進めます'],
       camera: { x: 0, y: 0 }
     };
     setGameState(initialState);
     setPhase('game');
   };
   const handleUseItem = (itemId: string) => { 
-      // 簡易実装
       setGameState(prev => prev); 
   };
 
@@ -101,7 +104,9 @@ function App() {
           case 1: return <div key={`${x}-${y}`} style={{...style, backgroundColor: '#444'}} />; // Wall
           case 2: return <div key={`${x}-${y}`} style={{...style, backgroundColor: '#cf4420'}} />; // Lava
           case 3: return <div key={`${x}-${y}`} style={{...style, backgroundColor: '#d4af37', border: '4px solid #8B4513'}} />; // Locked Door
-          case 4: return <div key={`${x}-${y}`} style={{...style, backgroundColor: '#444'}} />; // Secret Wall (Looks like wall)
+          case 4: return <div key={`${x}-${y}`} style={{...style, backgroundColor: '#444'}} />; // Secret Wall
+          case 5: return <div key={`${x}-${y}`} style={{...style, backgroundColor: '#0066cc', border: '2px solid #88ccff', opacity: 0.8 }} title="Stairs" />; // Stairs (Blue)
+          case 6: return <div key={`${x}-${y}`} style={{...style, backgroundColor: '#440000', border: '4px solid #ff0000'}} />; // Boss Door
           default: return null; 
       }
   };
@@ -135,7 +140,9 @@ function App() {
                     </div>
                  ))}
                 <div className="absolute w-10 h-10 rounded-full flex items-center justify-center shadow-lg border-2 border-white z-20"
-                    style={{ left: gameState.player.x, top: gameState.player.y, backgroundColor: gameState.player.color || '#00ff00' }}>P</div>
+                    style={{ left: gameState.player.x, top: gameState.player.y, backgroundColor: gameState.player.color || '#00ff00' }}>
+                    <div className="text-xs font-bold text-black">{gameState.player.stats.level}</div>
+                </div>
                 {gameState.projectiles && gameState.projectiles.map(proj => (
                     <div key={proj.id} className="absolute w-4 h-4 bg-yellow-400 rounded-full z-30" style={{ left: proj.x, top: proj.y }} />
                 ))}
@@ -153,6 +160,7 @@ function App() {
          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-80 z-50">
              <div className="text-center">
                 <h2 className="text-5xl text-red-600 mb-4">GAME OVER</h2>
+                <p className="mb-4">到達階層: {gameState?.floor}F</p>
                 <button className="px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded" onClick={() => setPhase('title')}>Return to Title</button>
              </div>
          </div>
