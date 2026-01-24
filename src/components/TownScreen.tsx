@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import { INITIAL_QUESTS } from '../data/quests';
 import { Quest } from '../types/quest';
-import { DialogueWindow } from './DialogueWindow'; // 追加
-import { DIALOGUES } from '../data/dialogues'; // 追加
-import { DialogueTree } from '../types/dialogue'; // 追加
+import { DialogueWindow } from './DialogueWindow';
+import { DIALOGUES } from '../data/dialogues';
+import { DialogueTree } from '../types/dialogue';
+import { ShopMenu } from './ShopMenu'; // 追加
+import { StatusUpgradeMenu } from './StatusUpgradeMenu'; // 追加
+import { Stats } from '../types'; // 追加
+import { ShopItem } from '../data/shopItems'; // 追加
 
 interface TownScreenProps {
   onGoToDungeon: () => void;
@@ -13,6 +17,12 @@ interface TownScreenProps {
   completedQuests: string[];
   readyToReportQuests: string[];
   onReportQuest: (questId: string) => void;
+  // 追加Props
+  playerGold: number;
+  playerStats: Stats;
+  onUpdateGold: (amount: number) => void;
+  onUpdateStats: (newStats: Stats) => void;
+  onAddItem: (itemId: string) => void;
 }
 
 type Facility = 'main' | 'guild' | 'home' | 'market' | 'tavern';
@@ -24,10 +34,14 @@ export const TownScreen: React.FC<TownScreenProps> = ({
   onAcceptQuest,
   completedQuests,
   readyToReportQuests,
-  onReportQuest
+  onReportQuest,
+  playerGold,
+  playerStats,
+  onUpdateGold,
+  onUpdateStats,
+  onAddItem
 }) => {
   const [currentFacility, setCurrentFacility] = useState<Facility>('main');
-  // 会話状態管理
   const [activeDialogue, setActiveDialogue] = useState<DialogueTree | null>(null);
 
   const startDialogue = (dialogueId: string) => {
@@ -37,10 +51,41 @@ export const TownScreen: React.FC<TownScreenProps> = ({
     }
   };
 
-  // 施設ごとのレンダリング
+  // アイテム購入処理
+  const handleBuyItem = (item: ShopItem) => {
+    if (playerGold >= item.price) {
+      onUpdateGold(playerGold - item.price);
+      onAddItem(item.id);
+      // 購入完了エフェクトや音などを入れると良い
+    }
+  };
+
+  // ステータス強化処理
+  const handleUpgradeStat = (statKey: keyof Stats, cost: number) => {
+    if (playerStats.exp >= cost) {
+      const newStats = { ...playerStats };
+      newStats.exp -= cost;
+      
+      // ステータスごとの上昇幅定義
+      if (statKey === 'maxHp') {
+        newStats.maxHp += 10;
+        newStats.hp += 10; // 現在HPも回復
+      } else if (statKey === 'attack') {
+        newStats.attack += 1;
+      } else if (statKey === 'defense') {
+        newStats.defense += 1;
+      } else if (statKey === 'speed') {
+        newStats.speed += 0.5; // 小数点計算に注意が必要だが簡易的に
+      }
+
+      onUpdateStats(newStats);
+    }
+  };
+
   const renderFacilityContent = () => {
     switch (currentFacility) {
       case 'guild':
+        // ... (ギルドのコードは変更なし、前回の内容を維持)
         return (
           <div className="bg-slate-800 p-6 rounded-lg border-2 border-yellow-600 h-full overflow-hidden flex flex-col w-full relative">
             <div className="flex justify-between items-center mb-4 border-b border-yellow-700 pb-2 shrink-0">
@@ -57,7 +102,6 @@ export const TownScreen: React.FC<TownScreenProps> = ({
               カウンターの奥で、受付嬢のミリアが書類整理をしている。
             </div>
             
-            {/* クエストリスト（既存コード） */}
             <div className="flex-grow overflow-y-auto pr-2 space-y-4 custom-scrollbar">
               {INITIAL_QUESTS.map((quest: Quest) => {
                 const isAccepted = acceptedQuests.includes(quest.id);
@@ -91,7 +135,6 @@ export const TownScreen: React.FC<TownScreenProps> = ({
                       <div className="text-yellow-400 font-mono">
                         報酬: {quest.reward.gold} G / Exp {quest.reward.experience}
                       </div>
-                      
                       {isCompleted ? (
                          <span className="text-slate-500 font-bold px-4 py-1 border border-slate-600 rounded bg-slate-800">達成済み</span>
                       ) : isReadyToReport ? (
@@ -128,39 +171,28 @@ export const TownScreen: React.FC<TownScreenProps> = ({
 
       case 'home':
         return (
-          <div className="bg-indigo-900 p-6 rounded-lg border-2 border-indigo-400 h-full flex flex-col items-center justify-center w-full relative overflow-hidden">
-             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-             
-             <div className="z-10 text-center">
-                <h2 className="text-3xl font-bold text-indigo-200 mb-6">ファミリア・ホーム</h2>
-                <button 
-                  onClick={() => startDialogue('home_talk')}
-                  className="mb-8 bg-indigo-700 hover:bg-indigo-600 text-white px-6 py-2 rounded-full border border-indigo-400 shadow-lg transition-transform hover:scale-105"
-                >
-                  神と話す
-                </button>
-                <p className="text-indigo-300 mb-4 text-lg">「おかえりなさい！ 今日の成果をステータスに反映しましょう。」</p>
-                <div className="text-slate-400 mb-8 bg-black/30 p-4 rounded border border-indigo-500/30">(ステータス更新・倉庫機能は開発中です)</div>
-                <button 
-                  onClick={() => setCurrentFacility('main')}
-                  className="text-slate-400 hover:text-white underline"
-                >
-                  ← 街へ戻る
-                </button>
-             </div>
-          </div>
+          <StatusUpgradeMenu 
+            stats={playerStats}
+            onUpgrade={handleUpgradeStat}
+            onClose={() => setCurrentFacility('main')}
+          />
         );
 
-      // 他の施設（市場・酒場など）は既存のまま
       case 'market':
+        return (
+          <ShopMenu 
+            playerGold={playerGold}
+            onBuy={handleBuyItem}
+            onClose={() => setCurrentFacility('main')}
+          />
+        );
+
       case 'tavern':
         return (
            <div className="bg-slate-800 p-6 rounded-lg border-2 border-slate-600 h-full flex flex-col items-center justify-center w-full">
-             <h2 className="text-3xl font-bold text-slate-200 mb-6">
-               {currentFacility === 'market' ? '豊穣の市場 & 鍛冶工房' : '酒場『勇気の杯』'}
-             </h2>
+             <h2 className="text-3xl font-bold text-slate-200 mb-6">酒場『勇気の杯』</h2>
              <p className="text-slate-400 mb-8 text-lg">店主は留守のようだ...</p>
-             <div className="text-slate-500 mb-8 bg-black/30 p-4 rounded">(ショップ機能は開発中です)</div>
+             <div className="text-slate-500 mb-8 bg-black/30 p-4 rounded">(情報収集機能は開発中です)</div>
              <button 
               onClick={() => setCurrentFacility('main')}
               className="text-slate-400 hover:text-white underline"
@@ -172,6 +204,7 @@ export const TownScreen: React.FC<TownScreenProps> = ({
 
       case 'main':
       default:
+        // ... (メインメニューは変更なし、前回の内容を維持)
         return (
           <div className="flex flex-col h-full justify-between py-4 w-full">
             <div className="text-center">
@@ -210,7 +243,7 @@ export const TownScreen: React.FC<TownScreenProps> = ({
               >
                 <span className="text-5xl mb-4 group-hover:scale-110 transition-transform">⚒️</span>
                 <span className="font-bold text-orange-400 text-2xl">市場 & 工房</span>
-                <span className="text-sm text-slate-400 mt-2">装備購入・強化</span>
+                <span className="text-sm text-slate-400 mt-2">アイテム購入・強化</span>
               </button>
 
               <button
@@ -256,7 +289,6 @@ export const TownScreen: React.FC<TownScreenProps> = ({
         </div>
       </div>
 
-      {/* 会話ウィンドウ（アクティブ時のみ表示） */}
       {activeDialogue && (
         <DialogueWindow 
           dialogueTree={activeDialogue}
