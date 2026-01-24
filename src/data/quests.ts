@@ -398,7 +398,24 @@ export const quests: Quest[] = [
   },
 
   // ==========================================
-  // サブクエスト
+  // エンドコンテンツ：無限の塔 (クリア後)
+  // ==========================================
+  {
+    id: 'ex_tower_1',
+    category: 'main', // または 'challenge'
+    chapter: 6, // 便宜上6章扱い
+    title: 'EX: 無限の塔への挑戦',
+    description: '【高難易度・繰り返し可】未知の領域へ足を踏み入れた。己の限界に挑み、地下50階を目指せ。',
+    type: 'reach',
+    targetAmount: 50,
+    rewardGold: 30000,
+    rewardExp: 10000,
+    requirements: { questCompleted: ['mq_5_5'] }, // ラスボス撃破後
+    recommendedLevel: 30
+  },
+
+  // ==========================================
+  // サブクエスト (レベル上げ・資金稼ぎ用)
   // ==========================================
   {
     id: 'sq_town_1',
@@ -425,5 +442,32 @@ export const quests: Quest[] = [
     rewardExp: 30,
     requirements: { minLevel: 2 },
     recommendedLevel: 2
+  },
+  // --- 中盤用サブクエスト ---
+  {
+    id: 'sq_ch3_hunt',
+    category: 'sub',
+    title: '骸骨狩り',
+    description: '【Lv12以上推奨】増えすぎたスケルトン兵を間引いてほしい。中層攻略の良い訓練になるだろう。',
+    type: 'hunt',
+    targetId: 'skeleton_soldier',
+    targetAmount: 8,
+    rewardGold: 1200,
+    rewardExp: 800,
+    requirements: { minLevel: 12, questCompleted: ['mq_2_5'] },
+    recommendedLevel: 12
+  },
+  {
+    id: 'sq_ch4_supply',
+    category: 'sub',
+    title: '防衛物資の調達',
+    description: '【Lv18以上推奨】前線基地で魔石が不足している。ミノタウロスなどの強敵を倒し、質の良い魔石を集めてくれ。',
+    type: 'collect',
+    targetId: 'magic_stone_small', // 本当は上位素材がいいが既存流用
+    targetAmount: 10,
+    rewardGold: 3000,
+    rewardExp: 2000,
+    requirements: { minLevel: 18, questCompleted: ['mq_4_1'] },
+    recommendedLevel: 18
   }
 ];
