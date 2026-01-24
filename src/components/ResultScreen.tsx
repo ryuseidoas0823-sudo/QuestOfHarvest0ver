@@ -1,67 +1,59 @@
 import React from 'react';
 
-export interface ResultData {
-  exp: number;
-  gold: number;
-  items: string[];
-  floorReached: number;
+// Props定義を拡張
+export interface ResultScreenProps {
+  onReturnToTown: () => void;
+  resultData?: {
+      exp: number;
+      gold: number;
+      items: string[];
+  };
 }
 
-interface ResultScreenProps {
-  resultData: ResultData;
-  onBackToTown: () => void;
-}
-
-export const ResultScreen: React.FC<ResultScreenProps> = ({ resultData, onBackToTown }) => {
+export const ResultScreen: React.FC<ResultScreenProps> = ({ 
+    onReturnToTown,
+    resultData = { exp: 0, gold: 0, items: [] } // デフォルト値
+}) => {
   return (
-    <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-white z-50 font-sans">
-      <div className="w-full max-w-2xl bg-slate-800 border-2 border-slate-600 rounded-xl p-8 shadow-2xl animate-fade-in-up">
-        <h2 className="text-4xl font-bold text-center mb-8 text-yellow-500 tracking-widest border-b border-slate-600 pb-4">
-          EXPLORATION RESULT
-        </h2>
-
-        <div className="grid grid-cols-2 gap-8 mb-8">
-          <div className="space-y-4">
-            <div>
-              <p className="text-slate-400 text-sm">到達階層</p>
-              <p className="text-3xl font-bold">{resultData.floorReached} <span className="text-lg font-normal text-slate-500">階</span></p>
-            </div>
-            <div>
-              <p className="text-slate-400 text-sm">獲得経験値</p>
-              <p className="text-3xl font-bold text-blue-400">+{resultData.exp} <span className="text-lg font-normal text-slate-500">Exp</span></p>
-            </div>
-            <div>
-              <p className="text-slate-400 text-sm">獲得ゴールド</p>
-              <p className="text-3xl font-bold text-yellow-400">+{resultData.gold} <span className="text-lg font-normal text-slate-500">G</span></p>
-            </div>
-          </div>
-
-          <div className="bg-slate-900 rounded p-4 border border-slate-700">
-            <p className="text-slate-400 text-sm mb-2">獲得アイテム</p>
-            {resultData.items.length > 0 ? (
-              <ul className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
-                {resultData.items.map((item, index) => (
-                  <li key={index} className="flex items-center text-sm">
-                    <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-slate-600 italic text-sm">なし</p>
-            )}
-          </div>
+    <div className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center animate-fade-in">
+      <h2 className="text-5xl font-bold text-red-600 mb-8 tracking-widest" style={{ textShadow: '0 0 10px #991b1b' }}>
+        GAME OVER
+      </h2>
+      
+      <div className="bg-gray-900/80 border border-gray-700 p-8 rounded-lg max-w-md w-full mb-8 text-center space-y-4">
+        <p className="text-gray-400">今回の冒険の成果</p>
+        <div className="grid grid-cols-2 gap-4 text-xl">
+            <div className="text-right text-gray-400">獲得経験値:</div>
+            <div className="text-left text-blue-400 font-mono">+{resultData.exp}</div>
+            
+            <div className="text-right text-gray-400">獲得ゴールド:</div>
+            <div className="text-left text-yellow-400 font-mono">+{resultData.gold}</div>
         </div>
-
-        <div className="text-center pt-4">
-          <button
-            onClick={onBackToTown}
-            className="px-10 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-lg rounded shadow-lg transition-all transform hover:scale-105"
-          >
-            街へ戻る
-          </button>
-        </div>
+        
+        {resultData.items.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-800">
+                <p className="text-sm text-gray-500 mb-2">回収したアイテム</p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                    {resultData.items.map((item, i) => (
+                        <span key={i} className="text-xs bg-gray-800 px-2 py-1 rounded text-gray-300 border border-gray-700">
+                            {item}
+                        </span>
+                    ))}
+                </div>
+            </div>
+        )}
       </div>
+
+      <p className="text-gray-400 mb-8 text-lg">
+        冒険者は力尽きたが、その魂は神の元へ還る...
+      </p>
+
+      <button
+        onClick={onReturnToTown}
+        className="px-10 py-4 bg-red-900/50 hover:bg-red-800 text-white rounded border border-red-600 text-xl transition-all duration-300 hover:scale-105"
+      >
+        街へ帰還する
+      </button>
     </div>
   );
 };
