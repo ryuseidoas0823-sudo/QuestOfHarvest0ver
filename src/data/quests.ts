@@ -5,9 +5,7 @@ import { Quest } from '../types/quest';
  * ID命名規則: mq_{chapter}_{subChapter}
  */
 export const quests: Quest[] = [
-  // ==========================================
-  // 第1章：駆け出し冒険者の洗礼
-  // ==========================================
+  // ... existing Chapter 1 & 2 quests ...
   {
     id: 'mq_1_1',
     category: 'main',
@@ -83,10 +81,6 @@ export const quests: Quest[] = [
     requirements: { minLevel: 5, questCompleted: ['mq_1_4'] },
     recommendedLevel: 5
   },
-
-  // ==========================================
-  // 第2章：背中を預ける絆
-  // ==========================================
   {
     id: 'mq_2_1',
     category: 'main',
@@ -95,14 +89,11 @@ export const quests: Quest[] = [
     title: 'CH2-1: 二人の連携',
     description: '救出した冒険者「エリアス」が恩返しに協力してくれるそうだ。彼と共にダンジョンへ潜り、連携の感覚を掴め。',
     type: 'hunt',
-    targetId: 'slime', // 連携練習用
+    targetId: 'slime', 
     targetAmount: 5,
     rewardGold: 300,
     rewardExp: 200,
-    requirements: { 
-      questCompleted: ['mq_1_5'],
-      minLevel: 6 
-    },
+    requirements: { questCompleted: ['mq_1_5'], minLevel: 6 },
     recommendedLevel: 6
   },
   {
@@ -127,7 +118,7 @@ export const quests: Quest[] = [
     title: 'CH2-3: 中層への挑戦',
     description: '地下7階からは環境がガラリと変わる。状態異常攻撃を行うモンスターも現れるため、慎重に進め。',
     type: 'reach',
-    targetAmount: 9, // B9F到達目標
+    targetAmount: 9,
     rewardGold: 600,
     rewardExp: 400,
     requirements: { questCompleted: ['mq_2_2'] },
@@ -141,7 +132,7 @@ export const quests: Quest[] = [
     title: 'CH2-4: ライバルの嘲笑',
     description: '他のファミリアの団員たちと小競り合いになった。実力を示し、彼らを黙らせるためにオーク・リーダーを討伐せよ。',
     type: 'hunt',
-    targetId: 'orc', // 強化個体想定
+    targetId: 'orc',
     targetAmount: 5,
     rewardGold: 800,
     rewardExp: 500,
@@ -156,7 +147,7 @@ export const quests: Quest[] = [
     title: 'CH2-5: 双頭の番犬',
     description: '【ボス討伐】第2章クライマックス。中層の門番「ケルベロス」が立ちはだかる。仲間との連携で活路を開け！',
     type: 'hunt',
-    targetId: 'cerberus', // 第2章ボス
+    targetId: 'cerberus',
     targetAmount: 1,
     rewardGold: 2000,
     rewardExp: 1500,
@@ -164,34 +155,85 @@ export const quests: Quest[] = [
     requirements: { minLevel: 10, questCompleted: ['mq_2_4'] },
     recommendedLevel: 10
   },
-  
+
   // ==========================================
-  // サブクエスト
+  // 第3章：深淵からの呼び声
   // ==========================================
   {
-    id: 'sq_town_1',
-    category: 'sub',
-    title: '害獣駆除の依頼',
-    description: '街の食料庫を荒らす大ネズミを退治してほしい。',
-    type: 'hunt',
-    targetId: 'rat',
-    targetAmount: 5,
-    rewardGold: 50,
-    rewardExp: 20,
-    requirements: { minLevel: 1 },
-    recommendedLevel: 1
+    id: 'mq_3_1',
+    category: 'main',
+    chapter: 3,
+    subChapter: 1,
+    title: 'CH3-1: 異変の予兆',
+    description: '中層よりさらに深く、地下11階付近で「ありえない現象」が報告されている。調査に向かえ。',
+    type: 'reach',
+    targetAmount: 11,
+    rewardGold: 1000,
+    rewardExp: 800,
+    requirements: { 
+      questCompleted: ['mq_2_5'],
+      minLevel: 12 
+    },
+    recommendedLevel: 12
   },
   {
-    id: 'sq_collect_1',
-    category: 'sub',
-    title: '薬草の納品',
-    description: 'ポーションの材料となる薬草が不足している。スライムなどが落とす薬草を集めてくれ。',
+    id: 'mq_3_2',
+    category: 'main',
+    chapter: 3,
+    subChapter: 2,
+    title: 'CH3-2: 絶望の宴',
+    description: '【危険】調査隊からの連絡が途絶えた。地下12階で「モンスターハウス」の発生が疑われる。準備を万全にして生存者を捜索せよ。',
+    type: 'hunt',
+    targetId: 'orc', // 大量発生する敵の代表
+    targetAmount: 10,
+    rewardGold: 1500,
+    rewardExp: 1200,
+    requirements: { questCompleted: ['mq_3_1'] },
+    recommendedLevel: 13
+  },
+  {
+    id: 'mq_3_3',
+    category: 'main',
+    chapter: 3,
+    subChapter: 3,
+    title: 'CH3-3: 黒い石の謎',
+    description: 'モンスターハウスの跡地から、見たこともない「黒い魔石」が見つかった。分析のため、サンプルを5つ持ち帰れ。',
     type: 'collect',
-    targetId: 'herb',
-    targetAmount: 3,
-    rewardGold: 80,
-    rewardExp: 30,
-    requirements: { minLevel: 2 },
-    recommendedLevel: 2
+    targetId: 'black_magic_stone',
+    targetAmount: 5,
+    rewardGold: 2000,
+    rewardExp: 1500,
+    requirements: { questCompleted: ['mq_3_2'] },
+    recommendedLevel: 14
+  },
+  {
+    id: 'mq_3_4',
+    category: 'main',
+    chapter: 3,
+    subChapter: 4,
+    title: 'CH3-4: 暴走する迷宮',
+    description: 'ダンジョン自体が生きているかのように構造を変えている。深層へ続く道を探し出し、地下15階へ到達せよ。',
+    type: 'reach',
+    targetAmount: 15,
+    rewardGold: 2500,
+    rewardExp: 2000,
+    requirements: { questCompleted: ['mq_3_3'] },
+    recommendedLevel: 15
+  },
+  {
+    id: 'mq_3_5',
+    category: 'main',
+    chapter: 3,
+    subChapter: 5,
+    title: 'CH3-5: 融合する異形',
+    description: '【ボス討伐】異変の元凶と思われる反応がある。機械と生物が融合した「キメラ・ゴーレム」を破壊せよ。',
+    type: 'hunt',
+    targetId: 'chimera_golem', // 第3章ボス
+    targetAmount: 1,
+    rewardGold: 4000,
+    rewardExp: 3000,
+    rewardItems: [{ itemId: 'hero_badge', amount: 1 }],
+    requirements: { minLevel: 15, questCompleted: ['mq_3_4'] },
+    recommendedLevel: 16
   }
 ];
