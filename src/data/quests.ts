@@ -119,6 +119,51 @@ export const quests: Quest[] = [
     requirements: { questCompleted: ['mq_2_1'] },
     recommendedLevel: 7
   },
+  {
+    id: 'mq_2_3',
+    category: 'main',
+    chapter: 2,
+    subChapter: 3,
+    title: 'CH2-3: 中層への挑戦',
+    description: '地下7階からは環境がガラリと変わる。状態異常攻撃を行うモンスターも現れるため、慎重に進め。',
+    type: 'reach',
+    targetAmount: 9, // B9F到達目標
+    rewardGold: 600,
+    rewardExp: 400,
+    requirements: { questCompleted: ['mq_2_2'] },
+    recommendedLevel: 8
+  },
+  {
+    id: 'mq_2_4',
+    category: 'main',
+    chapter: 2,
+    subChapter: 4,
+    title: 'CH2-4: ライバルの嘲笑',
+    description: '他のファミリアの団員たちと小競り合いになった。実力を示し、彼らを黙らせるためにオーク・リーダーを討伐せよ。',
+    type: 'hunt',
+    targetId: 'orc', // 強化個体想定
+    targetAmount: 5,
+    rewardGold: 800,
+    rewardExp: 500,
+    requirements: { questCompleted: ['mq_2_3'] },
+    recommendedLevel: 9
+  },
+  {
+    id: 'mq_2_5',
+    category: 'main',
+    chapter: 2,
+    subChapter: 5,
+    title: 'CH2-5: 双頭の番犬',
+    description: '【ボス討伐】第2章クライマックス。中層の門番「ケルベロス」が立ちはだかる。仲間との連携で活路を開け！',
+    type: 'hunt',
+    targetId: 'cerberus', // 第2章ボス
+    targetAmount: 1,
+    rewardGold: 2000,
+    rewardExp: 1500,
+    rewardItems: [{ itemId: 'elixir', amount: 1 }],
+    requirements: { minLevel: 10, questCompleted: ['mq_2_4'] },
+    recommendedLevel: 10
+  },
   
   // ==========================================
   // サブクエスト
