@@ -6,7 +6,7 @@ import GameHUD from './components/GameHUD';
 import InventoryMenu from './components/InventoryMenu';
 import { GameState } from './types';
 import { JobId } from './types/job';
-import { createInitialPlayer, updateGameLogic, generateDungeon, activateSkill, useItem } from './gameLogic'; // useItem追加
+import { createInitialPlayer, updateGameLogic, generateDungeon, activateSkill, useItem } from './gameLogic';
 
 type AppPhase = 'title' | 'jobSelect' | 'godSelect' | 'game' | 'gameOver';
 
@@ -82,6 +82,7 @@ function App() {
       projectiles: [],
       inventory: ['potion_small'],
       equipment: { mainHand: null, armor: null }, // 初期装備なし
+      floatingTexts: [], // 初期化
       map: dungeonData.map,
       gameTime: 0,
       floor: 1,
@@ -92,7 +93,6 @@ function App() {
     setPhase('game');
   };
 
-  // アイテム使用ハンドラの実装
   const handleUseItem = (itemId: string) => { 
       setGameState(prev => prev ? useItem(prev, itemId) : null); 
   };
@@ -145,6 +145,21 @@ function App() {
                 {gameState.projectiles && gameState.projectiles.map(proj => (
                     <div key={proj.id} className="absolute w-4 h-4 bg-yellow-400 rounded-full z-30" style={{ left: proj.x, top: proj.y }} />
                 ))}
+                
+                {/* ダメージポップアップの描画 */}
+                {gameState.floatingTexts && gameState.floatingTexts.map(ft => (
+                    <div key={ft.id} 
+                         className="absolute text-sm font-bold pointer-events-none z-50 text-shadow-sm"
+                         style={{ 
+                             left: ft.x, 
+                             top: ft.y, 
+                             color: ft.color,
+                             textShadow: '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000',
+                             opacity: Math.min(1, ft.lifeTime / 300) // 最後はフェードアウト
+                         }}>
+                        {ft.text}
+                    </div>
+                ))}
              </div>
              {(gameState.map as any).isDark && (
                  <div className="absolute inset-0 pointer-events-none z-40"
@@ -155,6 +170,7 @@ function App() {
           {isInventoryOpen && (
             <InventoryMenu 
               inventory={gameState.inventory || []} 
+              equipment={gameState.equipment} // 装備データを渡す
               onClose={() => setIsInventoryOpen(false)} 
               onUseItem={handleUseItem} 
             />
