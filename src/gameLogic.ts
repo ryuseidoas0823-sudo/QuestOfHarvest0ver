@@ -20,7 +20,7 @@ interface GameState {
 
 export const useGameLogic = (
   playerJob: Job,
-  chapter: number, // 追加: 進行度によって仲間を出す判定に使用
+  chapter: number,
   activeQuests: Quest[],
   onQuestUpdate: (questId: string, progress: number) => void,
   onPlayerDeath: () => void
@@ -33,10 +33,9 @@ export const useGameLogic = (
   const [messageLog, setMessageLog] = useState<string[]>([]);
   
   const [playerHp, setPlayerHp] = useState(100);
-  const playerMaxHp = 100; // 仮の実装。本来はstatsから計算
+  const playerMaxHp = 100;
   const playerAttack = 10;
 
-  // ターン処理参照用
   const playerPosRef = useRef({ x: 0, y: 0 });
   useEffect(() => { playerPosRef.current = playerPos; }, [playerPos]);
 
@@ -56,9 +55,11 @@ export const useGameLogic = (
     // --- ボス階層の判定 ---
     const isBossFloor = floorNum % 5 === 0;
     const isRescueQuestActive = activeQuests.some(q => q.id === 'mq_1_5');
+    // --- 第3章 モンスターハウス判定 ---
+    // クエスト MQ3-2 受注中、かつ 12階
+    const isMonsterHouseEvent = activeQuests.some(q => q.id === 'mq_3_2') && floorNum === 12;
 
     // --- 仲間のスポーン (第2章以降) ---
-    // ボス階層でも通常階層でも、プレイヤーの近くに配置
     if (chapter >= 2) {
         const allyData = enemyData.find(e => e.id === 'elias_ally');
         if (allyData) {
@@ -66,23 +67,22 @@ export const useGameLogic = (
                 ...allyData,
                 uniqueId: 'ally_elias',
                 hp: allyData.maxHp,
-                x: newDungeon.playerStart.x + 1, // プレイヤーの隣
+                x: newDungeon.playerStart.x + 1,
                 y: newDungeon.playerStart.y,
                 faction: 'player_ally',
                 aiType: 'aggressive'
             });
-            // 初回のみログを出すなどの制御も可
-            // addLog(`${allyData.name}が同行している。`);
         }
     }
 
     if (isBossFloor) {
-        // ボス配置
+        // ... Boss placement logic (unchanged) ...
         const bossData = enemyData.find(e => e.type === 'boss') || enemyData[0];
-        // 階層に応じてボスを変える簡易ロジック
         let currentBoss = bossData;
         if (floorNum === 5) currentBoss = enemyData.find(e => e.id === 'orc_general') || bossData;
         if (floorNum === 10) currentBoss = enemyData.find(e => e.id === 'cerberus') || bossData;
+        // 第3章ボス
+        if (floorNum === 15) currentBoss = { ...bossData, name: 'キメラ・ゴーレム', id: 'chimera_golem', maxHp: 500, attack: 35 };
 
         const room = newDungeon.rooms[0];
         newEnemies.push({
@@ -94,7 +94,6 @@ export const useGameLogic = (
             faction: 'monster'
         });
 
-        // 第1章ボス戦の救助対象配置
         if (floorNum === 5 && isRescueQuestActive) {
             const npcData = enemyData.find(e => e.id === 'injured_adventurer');
             if (npcData) {
@@ -112,10 +111,18 @@ export const useGameLogic = (
     } else {
         // 通常敵の配置
         newDungeon.rooms.forEach(room => {
-             const count = Math.floor(Math.random() * 2) + 1;
+             let count = Math.floor(Math.random() * 2) + 1;
+             
+             // モンスターハウス発生時の処理
+             // 最後の部屋（階段がある部屋など）に大量発生させる
+             if (isMonsterHouseEvent && room === newDungeon.rooms[newDungeon.rooms.length - 1]) {
+                 count = 10; // 大量発生
+                 addLog("部屋に入った瞬間、大量の殺気を感じた！(モンスターハウス)");
+             }
+
              for(let i=0; i<count; i++) {
-                 // NPC/Boss/Ally以外から抽選
                  const validEnemies = enemyData.filter(e => e.faction === 'monster' && e.type !== 'boss');
+                 // 第3章用モンスター（例：オーク強化版など）を混ぜる拡張もここで可能
                  const data = validEnemies[Math.floor(Math.random() * validEnemies.length)];
                  
                  newEnemies.push({
@@ -137,6 +144,8 @@ export const useGameLogic = (
     initFloor(1);
   }, []);
 
+  // ... rest of the file (movePlayer, processTurn, etc.) ...
+  
   // --- プレイヤー移動 ---
   const movePlayer = (dx: number, dy: number) => {
     if (gameOver || !dungeon) return;
@@ -154,13 +163,12 @@ export const useGameLogic = (
             
             applyDamageToEnemy(targetEnemy.uniqueId, damage);
         } else if (targetEnemy.faction === 'player_ally') {
-            // 味方と位置を入れ替える（便利機能）
             setPlayerPos({ x: newX, y: newY });
             setEnemies(prev => prev.map(e => 
                 e.uniqueId === targetEnemy.uniqueId ? { ...e, x: playerPos.x, y: playerPos.y } : e
             ));
             addLog(`${targetEnemy.name}と位置を入れ替わった。`);
-            return; // ターン経過させない、あるいはさせる
+            return;
         }
         
         processTurn();
@@ -185,7 +193,6 @@ export const useGameLogic = (
               return e;
           }).filter(e => e.hp > 0);
 
-          // 撃破ログ
           if (next.length < prev.length) {
               const dead = prev.find(p => !next.find(n => n.uniqueId === p.uniqueId));
               if (dead) {
@@ -193,10 +200,17 @@ export const useGameLogic = (
                   // クエスト更新判定
                   if (dead.id === 'orc_general') onQuestUpdate('mq_1_5', 1);
                   if (dead.id === 'cerberus') onQuestUpdate('mq_2_5', 1);
-                  // 汎用討伐クエスト
+                  if (dead.id === 'chimera_golem') onQuestUpdate('mq_3_5', 1); // 第3章ボス
+                  
+                  // 第3章モンスターハウス討伐数など
                   activeQuests.forEach(q => {
                       if (q.type === 'hunt' && q.targetId === dead.id) {
                           onQuestUpdate(q.id, 1);
+                      }
+                      // 黒い魔石ドロップ処理（簡易）
+                      if (q.id === 'mq_3_3' && Math.random() < 0.3) {
+                          onQuestUpdate('mq_3_3', 1);
+                          addLog('黒い魔石を手に入れた！');
                       }
                   });
               }
@@ -213,21 +227,15 @@ export const useGameLogic = (
         let nextEnemies = prevEnemies.map(e => ({ ...e }));
         const currentPlayerPos = playerPosRef.current;
 
-        // 全キャラ行動処理
-        // 本来は素早さ順などでソートすべきだが、ここでは配列順（生成順）
-        
         nextEnemies.forEach((actor, actorIdx) => {
-            if (actor.hp <= 0) return; // 死亡済
-            if (actor.aiType === 'stationary') return; // 動かない
+            if (actor.hp <= 0) return; 
+            if (actor.aiType === 'stationary') return;
 
-            // 自身の最新ステータス
             const myState = nextEnemies[actorIdx];
             let newX = myState.x;
             let newY = myState.y;
 
-            // --- 味方AI (Faction: player_ally) ---
             if (actor.faction === 'player_ally') {
-                // 1. 近くの敵を探す
                 const targets = nextEnemies
                     .filter(e => e.faction === 'monster' && e.hp > 0)
                     .map(e => ({ 
@@ -241,29 +249,23 @@ export const useGameLogic = (
                 const nearestEnemy = targets[0];
 
                 if (nearestEnemy && nearestEnemy.dist <= 5) {
-                    // 索敵範囲内なら戦闘モード
                     if (nearestEnemy.dist <= 1.5) {
-                        // 攻撃
                         const targetEntity = prevEnemies.find(e => e.uniqueId === nearestEnemy.id);
                         const dmg = Math.max(1, actor.attack - (targetEntity?.defense || 0));
-                        // ダメージ適用（nextEnemiesを直接操作）
                         const targetIdx = nextEnemies.findIndex(e => e.uniqueId === nearestEnemy.id);
                         if (targetIdx !== -1) {
                             nextEnemies[targetIdx].hp -= dmg;
                             addLog(`${actor.name}の攻撃！ ${nextEnemies[targetIdx].name}に${dmg}ダメージ`);
                         }
                     } else {
-                        // 敵に近づく
                         if (nearestEnemy.x > myState.x && dungeon.tiles[myState.y][myState.x + 1] !== 'wall') newX++;
                         else if (nearestEnemy.x < myState.x && dungeon.tiles[myState.y][myState.x - 1] !== 'wall') newX--;
                         else if (nearestEnemy.y > myState.y && dungeon.tiles[myState.y + 1][myState.x] !== 'wall') newY++;
                         else if (nearestEnemy.y < myState.y && dungeon.tiles[myState.y - 1][myState.x] !== 'wall') newY--;
                     }
                 } else {
-                    // 敵がいない場合: プレイヤーに追従
                     const distToPlayer = getDistance(myState.x, myState.y, currentPlayerPos.x, currentPlayerPos.y);
                     if (distToPlayer > 2) {
-                        // プレイヤーに近づく
                         if (currentPlayerPos.x > myState.x && dungeon.tiles[myState.y][myState.x + 1] !== 'wall') newX++;
                         else if (currentPlayerPos.x < myState.x && dungeon.tiles[myState.y][myState.x - 1] !== 'wall') newX--;
                         else if (currentPlayerPos.y > myState.y && dungeon.tiles[myState.y + 1][myState.x] !== 'wall') newY++;
@@ -271,10 +273,7 @@ export const useGameLogic = (
                     }
                 }
             }
-            
-            // --- モンスターAI (Faction: monster) ---
             else if (actor.faction === 'monster') {
-                // ターゲット選定（プレイヤー or 味方NPC）
                 const targets = [
                     { type: 'player', x: currentPlayerPos.x, y: currentPlayerPos.y, dist: getDistance(myState.x, myState.y, currentPlayerPos.x, currentPlayerPos.y) },
                     ...nextEnemies
@@ -285,9 +284,8 @@ export const useGameLogic = (
                 const target = targets[0];
                 if (target) {
                     if (target.dist <= 1.5) {
-                        // 攻撃
                         if (target.type === 'player') {
-                            const dmg = Math.max(1, actor.attack - 5); // Player def temp
+                            const dmg = Math.max(1, actor.attack - 5); 
                             setPlayerHp(prev => {
                                 const next = prev - dmg;
                                 if (next <= 0) {
@@ -298,7 +296,6 @@ export const useGameLogic = (
                             });
                             addLog(`${actor.name}の攻撃！ あなたに${dmg}ダメージ`);
                         } else {
-                            // NPC攻撃
                             const npcIdx = nextEnemies.findIndex(e => e.uniqueId === target.id);
                             if (npcIdx !== -1) {
                                 const dmg = Math.max(1, actor.attack - nextEnemies[npcIdx].defense);
@@ -307,7 +304,6 @@ export const useGameLogic = (
                             }
                         }
                     } else {
-                        // 移動
                         if (target.x > myState.x && dungeon.tiles[myState.y][myState.x + 1] !== 'wall') newX++;
                         else if (target.x < myState.x && dungeon.tiles[myState.y][myState.x - 1] !== 'wall') newX--;
                         else if (target.y > myState.y && dungeon.tiles[myState.y + 1][myState.x] !== 'wall') newY++;
@@ -316,8 +312,6 @@ export const useGameLogic = (
                 }
             }
 
-            // 移動更新 (衝突判定)
-            // 自分以外、かつ生きてる奴、かつプレイヤー
             const isBlocked = nextEnemies.some((e, idx) => idx !== actorIdx && e.hp > 0 && e.x === newX && e.y === newY) ||
                               (currentPlayerPos.x === newX && currentPlayerPos.y === newY);
             
@@ -327,7 +321,6 @@ export const useGameLogic = (
             }
         });
 
-        // 死亡した敵・NPCを除外
         return nextEnemies.filter(e => e.hp > 0);
     });
   };
