@@ -2,7 +2,7 @@ export type Direction = 'up' | 'down' | 'left' | 'right';
 
 // 画面遷移の状態 (App.tsxでの画面制御に使用)
 // 'town' を追加し、名称を GameScreen に変更して区別します
-export type GameScreen = 'title' | 'godSelect' | 'jobSelect' | 'town' | 'playing' | 'gameOver' | 'gameClear';
+export type GameScreen = 'title' | 'godSelect' | 'jobSelect' | 'town' | 'playing' | 'gameOver' | 'gameClear' | 'result';
 
 export interface Position {
   x: number;
