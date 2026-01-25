@@ -1,4 +1,4 @@
-import { DungeonMap, Tile, TileType, Stats } from './types';
+import { DungeonMap, Tile } from './types';
 
 // コンパイルエラー回避のためのスタブ
 // 本来はここにダンジョン生成アルゴリズム（Strategy Pattern）が入る
@@ -30,9 +30,7 @@ export const generateDungeon = (floor: number): DungeonMap => {
     floor,
     width,
     height,
-    map, // 'tiles' -> 'map'
+    map,
     rooms: [],
   };
 };
-
-// レガシーコードの残骸がある場合は削除または修正
