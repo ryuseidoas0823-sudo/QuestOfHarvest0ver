@@ -1,467 +1,215 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { TitleScreen } from './components/TitleScreen';
-import { JobSelectScreen } from './components/JobSelectScreen';
+import React from 'react';
+import { useGameCore } from './hooks/useGameCore';
+
+// Screens
+import TitleScreen from './components/TitleScreen';
+import JobSelectScreen from './components/JobSelectScreen';
 import GodSelectScreen from './components/GodSelectScreen';
-import { TownScreen } from './components/TownScreen';
-import { ResultScreen } from './components/ResultScreen';
-import { InventoryMenu } from './components/InventoryMenu';
-import { PauseMenu } from './components/PauseMenu';
-import { EventModal } from './components/EventModal';
-import { renderDungeon } from './renderer';
-import { useGameLogic } from './gameLogic';
-import { Job } from './types/job';
-import { Quest } from './types/quest';
-import { ShopItem } from './data/shopItems';
-import { quests as allQuests } from './data/quests';
-import { jobs } from './data/jobs';
-import { items as itemData } from './data/items';
-import { GameHUD } from './components/GameHUD';
-import { saveGame, loadGame, hasSaveData, clearSaveData } from './utils/storage';
-import { audioManager } from './utils/audioManager';
-import { calculateLevel, calculateExpForLevel } from './utils';
-import { visualManager } from './utils/visualManager';
-import { MAX_INVENTORY_SIZE } from './config';
-import { ResolutionMode } from './types';
-import { useGamepad } from './hooks/useGamepad';
-import { InputAction } from './types/input';
-import { initAuth } from './utils/firebase';
+import Tutorial from './components/Tutorial';
+import TownScreen from './components/TownScreen';
+import ResultScreen from './components/ResultScreen';
 
-type ScreenState = 'title' | 'jobSelect' | 'godSelect' | 'town' | 'dungeon' | 'result' | 'inventory';
+// Dungeon Components
+import PixelSprite from './components/PixelSprite';
+import GameHUD from './components/GameHUD';
+import PauseMenu from './components/PauseMenu';
+import InventoryMenu from './components/InventoryMenu';
+import EventModal from './components/EventModal';
+import DialogueWindow from './components/DialogueWindow';
 
-export default function App() {
-  const [screen, setScreen] = useState<ScreenState>('title');
-  const [canContinue, setCanContinue] = useState(false);
-  const [playerJob, setPlayerJob] = useState<Job>(jobs[0]);
-  const [playerExp, setPlayerExp] = useState(0);
-  const [gold, setGold] = useState(0);
-  const [baseStats, setBaseStats] = useState({
-    level: 1, maxHp: 100, hp: 100, maxMp: 50, mp: 50,
-    attack: 10, defense: 5,
-    str: 10, vit: 10, dex: 10, agi: 10, int: 10, luc: 10
-  });
-  const [chapter, setChapter] = useState(1);
-  const [activeQuests, setActiveQuests] = useState<Quest[]>([]);
-  const [completedQuestIds, setCompletedQuestIds] = useState<string[]>([]);
-  const [inventory, setInventory] = useState<string[]>([]);
-  const [equippedItems, setEquippedItems] = useState<{ [key: string]: string | null }>({
-    weapon: null, armor: null, accessory: null
-  });
-  const [unlockedCompanions, setUnlockedCompanions] = useState<string[]>([]);
-  const [resolution, setResolution] = useState<ResolutionMode>('high');
+// Styles
+import './index.css';
 
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  // Initialize Auth
-  useEffect(() => {
-    initAuth().then(user => {
-      if (user) console.log("Logged in as:", user.uid);
-    });
-  }, []);
-
-  const finalStats = useMemo(() => {
-    let stats = { ...baseStats };
-    Object.values(equippedItems).forEach(itemId => {
-      if (!itemId) return;
-      const item = itemData.find(i => i.id === itemId);
-      if (item && item.equipStats) {
-        if (item.equipStats.attack) stats.attack = (stats.attack || 0) + item.equipStats.attack;
-        if (item.equipStats.defense) stats.defense = (stats.defense || 0) + item.equipStats.defense;
-        if (item.equipStats.str) stats.str += item.equipStats.str;
-        if (item.equipStats.vit) stats.vit += item.equipStats.vit;
-        if (item.equipStats.maxHp) stats.maxHp += item.equipStats.maxHp;
-        if (item.equipStats.agi) stats.agi += item.equipStats.agi;
-        if (item.equipStats.int) stats.int += item.equipStats.int;
-      }
-    });
-    return stats;
-  }, [baseStats, equippedItems]);
-
-  useEffect(() => { setCanContinue(hasSaveData()); }, []);
-
-  const performAutoSave = () => {
-    const activeQuestIds = activeQuests.map(q => q.id);
-    saveGame({
-      playerJobId: playerJob.id,
-      playerStats: { ...baseStats, exp: playerExp },
-      gold,
-      chapter,
-      activeQuestIds,
-      completedQuestIds,
-      inventory,
-      unlockedCompanions,
-      savedAt: Date.now()
-    });
-    setCanContinue(true);
-  };
-
-  useEffect(() => {
-    const initAudio = () => audioManager.init();
-    window.addEventListener('click', initAudio, { once: true });
-    window.addEventListener('keydown', initAudio, { once: true });
-    window.addEventListener('gamepadconnected', initAudio, { once: true }); 
-    return () => {
-        window.removeEventListener('click', initAudio);
-        window.removeEventListener('keydown', initAudio);
-        window.removeEventListener('gamepadconnected', initAudio);
-    };
-  }, []);
-
-  useEffect(() => {
-      if (screen === 'town') audioManager.playBgmTown();
-      else if (screen === 'dungeon') audioManager.playBgmDungeon();
-      else audioManager.stopBgm();
-  }, [screen]);
-
-  const handleQuestUpdateCallback = (questId: string, amount: number) => {
-      console.log(`Quest Updated: ${questId}, Progress: ${amount}`);
-  };
-
-  const handleGameOverCallback = () => {
-      setScreen('result');
-  };
-
-  const handleAddItem = (itemId: string) => {
-    if (inventory.length >= MAX_INVENTORY_SIZE) {
-        alert("持ち物がいっぱいです！");
-        return;
-    }
-    setInventory(prev => [...prev, itemId]);
-  };
-
+const App: React.FC = () => {
+  // ゲームロジックのコアフックを使用
+  const game = useGameCore();
   const { 
-    dungeon, playerPos, enemies, floor, gameOver, isPaused, togglePause, 
-    currentEvent, handleEventChoice,
-    messageLog, movePlayer, useSkill, skillCooldowns, playerHp
-  } = useGameLogic(
-    playerJob,
-    chapter,
-    activeQuests,
-    handleQuestUpdateCallback,
-    handleGameOverCallback,
-    handleAddItem 
+    currentScreen, 
+    player, 
+    dungeon, 
+    turnSystem, 
+    eventSystem, 
+    handlers 
+  } = game;
+
+  // --- Rendering Helpers ---
+
+  // ダンジョン画面のレンダリング
+  const renderDungeon = () => (
+    <div className="relative w-full h-full bg-black overflow-hidden flex flex-col items-center justify-center">
+      
+      {/* HUD (Header) */}
+      <div className="absolute top-0 left-0 w-full z-10">
+        <GameHUD 
+          playerState={player.playerState} 
+          floor={dungeon.dungeonState.floor}
+          logs={eventSystem.eventState.logs}
+          miniMap={dungeon.dungeonState.map}
+        />
+      </div>
+
+      {/* Main Game View (Viewport) */}
+      <div className="relative w-[640px] h-[480px] bg-[#1a1a1a] border-4 border-[#4a4a4a] overflow-hidden shadow-2xl">
+        
+        {/* Map Grid Rendering */}
+        <div 
+          className="absolute transition-transform duration-300 ease-in-out"
+          style={{
+            transform: `translate(
+              ${320 - player.playerState.x * 32 - 16}px, 
+              ${240 - player.playerState.y * 32 - 16}px
+            )`
+          }}
+        >
+          {dungeon.dungeonState.map.map((row, y) => (
+            <div key={y} className="flex">
+              {row.map((tile, x) => (
+                <div 
+                  key={`${x}-${y}`} 
+                  className="w-8 h-8 flex-shrink-0"
+                  style={{
+                    backgroundColor: tile.visible ? 
+                      (tile.type === 'wall' ? '#444' : 
+                       tile.type === 'floor' ? '#222' : 
+                       tile.type === 'corridor' ? '#111' : '#000') 
+                      : '#000',
+                    border: tile.visible ? '1px solid #333' : 'none'
+                  }}
+                >
+                  {/* Debug Info or Tile Decoration */}
+                </div>
+              ))}
+            </div>
+          ))}
+
+          {/* Enemies */}
+          {dungeon.dungeonState.enemies.map(enemy => (
+            enemy.hp > 0 && dungeon.dungeonState.map[enemy.y][enemy.x].visible && (
+              <div 
+                key={enemy.id}
+                className="absolute w-8 h-8 transition-all duration-300"
+                style={{
+                  left: enemy.x * 32,
+                  top: enemy.y * 32,
+                }}
+              >
+                <PixelSprite 
+                  type="enemy" 
+                  data={enemy} // 敵の種類に応じたアセットID等を渡すのが理想
+                  state="idle"
+                />
+              </div>
+            )
+          ))}
+
+          {/* Player */}
+          <div 
+            className="absolute w-8 h-8 z-20 transition-all duration-200"
+            style={{
+              left: player.playerState.x * 32,
+              top: player.playerState.y * 32,
+            }}
+          >
+             <PixelSprite 
+               type="player" 
+               jobId={player.activeJob}
+               state={turnSystem.turnState.isProcessing ? 'attack' : 'idle'}
+             />
+          </div>
+          
+        </div>
+
+        {/* Visual Effects (Overlay) */}
+        {player.playerState.hp < player.playerState.maxHp * 0.2 && (
+          <div className="absolute inset-0 pointer-events-none bg-red-900/20 animate-pulse" />
+        )}
+
+      </div>
+
+      {/* UI Overlays */}
+      {game.showInventory && (
+        <InventoryMenu 
+          player={player.playerState} 
+          onClose={() => game.setShowInventory(false)}
+          onEquip={(item) => {/* 装備処理 */}}
+          onUse={(item) => {/* 使用処理 */}}
+        />
+      )}
+
+      {game.isPaused && (
+        <PauseMenu 
+          onResume={() => game.setIsPaused(false)}
+          onRetire={() => {
+            game.setIsPaused(false);
+            handlers.onReturnToTown();
+          }}
+        />
+      )}
+
+      {/* Event/Dialogue Overlay */}
+      {eventSystem.eventState.isEventActive && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[600px]">
+          <DialogueWindow 
+            text={eventSystem.eventState.currentText}
+            speaker={eventSystem.eventState.currentSpeaker}
+            onNext={eventSystem.nextDialogue}
+          />
+        </div>
+      )}
+
+    </div>
   );
 
-  useEffect(() => {
-    if (screen !== 'dungeon' || !dungeon || !canvasRef.current) return;
-    let animationFrameId: number;
-    const renderLoop = () => {
-      if (!isPaused && !currentEvent) {
-        visualManager.update();
-      }
-      // playerJob.id を渡して見た目を切り替え
-      renderDungeon(canvasRef.current!, dungeon, playerPos, enemies, playerJob.id);
-      animationFrameId = requestAnimationFrame(renderLoop);
-    };
-    renderLoop();
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [screen, dungeon, playerPos, enemies, isPaused, currentEvent, playerJob]); // playerJob依存追加
-
-  const handleInput = useCallback((action: InputAction) => {
-    if (action === 'PAUSE') {
-        if (screen === 'dungeon' && !currentEvent) togglePause();
-        else if (screen === 'inventory') setScreen(dungeon ? 'dungeon' : 'town');
-        return;
-    }
-    
-    if (screen === 'inventory') {
-        if (action === 'CANCEL' || action === 'MENU') {
-            setScreen(dungeon ? 'dungeon' : 'town');
-        }
-        return;
-    }
-
-    if (screen === 'dungeon') {
-        if (currentEvent) return;
-
-        if (action === 'MENU' && !isPaused) {
-            setScreen('inventory');
-            return;
-        }
-
-        if (isPaused) {
-            if (action === 'CANCEL') togglePause();
-            return;
-        }
-
-        switch (action) {
-            case 'UP': movePlayer(0, -1); break;
-            case 'DOWN': movePlayer(0, 1); break;
-            case 'LEFT': movePlayer(-1, 0); break;
-            case 'RIGHT': movePlayer(1, 0); break;
-            case 'CONFIRM': 
-                break;
-            case 'SKILL_1': if(playerJob.skills[0]) useSkill(playerJob.skills[0]); break;
-            case 'SKILL_2': if(playerJob.skills[1]) useSkill(playerJob.skills[1]); break;
-            case 'SKILL_3': if(playerJob.skills[2]) useSkill(playerJob.skills[2]); break;
-            case 'SKILL_4': if(playerJob.skills[3]) useSkill(playerJob.skills[3]); break;
-        }
-        return;
-    }
-
-    if (action === 'CANCEL') {
-        if (screen === 'godSelect') setScreen('jobSelect');
-    }
-
-  }, [screen, dungeon, isPaused, togglePause, movePlayer, useSkill, playerJob, currentEvent]);
-
-  useGamepad(handleInput);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleInput('PAUSE');
-      else if (e.key === 'i') handleInput('MENU');
-      else if (e.key === 'ArrowUp') handleInput('UP');
-      else if (e.key === 'ArrowDown') handleInput('DOWN');
-      else if (e.key === 'ArrowLeft') handleInput('LEFT');
-      else if (e.key === 'ArrowRight') handleInput('RIGHT');
-      else if (e.key === 'Enter' || e.key === 'z') handleInput('CONFIRM');
-      else if (e.key === 'x' || e.key === 'Backspace') handleInput('CANCEL');
-      else if (e.key === '1') handleInput('SKILL_1');
-      else if (e.key === '2') handleInput('SKILL_2');
-      else if (e.key === '3') handleInput('SKILL_3');
-      else if (e.key === '4') handleInput('SKILL_4');
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleInput]);
-
-  const handleUseItem = (itemId: string) => {
-    const item = itemData.find(i => i.id === itemId);
-    if (!item || !item.effect) return;
-    if (item.effect.type === 'heal_hp') {
-        setBaseStats(prev => ({ ...prev, hp: Math.min(prev.maxHp, prev.hp + item.effect!.value) }));
-        audioManager.playSeSelect();
-        alert(`${item.name}を使用しました。`);
-        const idx = inventory.indexOf(itemId);
-        if (idx > -1) {
-            const newInv = [...inventory];
-            newInv.splice(idx, 1);
-            setInventory(newInv);
-        }
-    }
-  };
-
-  const handleEquipItem = (itemId: string) => {
-    const item = itemData.find(i => i.id === itemId);
-    if (!item) return;
-    const currentEquippedId = equippedItems[item.type];
-    if (currentEquippedId === itemId) {
-        setEquippedItems(prev => ({ ...prev, [item.type]: null }));
-        audioManager.playSeCancel();
-        return;
-    }
-    setEquippedItems(prev => ({ ...prev, [item.type]: itemId }));
-    audioManager.playSeSelect();
-  };
-
-  const handleStartGame = () => { audioManager.playSeSelect(); clearSaveData(); setScreen('jobSelect'); };
-  
-  const handleContinueGame = () => {
-    audioManager.playSeSelect();
-    const data = loadGame();
-    if (data) {
-      const job = jobs.find(j => j.id === data.playerJobId) || jobs[0];
-      setPlayerJob(job); setBaseStats(data.playerStats); setPlayerExp(data.playerStats.exp); setGold(data.gold);
-      setChapter(data.chapter); setCompletedQuestIds(data.completedQuestIds); setInventory(data.inventory);
-      setUnlockedCompanions(data.unlockedCompanions);
-      setActiveQuests(allQuests.filter(q => data.activeQuestIds.includes(q.id)));
-      setScreen('town');
-    }
-  };
-
-  const handleSelectJob = (job: Job) => {
-    audioManager.playSeSelect(); setPlayerJob(job);
-    setBaseStats({ 
-        ...baseStats, 
-        maxHp: job.baseStats.vit * 10, hp: job.baseStats.vit * 10, 
-        attack: job.baseStats.str * 2, 
-        str: job.baseStats.str, vit: job.baseStats.vit, dex: job.baseStats.dex, agi: job.baseStats.agi, int: job.baseStats.int, luc: job.baseStats.luc 
-    });
-    setScreen('godSelect');
-  };
-
-  const handleSelectGod = (_godId: string) => { 
-    audioManager.playSeSelect(); setScreen('town'); setTimeout(performAutoSave, 100); 
-  };
-  
-  const handleGoToDungeon = () => { audioManager.playSeSelect(); setScreen('dungeon'); };
-  
-  const handleReturnToTown = () => { 
-      audioManager.playSeSelect(); 
-      setBaseStats(prev => ({ ...prev, hp: prev.maxHp })); 
-      setScreen('town'); 
-      setTimeout(performAutoSave, 100); 
-  };
-  
-  const handleAcceptQuest = (quest: Quest) => { 
-      audioManager.playSeSelect(); 
-      if (!activeQuests.find(q => q.id === quest.id)) setActiveQuests([...activeQuests, quest]); 
-  };
-  
-  const handleReportQuest = (quest: Quest) => {
-    audioManager.playSeLevelUp(); setGold(gold + quest.rewardGold); setPlayerExp(playerExp + quest.rewardExp);
-    setActiveQuests(activeQuests.filter(q => q.id !== quest.id)); setCompletedQuestIds([...completedQuestIds, quest.id]);
-    const newLevel = calculateLevel(playerExp + quest.rewardExp);
-    if (newLevel > baseStats.level) setBaseStats({ ...baseStats, level: newLevel });
-    if (quest.id === 'mq_1_5') { setChapter(2); setUnlockedCompanions(prev => [...prev, 'elias']); alert("Chapter 2へ進みました！"); }
-    setTimeout(performAutoSave, 500);
-  };
-
-  const handleBuyItem = (item: ShopItem) => {
-    if (gold >= item.price) {
-      if (inventory.length >= MAX_INVENTORY_SIZE) { 
-          alert("持ち物がいっぱいです！");
-          audioManager.playSeCancel();
-          return;
-      }
-      audioManager.playSeSelect(); 
-      setGold(gold - item.price); 
-      setInventory([...inventory, item.id]); 
-      setTimeout(performAutoSave, 100);
-    } else { 
-        audioManager.playSeCancel(); 
-    }
-  };
-
-  const handleUpgradeStatus = (stat: 'str' | 'vit' | 'dex' | 'agi' | 'int' | 'luc', cost: number) => {
-      if (playerExp >= cost) {
-          audioManager.playSeSelect(); 
-          const newExp = playerExp - cost; 
-          setPlayerExp(newExp); 
-          setBaseStats(prev => ({ ...prev, [stat]: prev[stat] + 1 })); 
-          setTimeout(performAutoSave, 100);
-      } else { 
-          audioManager.playSeCancel(); 
-      }
-  };
-
-  const displayItems = inventory.map(id => {
-      const data = itemData.find(i => i.id === id);
-      return {
-          id,
-          name: data ? data.name : 'Unknown Item',
-          price: data ? data.price : 0
-      };
-  });
+  // --- Main Render Switch ---
 
   return (
-    <div className="w-full h-screen bg-black text-white font-sans">
-      {screen === 'title' && (
-          <div className="flex flex-col items-center justify-center h-full space-y-4 bg-gray-900">
-              <TitleScreen 
-                onStart={handleStartGame} 
-                onContinue={handleContinueGame}
-                canContinue={canContinue}
-                resolution={resolution}
-                setResolution={setResolution}
-              />
-          </div>
+    <div className="w-screen h-screen bg-neutral-900 text-white font-sans overflow-hidden select-none">
+      {currentScreen === 'title' && (
+        <TitleScreen onStart={handlers.onStartGame} />
       )}
-      
-      {screen === 'jobSelect' && <JobSelectScreen onSelectJob={handleSelectJob} />}
-      
-      {screen === 'godSelect' && (
-        <GodSelectScreen 
-            onSelectGod={handleSelectGod} 
-            onBack={() => setScreen('jobSelect')} 
+
+      {currentScreen === 'job_select' && (
+        <JobSelectScreen onSelect={handlers.onJobSelect} />
+      )}
+
+      {currentScreen === 'god_select' && (
+        <GodSelectScreen onSelect={handlers.onGodSelect} />
+      )}
+
+      {currentScreen === 'tutorial' && (
+        <Tutorial onComplete={handlers.onTutorialComplete} />
+      )}
+
+      {currentScreen === 'town' && (
+        <TownScreen 
+          player={player.playerState} 
+          onDungeon={handlers.onEnterDungeon}
+          // 各施設へのハンドラはまだ仮
+          onShop={() => console.log('Shop')} 
+          onGuild={() => console.log('Guild')} 
+          onFamilia={() => console.log('Familia')}
+        />
+      )}
+
+      {currentScreen === 'dungeon' && renderDungeon()}
+
+      {currentScreen === 'result' && (
+        <ResultScreen 
+          result={player.playerState.hp > 0 ? 'clear' : 'gameover'}
+          score={player.playerState.gold} // 仮のスコア
+          onReturn={handlers.onReturnToTown}
         />
       )}
       
-      {screen === 'town' && (
-          <>
-            <TownScreen 
-                playerJob={playerJob} 
-                gold={gold} 
-                chapter={chapter} 
-                activeQuests={activeQuests} 
-                completedQuestIds={completedQuestIds} 
-                items={displayItems} 
-                onGoToDungeon={handleGoToDungeon} 
-                onAcceptQuest={handleAcceptQuest} 
-                onReportQuest={handleReportQuest} 
-                onBuyItem={handleBuyItem} 
-                onUpgradeStatus={handleUpgradeStatus} 
-                playerStats={finalStats} 
-                playerExp={playerExp} 
-            />
-            <div className="absolute top-2 right-2 z-50 flex space-x-2">
-                <button onClick={() => setScreen('inventory')} className="px-3 py-1 bg-blue-700 text-xs rounded border border-blue-500 hover:bg-blue-600">🎒 アイテム</button>
-                <button onClick={performAutoSave} className="px-3 py-1 bg-gray-700 text-xs rounded border border-gray-500 hover:bg-gray-600">💾 セーブ</button>
-            </div>
-          </>
-      )}
-      
-      {screen === 'inventory' && (
-          <div className="absolute inset-0 bg-black bg-opacity-95 z-50 p-4">
-              <InventoryMenu 
-                inventory={inventory} 
-                equippedItems={equippedItems} 
-                playerStats={finalStats} 
-                onUseItem={handleUseItem} 
-                onEquipItem={handleEquipItem} 
-                onClose={() => setScreen(dungeon ? 'dungeon' : 'town')} 
-              />
-          </div>
-      )}
-      
-      {screen === 'dungeon' && (
-          <div className="relative w-full h-full flex flex-col items-center justify-center">
-              <div className="absolute top-0 left-0 w-full z-10">
-                  <GameHUD 
-                    playerJob={playerJob} 
-                    level={finalStats.level} 
-                    hp={playerHp} 
-                    maxHp={finalStats.maxHp} 
-                    exp={playerExp} 
-                    nextExp={calculateExpForLevel(finalStats.level + 1)} 
-                    floor={floor} 
-                    gold={gold} 
-                    skillCooldowns={skillCooldowns} 
-                  />
-              </div>
-              <canvas ref={canvasRef} width={800} height={600} className="border-4 border-gray-700 bg-gray-900 shadow-2xl" />
-              <div className="absolute bottom-4 left-4 bg-black bg-opacity-70 p-4 rounded max-w-md pointer-events-none">
-                  {messageLog.map((log, i) => <div key={i} className="text-sm text-gray-200">{log}</div>)}
-              </div>
-              <div className="absolute top-16 right-2 z-50">
-                  <button onClick={() => setScreen('inventory')} className="px-3 py-1 bg-blue-700 text-xs rounded border border-blue-500 hover:bg-blue-600 opacity-80">🎒 アイテム</button>
-              </div>
-
-              {isPaused && !currentEvent && (
-                <PauseMenu 
-                    onResume={togglePause} 
-                    onRetire={handleReturnToTown} 
-                />
-              )}
-
-              {/* イベントモーダル */}
-              {currentEvent && (
-                <EventModal 
-                    event={currentEvent} 
-                    onChoice={handleEventChoice} 
-                />
-              )}
-
-              {gameOver && (
-                  <div className="absolute inset-0 bg-red-900 bg-opacity-80 flex items-center justify-center flex-col z-20">
-                      <h2 className="text-4xl font-bold mb-4">YOU DIED</h2>
-                      <button onClick={handleGameOverCallback} className="px-6 py-3 bg-white text-black font-bold rounded hover:bg-gray-200">Continue</button>
-                  </div>
-              )}
-          </div>
-      )}
-      
-      {screen === 'result' && (
-        <ResultScreen 
-            onReturnToTown={handleReturnToTown} 
-            resultData={{
-                exp: 0, 
-                gold: 0,
-                items: [],
-                floorReached: floor
-            }}
+      {/* Global Modal Layer */}
+      {eventSystem.eventState.modalContent && (
+        <EventModal 
+          content={eventSystem.eventState.modalContent} 
+          onClose={eventSystem.closeModal} 
         />
       )}
     </div>
   );
-}
+};
+
+export default App;
