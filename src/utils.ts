@@ -10,6 +10,11 @@ export const calculateExpForLevel = (level: number): number => {
   return 100 * (level - 1) * (level - 1);
 };
 
+// 距離計算関数 (追加)
+export const getDistance = (x1: number, y1: number, x2: number, y2: number): number => {
+  return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+};
+
 // 会話優先度ロジック
 // 1. 報告可能なクエスト完了 (priority 100)
 // 2. 進行中のクエスト (priority 80)
