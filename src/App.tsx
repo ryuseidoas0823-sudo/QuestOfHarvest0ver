@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { TitleScreen } from './components/TitleScreen';
 import { JobSelectScreen } from './components/JobSelectScreen';
-// Named export ではなく Default export としてインポートするように修正
 import GodSelectScreen from './components/GodSelectScreen';
 import { TownScreen } from './components/TownScreen';
 import { ResultScreen } from './components/ResultScreen';
@@ -105,7 +104,7 @@ export default function App() {
   };
 
   const { 
-    dungeon, playerPos, enemies, floor, gameOver, messageLog, movePlayer, useSkill, skillCooldowns, playerHp
+    dungeon, playerPos, enemies, floor, gameOver, messageLog, movePlayer, useSkill, skillCooldowns, playerHp, playerMaxHp
   } = useGameLogic(
     playerJob,
     chapter,
@@ -206,7 +205,7 @@ export default function App() {
     setScreen('godSelect');
   };
 
-  const handleSelectGod = (_godId: string) => { 
+  const handleSelectGod = (godId: string) => { 
     audioManager.playSeSelect(); setScreen('town'); setTimeout(performAutoSave, 100); 
   };
   
@@ -286,7 +285,12 @@ export default function App() {
       
       {screen === 'jobSelect' && <JobSelectScreen onSelectJob={handleSelectJob} />}
       
-      {screen === 'godSelect' && <GodSelectScreen onSelectGod={handleSelectGod} />}
+      {screen === 'godSelect' && (
+        <GodSelectScreen 
+            onSelectGod={handleSelectGod} 
+            onBack={() => setScreen('jobSelect')} // onBackを追加
+        />
+      )}
       
       {screen === 'town' && (
           <>
