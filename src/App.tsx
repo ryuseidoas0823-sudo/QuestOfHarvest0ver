@@ -104,7 +104,7 @@ export default function App() {
   };
 
   const { 
-    dungeon, playerPos, enemies, floor, gameOver, messageLog, movePlayer, useSkill, skillCooldowns, playerHp, playerMaxHp
+    dungeon, playerPos, enemies, floor, gameOver, messageLog, movePlayer, useSkill, skillCooldowns, playerHp
   } = useGameLogic(
     playerJob,
     chapter,
@@ -205,7 +205,7 @@ export default function App() {
     setScreen('godSelect');
   };
 
-  const handleSelectGod = (godId: string) => { 
+  const handleSelectGod = (_godId: string) => { 
     audioManager.playSeSelect(); setScreen('town'); setTimeout(performAutoSave, 100); 
   };
   
