@@ -15,7 +15,9 @@ export interface Item {
   price: number;
   description: string;
   effect?: ItemEffect;
-  // Statsの一部を持つ形に修正し、maxHpなども扱えるようにする
   equipStats?: Partial<Stats>;
   rarity?: 'common' | 'rare' | 'epic' | 'legendary';
 }
+
+// エラー修正: ItemDefinition を Item のエイリアスとしてエクスポート
+export type ItemDefinition = Item;
