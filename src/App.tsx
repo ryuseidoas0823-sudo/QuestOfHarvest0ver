@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useGameCore } from './hooks/useGameCore';
 
-// Components (All Default Exports)
+// Components (Default Imports)
 import TitleScreen from './components/TitleScreen';
 import JobSelectScreen from './components/JobSelectScreen';
 import GodSelectScreen from './components/GodSelectScreen';
@@ -142,7 +142,7 @@ const App: React.FC = () => {
                 <div className="absolute -top-1 left-0 w-full h-1 bg-red-900 border border-black">
                   <div 
                     className="h-full bg-red-500 transition-all duration-300"
-                    style={{ width: `${(enemy.hp / enemy.maxHp) * 100}%` }}
+                    style={{ width: `${(enemy.hp / (enemy.maxHp || 10)) * 100}%` }}
                   />
                 </div>
               </div>
