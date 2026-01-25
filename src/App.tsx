@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useGameCore } from './hooks/useGameCore';
 
-// Named Imports に変更（エラー対策）
-import { TitleScreen } from './components/TitleScreen';
-import { JobSelectScreen } from './components/JobSelectScreen';
-import { GodSelectScreen } from './components/GodSelectScreen';
-import { Tutorial } from './components/Tutorial';
-import { TownScreen } from './components/TownScreen';
-import { ResultScreen } from './components/ResultScreen';
+// Components (All Default Exports)
+import TitleScreen from './components/TitleScreen';
+import JobSelectScreen from './components/JobSelectScreen';
+import GodSelectScreen from './components/GodSelectScreen';
+import Tutorial from './components/Tutorial';
+import TownScreen from './components/TownScreen';
+import ResultScreen from './components/ResultScreen';
 
 // Dungeon Components
-import { PixelSprite } from './components/PixelSprite';
-import { GameHUD } from './components/GameHUD';
-import { PauseMenu } from './components/PauseMenu';
-import { InventoryMenu } from './components/InventoryMenu';
-import { EventModal } from './components/EventModal';
-import { DialogueWindow } from './components/DialogueWindow';
+import PixelSprite from './components/PixelSprite';
+import GameHUD from './components/GameHUD';
+import PauseMenu from './components/PauseMenu';
+import InventoryMenu from './components/InventoryMenu';
+import EventModal from './components/EventModal';
+import DialogueWindow from './components/DialogueWindow';
 
 // Assets & Styles
 import './index.css';
@@ -75,7 +75,6 @@ const App: React.FC = () => {
           playerState={player.playerState} 
           floor={dungeon.dungeonState.floor}
           logs={eventSystem.eventState.logs}
-          // miniMapは今回簡易表示のため空配列等のダミーでも可
           miniMap={dungeon.dungeonState.map}
         />
       </div>
@@ -106,7 +105,6 @@ const App: React.FC = () => {
                     style={{
                       opacity: tile.visible ? 1 : 0,
                       backgroundColor: !tile.visible ? '#000' : (isWall ? '#3d342b' : isFloor ? '#2a2a2a' : '#1a1a1a'),
-                      // インラインCSSによる簡易テクスチャ
                       backgroundImage: !tile.visible ? 'none' : (
                         isWall ? `linear-gradient(335deg, rgba(20,20,20,0.4) 23px, transparent 23px), linear-gradient(155deg, rgba(40,30,20,0.4) 23px, transparent 23px)` :
                         isFloor ? `linear-gradient(335deg, rgba(0,0,0,0.1) 23px, transparent 23px)` : 'none'
@@ -165,29 +163,25 @@ const App: React.FC = () => {
                state={turnSystem.turnState.isProcessing ? 'attack' : 'idle'}
                direction={playerDirection}
              />
-             {/* Player Spotlight */}
              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-[radial-gradient(circle,rgba(255,255,200,0.1)_0%,rgba(0,0,0,0)_60%)] pointer-events-none" />
           </div>
           
         </div>
 
-        {/* Global Lighting / Vignette */}
         <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,transparent_30%,rgba(0,0,0,0.8)_100%)] z-30" />
 
-        {/* Damage Effect */}
         {player.playerState.hp < player.playerState.maxHp * 0.3 && (
           <div className="absolute inset-0 pointer-events-none bg-red-900/30 animate-pulse z-40 mix-blend-overlay" />
         )}
 
       </div>
 
-      {/* UI Overlays */}
       {game.showInventory && (
         <InventoryMenu 
           player={player.playerState} 
           onClose={() => game.setShowInventory(false)}
-          onEquip={(_item) => {/* Equip logic */}}
-          onUse={(_item) => {/* Use logic */}}
+          onEquip={(_item) => {}}
+          onUse={(_item) => {}}
         />
       )}
 
@@ -201,7 +195,6 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Event/Dialogue Overlay */}
       {eventSystem.eventState.isEventActive && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-[580px] z-50">
           <DialogueWindow 
