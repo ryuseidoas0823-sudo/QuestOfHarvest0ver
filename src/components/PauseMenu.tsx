@@ -16,31 +16,70 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({ onResume, onRetire }) => {
         {/* 操作説明セクション */}
         <div className="bg-gray-800/80 p-6 rounded-lg border border-gray-600 shadow-lg">
           <h3 className="text-xl font-bold mb-4 text-blue-300 text-center">🎮 操作方法</h3>
-          <ul className="space-y-3 text-sm">
-            <li className="flex justify-between w-64 border-b border-gray-700 pb-1">
-              <span className="text-gray-400">移動 / 攻撃</span>
-              <span className="font-mono font-bold text-yellow-200">↑ ↓ ← →</span>
-            </li>
-            <li className="flex justify-between w-64 border-b border-gray-700 pb-1">
-              <span className="text-gray-400">スキル使用</span>
-              <span className="font-mono font-bold text-yellow-200">1, 2, 3, 4</span>
-            </li>
-            <li className="flex justify-between w-64 border-b border-gray-700 pb-1">
-              <span className="text-gray-400">インベントリ</span>
-              <span className="font-mono font-bold text-yellow-200">I (アイ)</span>
-            </li>
-            <li className="flex justify-between w-64 border-b border-gray-700 pb-1">
-              <span className="text-gray-400">ポーズ / 戻る</span>
-              <span className="font-mono font-bold text-yellow-200">Esc</span>
-            </li>
-          </ul>
+          
+          <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+            {/* Keyboard */}
+            <div className="col-span-2 text-center text-xs text-gray-500 border-b border-gray-700 pb-1 mb-2">
+              KEYBOARD
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">移動</span>
+              <span className="font-mono text-white">矢印キー</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">決定/攻撃</span>
+              <span className="font-mono text-white">Enter</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">スキル</span>
+              <span className="font-mono text-white">1-4</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">メニュー</span>
+              <span className="font-mono text-white">I (アイ)</span>
+            </div>
+
+            {/* Controller */}
+            <div className="col-span-2 text-center text-xs text-gray-500 border-b border-gray-700 pb-1 mb-2 mt-4">
+              CONTROLLER
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">移動</span>
+              <span className="font-mono text-yellow-200">十字キー/Lスティック</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">決定/攻撃</span>
+              <span className="font-mono text-yellow-200">A / ×</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">戻る/キャンセル</span>
+              <span className="font-mono text-yellow-200">B / ○</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">スキル</span>
+              <span className="font-mono text-yellow-200">X / Y / L / R</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">メニュー</span>
+              <span className="font-mono text-yellow-200">Y / △</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">ポーズ</span>
+              <span className="font-mono text-yellow-200">Start / Options</span>
+            </div>
+          </div>
         </div>
 
-        {/* ゲーム情報セクション（将来的に拡張可能） */}
+        {/* ゲーム情報セクション */}
         <div className="bg-gray-800/80 p-6 rounded-lg border border-gray-600 shadow-lg flex flex-col items-center justify-center w-64">
            <p className="text-gray-400 mb-2">現在の目的</p>
            <p className="text-lg font-bold text-white mb-4">ダンジョン深層へ</p>
-           <p className="text-xs text-gray-500">※ オートセーブ対応</p>
+           <div className="text-xs text-gray-500 mt-4 text-center">
+             <p>コントローラー接続:</p>
+             <p className="text-green-400 animate-pulse">
+               {navigator.getGamepads()[0] ? "接続済み" : "未接続"}
+             </p>
+           </div>
         </div>
       </div>
 
