@@ -23,6 +23,7 @@ export const useGameLogic = (
   const [enemies, setEnemies] = useState<EnemyInstance[]>([]);
   const [floor, setFloor] = useState(1);
   const [gameOver, setGameOver] = useState(false);
+  const [isPaused, setIsPaused] = useState(false); // ポーズ状態を追加
   const [messageLog, setMessageLog] = useState<string[]>([]);
   const [playerHp, setPlayerHp] = useState(playerJob.baseStats.maxHp); 
   const playerMaxHp = playerJob.baseStats.maxHp;
@@ -34,6 +35,11 @@ export const useGameLogic = (
 
   const addLog = useCallback((msg: string) => {
     setMessageLog(prev => [msg, ...prev].slice(0, 5));
+  }, []);
+
+  // ポーズ切り替え関数
+  const togglePause = useCallback(() => {
+    setIsPaused(prev => !prev);
   }, []);
 
   const updateVisibility = (map: DungeonMap, pos: { x: number; y: number }) => {
@@ -59,7 +65,6 @@ export const useGameLogic = (
 
   const initFloor = useCallback((floorNum: number) => {
     visualManager.clear();
-    // generateDungeon は { map, startPos, enemies } を返す
     const { map: newMap, startPos, enemies: generatedEnemies } = generateDungeon(floorNum);
     
     // 視界の初期化
@@ -80,7 +85,7 @@ export const useGameLogic = (
     setPlayerPos(startPos);
     setFloor(floorNum);
     
-    const newEnemies: EnemyInstance[] = [...generatedEnemies]; // 生成された敵を含める
+    const newEnemies: EnemyInstance[] = [...generatedEnemies];
     const isBossFloor = floorNum % 5 === 0;
     
     // 味方NPC (Chapter 2以降)
@@ -107,7 +112,6 @@ export const useGameLogic = (
       if (floorNum === 20) currentBoss = enemyData.find(e => e.id === 'abyss_commander') || bossData;
       if (floorNum === 25) currentBoss = enemyData.find(e => e.id === 'fallen_hero') || bossData;
       
-      // 部屋の取得方法を修正
       const room = newMap.rooms[0];
       if (room) {
           newEnemies.push({ 
@@ -131,13 +135,6 @@ export const useGameLogic = (
               } as EnemyInstance);
           }
       }
-    } else {
-      // 通常階層の敵配置ロジックは generateDungeon 内で行われているため、ここでは追加ロジックのみ
-      // もし generateDungeon の外で敵を追加したい場合はここに記述
-      // 現在の実装では generateDungeon 内で敵が生成されているため、
-      // ここでのランダム配置コードは不要または重複する可能性があります。
-      // generateDungeon のロジックに任せる場合、以下は削除または調整が必要です。
-      // 今回は generateDungeon が返す敵リストを使用するため、ここはスキップします。
     }
     setEnemies(newEnemies);
 
@@ -182,6 +179,8 @@ export const useGameLogic = (
   };
 
   const processTurn = () => {
+      if (isPaused) return; // ポーズ中はターン進行しない
+
       setSkillCooldowns(prev => {
         const next = { ...prev };
         Object.keys(next).forEach(key => { if (next[key] > 0) next[key]--; });
@@ -230,9 +229,8 @@ export const useGameLogic = (
       });
   };
 
-  // 修正: Skillオブジェクトではなく skillId (string) を受け取るように変更
   const useSkill = useCallback((skillId: string) => {
-      if (gameOver || !dungeon) return;
+      if (gameOver || !dungeon || isPaused) return; // ポーズチェック追加
       if ((skillCooldowns[skillId] || 0) > 0) {
         addLog(`スキル準備中... (あと${skillCooldowns[skillId]}ターン)`);
         return;
@@ -254,7 +252,6 @@ export const useGameLogic = (
       } else if (skill.type === 'attack') {
         const effectType = skillId.includes('fire') ? 'fire' : 'slash';
         if (skill.target === 'single') {
-          // 敵の検索
           const target = enemies
             .filter(e => e.hp > 0 && e.faction === 'monster')
             .map(e => ({ ...e, dist: getDistance(playerPos.x, playerPos.y, e.x, e.y) }))
@@ -295,10 +292,10 @@ export const useGameLogic = (
         setSkillCooldowns(prev => ({ ...prev, [skillId]: skill.cooldown }));
         processTurn();
       }
-  }, [dungeon, enemies, playerPos, playerMaxHp, playerAttack, skillCooldowns, gameOver, addLog, processTurn]);
+  }, [dungeon, enemies, playerPos, playerMaxHp, playerAttack, skillCooldowns, gameOver, addLog, processTurn, isPaused]);
 
   const movePlayer = useCallback((dx: number, dy: number) => {
-    if (gameOver || !dungeon) return;
+    if (gameOver || !dungeon || isPaused) return; // ポーズチェック追加
     const newX = playerPos.x + dx;
     const newY = playerPos.y + dy;
 
@@ -311,7 +308,6 @@ export const useGameLogic = (
             addLog(`攻撃！ ${targetEnemy.name}に${damage}ダメージ`);
             applyDamageToEnemy(targetEnemy.uniqueId, damage);
         } else if (targetEnemy.faction === 'player_ally') {
-            // 味方の場合は位置を入れ替える
             setPlayerPos({ x: newX, y: newY });
             setEnemies(prev => prev.map(e => 
                 e.uniqueId === targetEnemy.uniqueId ? { ...e, x: playerPos.x, y: playerPos.y } : e
@@ -332,7 +328,7 @@ export const useGameLogic = (
         return;
     }
     processTurn();
-  }, [dungeon, enemies, playerPos, gameOver, playerAttack, floor, addLog, initFloor]); // processTurnの依存は一旦外すかuseRefで解決推奨だが簡易修正
+  }, [dungeon, enemies, playerPos, gameOver, playerAttack, floor, addLog, initFloor, isPaused]); // processTurnの依存はuseRef経由などで解決推奨だが簡易対応
 
   return {
     dungeon,
@@ -340,6 +336,8 @@ export const useGameLogic = (
     enemies,
     floor,
     gameOver,
+    isPaused, // エクスポート
+    togglePause, // エクスポート
     messageLog,
     movePlayer,
     useSkill,
