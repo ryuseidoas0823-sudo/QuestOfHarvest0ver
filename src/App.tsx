@@ -1,26 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useGameCore } from './hooks/useGameCore';
 
-// Screens
-import TitleScreen from './components/TitleScreen';
-import JobSelectScreen from './components/JobSelectScreen';
-import GodSelectScreen from './components/GodSelectScreen';
-import Tutorial from './components/Tutorial';
-import TownScreen from './components/TownScreen';
-import ResultScreen from './components/ResultScreen';
+// Named Imports に変更（エラー対策）
+import { TitleScreen } from './components/TitleScreen';
+import { JobSelectScreen } from './components/JobSelectScreen';
+import { GodSelectScreen } from './components/GodSelectScreen';
+import { Tutorial } from './components/Tutorial';
+import { TownScreen } from './components/TownScreen';
+import { ResultScreen } from './components/ResultScreen';
 
 // Dungeon Components
-import PixelSprite from './components/PixelSprite';
-import GameHUD from './components/GameHUD';
-import PauseMenu from './components/PauseMenu';
-import InventoryMenu from './components/InventoryMenu';
-import EventModal from './components/EventModal';
-import DialogueWindow from './components/DialogueWindow';
+import { PixelSprite } from './components/PixelSprite';
+import { GameHUD } from './components/GameHUD';
+import { PauseMenu } from './components/PauseMenu';
+import { InventoryMenu } from './components/InventoryMenu';
+import { EventModal } from './components/EventModal';
+import { DialogueWindow } from './components/DialogueWindow';
 
 // Assets & Styles
 import './index.css';
-import { TILE_PATTERNS } from './assets/pixelData';
-import { Direction } from './types'; // 型定義からimport
+import { Direction } from './types'; 
 
 const App: React.FC = () => {
   const game = useGameCore();
@@ -34,12 +33,9 @@ const App: React.FC = () => {
   } = game;
 
   // View State for UI
-  // プレイヤーの向き（UI用State）
   const [playerDirection, setPlayerDirection] = useState<'left' | 'right' | 'up' | 'down'>('down');
 
-  // キーボードイベントのフック
-  // useGameCore内でも入力監視を行っている可能性がありますが、
-  // UI側の向き(direction)更新と連動させるためにここで監視します。
+  // キーボードイベントの監視（向き更新用）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (currentScreen !== 'dungeon') return;
@@ -53,7 +49,6 @@ const App: React.FC = () => {
       }
 
       if (dir) {
-        // 向きを更新
         setPlayerDirection(prev => {
            if (dir === 'left') return 'left';
            if (dir === 'right') return 'right';
@@ -61,17 +56,6 @@ const App: React.FC = () => {
            if (dir === 'down') return 'down';
            return prev;
         });
-        
-        // 移動処理を呼び出し (useGameCore側で二重処理にならないよう注意が必要だが、
-        // useGameCoreがキーイベントを直接監視していない場合はここで呼ぶ必要がある。
-        // 今回の構成では useGameCore 内の useGamepad が入力を監視している前提だが、
-        // 念のため明示的にハンドラを呼ぶ方が確実であれば呼ぶ。
-        // ※ useGameCoreの実装が「gamepadの状態をポーリング」しているならここは不要だが、
-        // イベント駆動ならここで呼ぶべき。
-        // Phase 1の実装では useGameCore 内で useEffect で gamepad.isPressed を監視していたため、
-        // ここでは「向きの更新」だけを行い、移動ロジックは useGameCore に任せるのが安全。
-        // ただし、レスポンスを良くするためにここで呼ぶ手もある。
-        // 今回は「向き更新」のみをここで行う。)
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -80,15 +64,6 @@ const App: React.FC = () => {
 
 
   // --- Rendering Helpers ---
-
-  const getTileStyle = (tile: any, x: number, y: number) => {
-    if (!tile.visible) {
-      return { backgroundColor: '#000' };
-    }
-    // ... (Tile patterns logic is same as before, simplified for brevity in this output if needed, 
-    // but in full file it should be present. Assuming previous implementation logic.)
-    return {}; 
-  };
 
   // ダンジョン画面のレンダリング
   const renderDungeon = () => (
@@ -100,6 +75,7 @@ const App: React.FC = () => {
           playerState={player.playerState} 
           floor={dungeon.dungeonState.floor}
           logs={eventSystem.eventState.logs}
+          // miniMapは今回簡易表示のため空配列等のダミーでも可
           miniMap={dungeon.dungeonState.map}
         />
       </div>
@@ -130,6 +106,7 @@ const App: React.FC = () => {
                     style={{
                       opacity: tile.visible ? 1 : 0,
                       backgroundColor: !tile.visible ? '#000' : (isWall ? '#3d342b' : isFloor ? '#2a2a2a' : '#1a1a1a'),
+                      // インラインCSSによる簡易テクスチャ
                       backgroundImage: !tile.visible ? 'none' : (
                         isWall ? `linear-gradient(335deg, rgba(20,20,20,0.4) 23px, transparent 23px), linear-gradient(155deg, rgba(40,30,20,0.4) 23px, transparent 23px)` :
                         isFloor ? `linear-gradient(335deg, rgba(0,0,0,0.1) 23px, transparent 23px)` : 'none'
@@ -163,8 +140,6 @@ const App: React.FC = () => {
                   type="enemy" 
                   data={enemy} 
                   state={turnSystem.turnState.isProcessing ? 'idle' : 'move'}
-                  // 敵の向き制御は簡易的に「プレイヤーの方を向く」などが理想だが、
-                  // 今回はデータを持っていないのでデフォルト
                 />
                 <div className="absolute -top-1 left-0 w-full h-1 bg-red-900 border border-black">
                   <div 
@@ -188,7 +163,7 @@ const App: React.FC = () => {
                type="player" 
                jobId={player.activeJob}
                state={turnSystem.turnState.isProcessing ? 'attack' : 'idle'}
-               direction={playerDirection} // 向きを渡す
+               direction={playerDirection}
              />
              {/* Player Spotlight */}
              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-[radial-gradient(circle,rgba(255,255,200,0.1)_0%,rgba(0,0,0,0)_60%)] pointer-events-none" />
@@ -211,8 +186,8 @@ const App: React.FC = () => {
         <InventoryMenu 
           player={player.playerState} 
           onClose={() => game.setShowInventory(false)}
-          onEquip={(item) => {/* Equip logic */}}
-          onUse={(item) => {/* Use logic */}}
+          onEquip={(_item) => {/* Equip logic */}}
+          onUse={(_item) => {/* Use logic */}}
         />
       )}
 
