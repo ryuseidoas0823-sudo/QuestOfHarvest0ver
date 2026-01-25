@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { PlayerState, JobId, GodId } from '../types';
 import { JOBS } from '../data/jobs';
-import { GODS } from '../data/gods';
 
 // 初期ステータス
 const INITIAL_PLAYER_STATE: PlayerState = {
@@ -32,6 +31,8 @@ const INITIAL_PLAYER_STATE: PlayerState = {
   skills: [],
   quests: [],
   name: 'ベル',
+  x: 1, // 初期座標を追加
+  y: 1
 };
 
 export const usePlayer = () => {
@@ -57,7 +58,7 @@ export const usePlayer = () => {
       stats: { ...prev.stats, ...job.baseStats },
       maxHp: 100 + (job.baseStats.vit || 0) * 5,
       hp: 100 + (job.baseStats.vit || 0) * 5,
-      skills: [...job.skills], // 初期スキル習得
+      skills: [...job.skills],
     }));
   }, []);
 
@@ -70,7 +71,7 @@ export const usePlayer = () => {
     }));
   }, []);
 
-  // ステータス更新（ダメージ、回復、レベルアップ等）
+  // ステータス更新
   const updatePlayerStatus = useCallback((updates: Partial<PlayerState>) => {
     setPlayerState(prev => ({
       ...prev,
@@ -78,7 +79,7 @@ export const usePlayer = () => {
     }));
   }, []);
 
-  // 経験値獲得とレベルアップチェック
+  // 経験値獲得
   const gainExp = useCallback((amount: number) => {
     setPlayerState(prev => {
       let currentExp = prev.exp + amount;
@@ -86,7 +87,6 @@ export const usePlayer = () => {
       let nextLevelExp = prev.nextExp;
       let levelUp = false;
 
-      // 簡易的なレベルアップ計算
       while (currentExp >= nextLevelExp) {
         currentExp -= nextLevelExp;
         currentLevel++;
@@ -94,15 +94,11 @@ export const usePlayer = () => {
         levelUp = true;
       }
 
-      // レベルアップ時のステータス上昇処理などは別途必要であればここで行う
-      // 今回はレベルと経験値の更新のみ
-
       return {
         ...prev,
         level: currentLevel,
         exp: currentExp,
         nextExp: nextLevelExp,
-        // HP/SP全回復ボーナス
         hp: levelUp ? prev.maxHp : prev.hp,
         sp: levelUp ? prev.maxSp : prev.sp,
       };
