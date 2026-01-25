@@ -1,28 +1,37 @@
 import React from 'react';
 
 // Props定義を拡張
+export interface ResultData {
+  exp: number;
+  gold: number;
+  items: string[];
+  floorReached: number; // 追加
+}
+
 export interface ResultScreenProps {
   onReturnToTown: () => void;
-  resultData?: {
-      exp: number;
-      gold: number;
-      items: string[];
-  };
+  resultData?: ResultData;
 }
 
 export const ResultScreen: React.FC<ResultScreenProps> = ({ 
     onReturnToTown,
-    resultData = { exp: 0, gold: 0, items: [] } // デフォルト値
+    resultData = { exp: 0, gold: 0, items: [], floorReached: 0 } // デフォルト値
 }) => {
   return (
-    <div className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center animate-fade-in">
+    <div className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center animate-fade-in text-white font-sans">
       <h2 className="text-5xl font-bold text-red-600 mb-8 tracking-widest" style={{ textShadow: '0 0 10px #991b1b' }}>
         GAME OVER
       </h2>
       
       <div className="bg-gray-900/80 border border-gray-700 p-8 rounded-lg max-w-md w-full mb-8 text-center space-y-4">
         <p className="text-gray-400">今回の冒険の成果</p>
-        <div className="grid grid-cols-2 gap-4 text-xl">
+        
+        <div className="text-xl mb-4">
+            <span className="text-gray-400 mr-2">到達階層:</span>
+            <span className="font-bold text-white">地下 {resultData.floorReached} 階</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 text-xl border-t border-gray-700 pt-4">
             <div className="text-right text-gray-400">獲得経験値:</div>
             <div className="text-left text-blue-400 font-mono">+{resultData.exp}</div>
             
@@ -43,10 +52,6 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             </div>
         )}
       </div>
-
-      <p className="text-gray-400 mb-8 text-lg">
-        冒険者は力尽きたが、その魂は神の元へ還る...
-      </p>
 
       <button
         onClick={onReturnToTown}
