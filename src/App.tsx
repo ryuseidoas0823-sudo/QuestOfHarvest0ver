@@ -21,8 +21,8 @@ import { calculateLevel, calculateExpForLevel } from './utils';
 import { visualManager } from './utils/visualManager';
 import { MAX_INVENTORY_SIZE } from './config';
 import { ResolutionMode } from './types';
-import { useGamepad } from './hooks/useGamepad'; // 追加
-import { InputAction } from './types/input';     // 追加
+import { useGamepad } from './hooks/useGamepad';
+import { InputAction } from './types/input';
 
 type ScreenState = 'title' | 'jobSelect' | 'godSelect' | 'town' | 'dungeon' | 'result' | 'inventory';
 
@@ -60,6 +60,8 @@ export default function App() {
         if (item.equipStats.str) stats.str += item.equipStats.str;
         if (item.equipStats.vit) stats.vit += item.equipStats.vit;
         if (item.equipStats.maxHp) stats.maxHp += item.equipStats.maxHp;
+        if (item.equipStats.agi) stats.agi += item.equipStats.agi;
+        if (item.equipStats.int) stats.int += item.equipStats.int;
       }
     });
     return stats;
@@ -87,7 +89,7 @@ export default function App() {
     const initAudio = () => audioManager.init();
     window.addEventListener('click', initAudio, { once: true });
     window.addEventListener('keydown', initAudio, { once: true });
-    window.addEventListener('gamepadconnected', initAudio, { once: true }); // ゲームパッド接続時もオーディオ初期化
+    window.addEventListener('gamepadconnected', initAudio, { once: true }); 
     return () => {
         window.removeEventListener('click', initAudio);
         window.removeEventListener('keydown', initAudio);
@@ -118,7 +120,6 @@ export default function App() {
     handleGameOverCallback
   );
 
-  // 描画ループ
   useEffect(() => {
     if (screen !== 'dungeon' || !dungeon || !canvasRef.current) return;
     let animationFrameId: number;
@@ -133,25 +134,20 @@ export default function App() {
     return () => cancelAnimationFrame(animationFrameId);
   }, [screen, dungeon, playerPos, enemies, isPaused]);
 
-  // --- 入力処理の統合 ---
   const handleInput = useCallback((action: InputAction) => {
-    // 1. グローバルな操作 (ポーズなど)
     if (action === 'PAUSE') {
         if (screen === 'dungeon') togglePause();
         else if (screen === 'inventory') setScreen(dungeon ? 'dungeon' : 'town');
         return;
     }
     
-    // 2. インベントリ画面の操作（簡易）
     if (screen === 'inventory') {
         if (action === 'CANCEL' || action === 'MENU') {
             setScreen(dungeon ? 'dungeon' : 'town');
         }
-        // TODO: 十字キーでカーソル移動などの実装はフェーズ1後半で
         return;
     }
 
-    // 3. ダンジョン画面の操作
     if (screen === 'dungeon') {
         if (action === 'MENU' && !isPaused) {
             setScreen('inventory');
@@ -159,20 +155,16 @@ export default function App() {
         }
 
         if (isPaused) {
-            // ポーズメニュー操作
             if (action === 'CANCEL') togglePause();
-            // TODO: 十字キーでメニュー選択
             return;
         }
 
-        // 移動・行動
         switch (action) {
             case 'UP': movePlayer(0, -1); break;
             case 'DOWN': movePlayer(0, 1); break;
             case 'LEFT': movePlayer(-1, 0); break;
             case 'RIGHT': movePlayer(1, 0); break;
             case 'CONFIRM': 
-                // 目の前の敵を攻撃する、等のアクションがあればここに。現在は移動で攻撃を兼ねるため特になし
                 break;
             case 'SKILL_1': if(playerJob.skills[0]) useSkill(playerJob.skills[0]); break;
             case 'SKILL_2': if(playerJob.skills[1]) useSkill(playerJob.skills[1]); break;
@@ -182,22 +174,16 @@ export default function App() {
         return;
     }
 
-    // 4. その他の画面（タイトル、街など）
-    // 今回は簡易的に、CANCELボタンで戻る動作などを割り当て
     if (action === 'CANCEL') {
         if (screen === 'godSelect') setScreen('jobSelect');
-        // 他の画面の戻る処理...
     }
 
   }, [screen, dungeon, isPaused, togglePause, movePlayer, useSkill, playerJob]);
 
-  // ゲームパッド入力の監視
   useGamepad(handleInput);
 
-  // キーボード入力の監視 (互換性維持)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // キー入力をInputActionに変換してhandleInputに渡す
       if (e.key === 'Escape') handleInput('PAUSE');
       else if (e.key === 'i') handleInput('MENU');
       else if (e.key === 'ArrowUp') handleInput('UP');
@@ -214,9 +200,6 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleInput]);
-
-
-  // --- 各種ハンドラ (既存コード) ---
 
   const handleUseItem = (itemId: string) => {
     const item = itemData.find(i => i.id === itemId);
@@ -356,7 +339,7 @@ export default function App() {
       {screen === 'godSelect' && (
         <GodSelectScreen 
             onSelectGod={handleSelectGod} 
-            onBack={() => setScreen('jobSelect')} // onBackを追加
+            onBack={() => setScreen('jobSelect')} 
         />
       )}
       
@@ -389,6 +372,7 @@ export default function App() {
               <InventoryMenu 
                 inventory={inventory} 
                 equippedItems={equippedItems} 
+                playerStats={finalStats} // 追加
                 onUseItem={handleUseItem} 
                 onEquipItem={handleEquipItem} 
                 onClose={() => setScreen(dungeon ? 'dungeon' : 'town')} 
@@ -419,7 +403,6 @@ export default function App() {
                   <button onClick={() => setScreen('inventory')} className="px-3 py-1 bg-blue-700 text-xs rounded border border-blue-500 hover:bg-blue-600 opacity-80">🎒 アイテム</button>
               </div>
 
-              {/* ポーズ画面 */}
               {isPaused && (
                 <PauseMenu 
                     onResume={togglePause} 
