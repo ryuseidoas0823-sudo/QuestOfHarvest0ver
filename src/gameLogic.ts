@@ -11,13 +11,15 @@ import { EnemyInstance } from './types/enemy';
 // Hooks
 import { useDungeon } from './hooks/useDungeon';
 import { useTurnSystem } from './hooks/useTurnSystem';
+import { useEventSystem } from './hooks/useEventSystem'; // 追加
 
 export const useGameLogic = (
   playerJob: Job,
   chapter: number,
   activeQuests: Quest[],
   onQuestUpdate: (questId: string, amount: number) => void,
-  onGameOver: () => void
+  onGameOver: () => void,
+  onAddItem: (itemId: string) => void // 追加: インベントリ操作用コールバック
 ) => {
   // --- State ---
   const [gameOver, setGameOver] = useState(false);
@@ -61,15 +63,23 @@ export const useGameLogic = (
     setPlayerHp
   });
 
+  const {
+    currentEvent,
+    checkRandomEvent,
+    handleEventChoice
+  } = useEventSystem({
+    onLog: addLog,
+    setPlayerHp,
+    addItem: onAddItem,
+    playerMaxHp
+  });
+
   // --- Floor Initialization Wrapper ---
   const startFloor = useCallback((floorNum: number) => {
-    // generateDungeonがボス生成も行うようになったため、ここでは受け取るだけ
     const { newMap, generatedEnemies } = initFloor(floorNum, activeQuests, playerJob);
     
-    // NPCなど、Quest状態依存の追加要素のみここで行う
     const finalEnemies = [...generatedEnemies];
 
-    // 味方NPC (Chapter 2以降)
     if (chapter >= 2) {
       const allyData = enemyData.find(e => e.id === 'elias_ally');
       if (allyData) {
@@ -84,11 +94,8 @@ export const useGameLogic = (
       }
     }
 
-    // クエスト依存のNPC配置 (例: mq_1_5 の負傷者)
-    // ボス階層判定はdungeonGenerator側で行われるが、クエストフラグが必要なNPC配置はここで
     if (floorNum === 5 && activeQuests.some(q => q.id === 'mq_1_5') && newMap.floorType === 'boss') {
         const npcData = enemyData.find(e => e.id === 'injured_adventurer');
-        // ボス部屋の隅に配置
         const room = newMap.rooms[0];
         if (npcData && room) finalEnemies.push({ 
             ...npcData, 
@@ -125,7 +132,7 @@ export const useGameLogic = (
   };
 
   const processTurn = () => {
-    if (isPaused) return;
+    if (isPaused || currentEvent) return; // イベント中もターン停止
     
     setSkillCooldowns(prev => {
       const next = { ...prev };
@@ -137,7 +144,7 @@ export const useGameLogic = (
   };
 
   const useSkill = useCallback((skillId: string) => {
-    if (gameOver || !dungeon || isPaused) return;
+    if (gameOver || !dungeon || isPaused || currentEvent) return;
     if ((skillCooldowns[skillId] || 0) > 0) {
       addLog(`スキル準備中... (あと${skillCooldowns[skillId]}ターン)`);
       return;
@@ -200,10 +207,10 @@ export const useGameLogic = (
       setSkillCooldowns(prev => ({ ...prev, [skillId]: skill.cooldown }));
       processTurn();
     }
-  }, [dungeon, enemies, playerPos, playerMaxHp, playerAttack, skillCooldowns, gameOver, addLog, isPaused, processEnemyTurn, applyDamageToEnemy]);
+  }, [dungeon, enemies, playerPos, playerMaxHp, playerAttack, skillCooldowns, gameOver, addLog, isPaused, processEnemyTurn, applyDamageToEnemy, currentEvent]);
 
   const movePlayer = useCallback((dx: number, dy: number) => {
-    if (gameOver || !dungeon || isPaused) return;
+    if (gameOver || !dungeon || isPaused || currentEvent) return;
     const newX = playerPos.x + dx;
     const newY = playerPos.y + dy;
 
@@ -235,8 +242,14 @@ export const useGameLogic = (
       startFloor(floor + 1);
       return;
     }
+
+    // 移動後にランダムイベント判定
+    if (checkRandomEvent()) {
+      return; // イベント発生時はターン進行を中断（イベント終了後に再開するかは設計次第だが、今回は即停止）
+    }
+
     processTurn();
-  }, [dungeon, enemies, playerPos, gameOver, playerAttack, floor, addLog, startFloor, isPaused, processEnemyTurn, applyDamageToEnemy]);
+  }, [dungeon, enemies, playerPos, gameOver, playerAttack, floor, addLog, startFloor, isPaused, processEnemyTurn, applyDamageToEnemy, currentEvent, checkRandomEvent]);
 
   return {
     dungeon,
@@ -246,6 +259,8 @@ export const useGameLogic = (
     gameOver,
     isPaused,
     togglePause,
+    currentEvent, // エクスポート
+    handleEventChoice, // エクスポート
     messageLog,
     movePlayer,
     useSkill,
