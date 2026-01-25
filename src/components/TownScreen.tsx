@@ -21,14 +21,13 @@ interface TownScreenProps {
   chapter: number;
   activeQuests: Quest[];
   completedQuestIds: string[];
-  items: DisplayItem[]; // any[] から修正
+  items: DisplayItem[]; 
   onGoToDungeon: () => void;
   onAcceptQuest: (quest: Quest) => void;
   onReportQuest: (quest: Quest) => void;
   onBuyItem: (item: ShopItem) => void;
-  // onUpgradeStatus の型定義を修正 (cost引数を追加)
   onUpgradeStatus: (stat: 'str' | 'vit' | 'dex' | 'agi' | 'int' | 'luc', cost: number) => void;
-  playerStats: any; // Stats型があればそれを使うべきだが、互換性維持のため
+  playerStats: any; 
   playerExp: number;
 }
 
@@ -38,12 +37,7 @@ export const TownScreen: React.FC<TownScreenProps> = ({
   chapter,
   activeQuests,
   completedQuestIds,
-  // items, // 現在未使用だが、将来的にInventoryMenuなどをここに統合する場合に使用
-  // onGoToDungeon, // 同上
-  // onAcceptQuest,
-  // onReportQuest,
-  // onBuyItem,
-  // onUpgradeStatus,
+  onGoToDungeon, 
   playerStats,
   playerExp
 }) => {
@@ -122,12 +116,36 @@ export const TownScreen: React.FC<TownScreenProps> = ({
         gold={gold}
       />
 
-      {/* 街のメインメニュー（ボタンなど）の実装が必要ならここに記述 */}
-      {/* 仮: 施設へのアクセスボタン */}
-      <div className="absolute bottom-20 left-0 right-0 flex justify-center space-x-4 z-10">
-          <button onClick={() => setActiveFacility('guild')} className="px-6 py-3 bg-blue-700 rounded border-2 border-blue-400 hover:bg-blue-600">冒険者ギルド</button>
-          <button onClick={() => setActiveFacility('shop')} className="px-6 py-3 bg-red-700 rounded border-2 border-red-400 hover:bg-red-600">豊穣の市場</button>
-          <button onClick={() => setActiveFacility('status')} className="px-6 py-3 bg-yellow-700 rounded border-2 border-yellow-400 hover:bg-yellow-600">ファミリアホーム</button>
+      {/* 街のメインメニュー */}
+      <div className="absolute bottom-24 left-0 right-0 flex justify-center items-center space-x-6 z-10">
+          <button 
+            onClick={() => setActiveFacility('guild')} 
+            className="px-6 py-3 bg-blue-700/90 rounded-lg border-2 border-blue-400 hover:bg-blue-600 hover:border-blue-300 font-bold shadow-lg transition-all transform hover:scale-105"
+          >
+            冒険者ギルド
+          </button>
+          
+          <button 
+            onClick={() => setActiveFacility('shop')} 
+            className="px-6 py-3 bg-red-700/90 rounded-lg border-2 border-red-400 hover:bg-red-600 hover:border-red-300 font-bold shadow-lg transition-all transform hover:scale-105"
+          >
+            豊穣の市場
+          </button>
+          
+          <button 
+            onClick={() => setActiveFacility('status')} 
+            className="px-6 py-3 bg-yellow-700/90 rounded-lg border-2 border-yellow-400 hover:bg-yellow-600 hover:border-yellow-300 font-bold shadow-lg transition-all transform hover:scale-105"
+          >
+            ファミリアホーム
+          </button>
+
+          {/* ダンジョンへ出発ボタン (強調) */}
+          <button 
+            onClick={onGoToDungeon} 
+            className="ml-8 px-8 py-4 bg-gradient-to-r from-purple-800 to-indigo-900 rounded-lg border-2 border-purple-400 hover:from-purple-700 hover:to-indigo-800 hover:border-purple-300 text-xl font-bold shadow-[0_0_15px_rgba(168,85,247,0.5)] transition-all transform hover:scale-110 animate-pulse"
+          >
+            ダンジョンへ出発
+          </button>
       </div>
 
       {activeFacility !== 'none' && (
