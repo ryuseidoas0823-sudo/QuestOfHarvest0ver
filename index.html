@@ -4,49 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Quest of Harvest</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            animation: {
-              'fade-in': 'fadeIn 0.5s ease-out',
-              'float': 'float 3s ease-in-out infinite',
-              'glow': 'glow 2s ease-in-out infinite',
-            },
-            keyframes: {
-              fadeIn: {
-                '0%': { opacity: '0', transform: 'translateY(10px)' },
-                '100%': { opacity: '1', transform: 'translateY(0)' },
-              },
-              float: {
-                '0%, 100%': { transform: 'translateY(0)' },
-                '50%': { transform: 'translateY(-10px)' },
-              },
-              glow: {
-                '0%, 100%': { boxShadow: '0 0 5px rgba(234, 179, 8, 0.5)' },
-                '50%': { boxShadow: '0 0 20px rgba(234, 179, 8, 0.8)' },
-              }
-            }
-          }
-        }
-      }
-    </script>
-    <style>
-      body { margin: 0; padding: 0; background-color: #0f172a; color: white; overflow: hidden; }
-      .pixel-art { image-rendering: pixelated; }
-      .text-shadow-strong { text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
-      @keyframes mist {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-      }
-      .bg-mist {
-        background: linear-gradient(-45deg, #0f172a, #1e293b, #0f172a, #312e81);
-        background-size: 400% 400%;
-        animation: mist 15s ease infinite;
-      }
-    </style>
   </head>
   <body>
     <div id="root"></div>
