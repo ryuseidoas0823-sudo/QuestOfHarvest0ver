@@ -19,7 +19,9 @@ export interface Stats {
 
 export type ResolutionMode = 'low' | 'standard' | 'high';
 
-export type TileType = 'floor' | 'wall' | 'stairs_down' | 'door';
+export type TileType = 'floor' | 'wall' | 'stairs_down' | 'door' | 'carpet_red'; // ボス部屋用に装飾タイル追加
+
+export type FloorType = 'standard' | 'big_room' | 'boss' | 'maze'; // フロアタイプ追加
 
 export interface DungeonMap {
   width: number;
@@ -29,4 +31,5 @@ export interface DungeonMap {
   playerStart: { x: number; y: number };
   stairs: { x: number; y: number };
   visited: boolean[][];
+  floorType: FloorType; // 追加
 }
