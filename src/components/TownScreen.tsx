@@ -1,196 +1,116 @@
-import React, { useState, useEffect } from 'react';
-import { Job } from '../types/job';
-import { Quest } from '../types/quest';
-import { ShopItem } from '../data/shopItems';
-import { GameHUD } from './GameHUD';
-import { DialogueWindow } from './DialogueWindow';
-import { SpeakerId } from '../types/dialogue';
-import { getBestDialogue } from '../utils';
-import { quests as allQuests } from '../data/quests';
-
-// 簡易的なアイテム表示用の型定義
-interface DisplayItem {
-  id: string;
-  name: string;
-  price: number;
-}
+import React from 'react';
+import { PlayerState } from '../types';
 
 interface TownScreenProps {
-  playerJob: Job;
-  gold: number;
-  chapter: number;
-  activeQuests: Quest[];
-  completedQuestIds: string[];
-  items: DisplayItem[]; 
-  onGoToDungeon: () => void;
-  onAcceptQuest: (quest: Quest) => void;
-  onReportQuest: (quest: Quest) => void;
-  onBuyItem: (item: ShopItem) => void;
-  onUpgradeStatus: (stat: 'str' | 'vit' | 'dex' | 'agi' | 'int' | 'luc', cost: number) => void;
-  playerStats: any; 
-  playerExp: number;
+  player: PlayerState;
+  onDungeon: () => void;
+  onShop: () => void;
+  onGuild: () => void;
+  onFamilia: () => void;
 }
 
-export const TownScreen: React.FC<TownScreenProps> = ({
-  playerJob,
-  gold,
-  chapter,
-  activeQuests,
-  completedQuestIds,
-  onGoToDungeon, 
-  playerStats,
-  playerExp
+const TownScreen: React.FC<TownScreenProps> = ({ 
+  player, 
+  onDungeon, 
+  onShop, 
+  onGuild, 
+  onFamilia 
 }) => {
-  const [activeFacility, setActiveFacility] = useState<'none' | 'guild' | 'shop' | 'status' | 'inventory'>('none');
-  const [currentDialogue, setCurrentDialogue] = useState<string>('');
-  const [currentSpeaker, setCurrentSpeaker] = useState<SpeakerId>('unknown');
-
-  const availableQuestIds = allQuests
-    .filter(q => {
-      if (completedQuestIds.includes(q.id)) return false;
-      if (activeQuests.some(aq => aq.id === q.id)) return false;
-      
-      if (q.requirements?.questCompleted) {
-        const allPreReqsMet = q.requirements.questCompleted.every(reqId => completedQuestIds.includes(reqId));
-        if (!allPreReqsMet) return false;
-      }
-      if (q.requirements?.minLevel && playerStats.level < q.requirements.minLevel) return false;
-      
-      return true;
-    })
-    .map(q => q.id);
-
-  const readyToReportQuestIds = activeQuests.map(q => q.id); 
-
-  useEffect(() => {
-    let speaker: SpeakerId = 'unknown';
-    
-    switch (activeFacility) {
-      case 'guild': speaker = 'guild_receptionist'; break;
-      case 'shop': speaker = 'shopkeeper'; break;
-      case 'status': speaker = 'goddess'; break;
-      default:
-        speaker = 'unknown';
-        setCurrentDialogue('');
-        setCurrentSpeaker('unknown');
-        return;
-    }
-
-    setCurrentSpeaker(speaker);
-
-    const bestDialogue = getBestDialogue(
-      speaker,
-      chapter,
-      activeQuests,
-      completedQuestIds,
-      availableQuestIds,
-      readyToReportQuestIds
-    );
-
-    if (bestDialogue) {
-      setCurrentDialogue(bestDialogue.text);
-    } else {
-      setCurrentDialogue('...');
-    }
-
-  }, [activeFacility, chapter, activeQuests, completedQuestIds, availableQuestIds, readyToReportQuestIds]);
-
   return (
-    <div className="relative w-full h-full bg-gray-800 text-white overflow-hidden" 
-         style={{ 
-           backgroundImage: 'url(https://images.unsplash.com/photo-1519074069444-1ba4fff66d16?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80)',
-           backgroundSize: 'cover',
-           backgroundPosition: 'center'
-         }}>
+    <div className="w-full h-full relative overflow-hidden flex flex-col items-center justify-between text-white font-sans">
       
-      <div className="absolute inset-0 bg-black bg-opacity-50"></div>
-
-      <GameHUD 
-        playerJob={playerJob}
-        level={playerStats.level || 1}
-        hp={playerStats.hp}
-        maxHp={playerStats.maxHp}
-        exp={playerExp}
-        nextExp={100 * (playerStats.level || 1)}
-        floor={0}
-        gold={gold}
-      />
-
-      {/* 街のメインメニュー */}
-      <div className="absolute bottom-24 left-0 right-0 flex justify-center items-center space-x-6 z-10">
-          <button 
-            onClick={() => setActiveFacility('guild')} 
-            className="px-6 py-3 bg-blue-700/90 rounded-lg border-2 border-blue-400 hover:bg-blue-600 hover:border-blue-300 font-bold shadow-lg transition-all transform hover:scale-105"
-          >
-            冒険者ギルド
-          </button>
-          
-          <button 
-            onClick={() => setActiveFacility('shop')} 
-            className="px-6 py-3 bg-red-700/90 rounded-lg border-2 border-red-400 hover:bg-red-600 hover:border-red-300 font-bold shadow-lg transition-all transform hover:scale-105"
-          >
-            豊穣の市場
-          </button>
-          
-          <button 
-            onClick={() => setActiveFacility('status')} 
-            className="px-6 py-3 bg-yellow-700/90 rounded-lg border-2 border-yellow-400 hover:bg-yellow-600 hover:border-yellow-300 font-bold shadow-lg transition-all transform hover:scale-105"
-          >
-            ファミリアホーム
-          </button>
-
-          {/* ダンジョンへ出発ボタン (強調) */}
-          <button 
-            onClick={onGoToDungeon} 
-            className="ml-8 px-8 py-4 bg-gradient-to-r from-purple-800 to-indigo-900 rounded-lg border-2 border-purple-400 hover:from-purple-700 hover:to-indigo-800 hover:border-purple-300 text-xl font-bold shadow-[0_0_15px_rgba(168,85,247,0.5)] transition-all transform hover:scale-110 animate-pulse"
-          >
-            ダンジョンへ出発
-          </button>
+      {/* Background: 夕暮れの街並み風 (CSS) */}
+      <div className="absolute inset-0 z-0 bg-gradient-to-b from-slate-800 to-slate-900">
+        {/* 空 */}
+        <div className="absolute top-0 w-full h-1/2 bg-gradient-to-b from-indigo-900 to-orange-900/50" />
+        {/* 遠景の建物シルエット */}
+        <div className="absolute bottom-1/2 w-full h-32 bg-repeat-x" 
+             style={{
+               backgroundImage: 'linear-gradient(to top, #1a1a1a 0%, transparent 100%)',
+               backgroundSize: '40px 100%'
+             }} 
+        />
+        {/* 地面 */}
+        <div className="absolute bottom-0 w-full h-1/2 bg-[#1a1a1a] border-t-4 border-orange-900/30" />
       </div>
 
-      {activeFacility !== 'none' && (
-        <div className="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center z-20 p-4">
-          
-          <div className="w-full max-w-4xl mb-4">
-             <DialogueWindow
-                speakerName={
-                    currentSpeaker === 'goddess' ? '女神' : 
-                    currentSpeaker === 'guild_receptionist' ? '受付嬢' : 
-                    currentSpeaker === 'shopkeeper' ? '店主' : ''
-                }
-                text={currentDialogue}
-                onNext={() => {}} 
-             />
-          </div>
-
-          <div className="w-full max-w-4xl bg-gray-900 border-2 border-yellow-600 rounded-lg p-6 max-h-[70vh] overflow-y-auto">
-             {activeFacility === 'guild' && (
-               <div className="text-center">
-                 <h2 className="text-2xl font-bold text-yellow-500 mb-4">冒険者ギルド</h2>
-                 {/* TODO: クエスト一覧コンポーネントを表示 */}
-                 <p className="mb-4">現在受注可能なクエストを確認しています...</p>
-                 <button onClick={() => setActiveFacility('none')} className="mt-4 px-4 py-2 bg-gray-600 rounded hover:bg-gray-500">閉じる</button>
-               </div>
-             )}
-             {activeFacility === 'shop' && (
-                 <div className="text-center">
-                     <h2 className="text-2xl font-bold text-yellow-500 mb-4">豊穣の市場</h2>
-                     {/* TODO: ShopMenuを表示 */}
-                     <p className="mb-4">いらっしゃいませ！</p>
-                     <button onClick={() => setActiveFacility('none')} className="mt-4 px-4 py-2 bg-gray-600 rounded hover:bg-gray-500">閉じる</button>
-                 </div>
-             )}
-             {activeFacility === 'status' && (
-                 <div className="text-center">
-                     <h2 className="text-2xl font-bold text-yellow-500 mb-4">ファミリアホーム</h2>
-                     {/* TODO: StatusUpgradeMenuを表示 */}
-                     <p className="mb-4">ステータスを更新しますか？</p>
-                     <button onClick={() => setActiveFacility('none')} className="mt-4 px-4 py-2 bg-gray-600 rounded hover:bg-gray-500">閉じる</button>
-                 </div>
-             )}
-          </div>
+      {/* Header */}
+      <div className="relative z-10 w-full p-6 bg-gradient-to-b from-black/80 to-transparent flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-bold text-amber-500 drop-shadow-md tracking-wider">迷宮都市バベル</h2>
+          <p className="text-neutral-400 text-sm">現在の時刻: 夕刻</p>
         </div>
-      )}
+        <div className="text-right">
+           <div className="text-xl font-bold text-white">{player.name}</div>
+           <div className="text-yellow-400 text-sm">Lv.{player.level} / {player.gold} G</div>
+        </div>
+      </div>
+
+      {/* Main Action Menu (Center) */}
+      <div className="relative z-10 w-full max-w-4xl flex-1 flex items-center justify-center p-8 gap-6">
+        
+        {/* 施設カード群 */}
+        <div className="grid grid-cols-2 gap-4 w-full max-w-2xl">
+          
+          <button 
+            onClick={onGuild}
+            className="group relative h-32 bg-slate-800/90 border-2 border-slate-600 rounded-lg p-4 hover:bg-slate-700 hover:border-amber-400 transition-all duration-300 text-left overflow-hidden shadow-lg"
+          >
+            <div className="absolute right-0 bottom-0 opacity-10 group-hover:opacity-20 text-8xl font-serif">G</div>
+            <div className="relative z-10">
+              <h3 className="text-xl font-bold text-amber-100 group-hover:text-amber-400 mb-1">冒険者ギルド</h3>
+              <p className="text-xs text-slate-300">クエスト受注 / 換金</p>
+            </div>
+          </button>
+
+          <button 
+            onClick={onShop}
+            className="group relative h-32 bg-slate-800/90 border-2 border-slate-600 rounded-lg p-4 hover:bg-slate-700 hover:border-amber-400 transition-all duration-300 text-left overflow-hidden shadow-lg"
+          >
+            <div className="absolute right-0 bottom-0 opacity-10 group-hover:opacity-20 text-8xl font-serif">S</div>
+            <div className="relative z-10">
+              <h3 className="text-xl font-bold text-amber-100 group-hover:text-amber-400 mb-1">豊穣の市場</h3>
+              <p className="text-xs text-slate-300">アイテム購入 / 装備修理</p>
+            </div>
+          </button>
+
+          <button 
+            onClick={onFamilia}
+            className="group relative h-32 bg-slate-800/90 border-2 border-slate-600 rounded-lg p-4 hover:bg-slate-700 hover:border-amber-400 transition-all duration-300 text-left overflow-hidden shadow-lg"
+          >
+            <div className="absolute right-0 bottom-0 opacity-10 group-hover:opacity-20 text-8xl font-serif">F</div>
+            <div className="relative z-10">
+              <h3 className="text-xl font-bold text-amber-100 group-hover:text-amber-400 mb-1">ファミリアホーム</h3>
+              <p className="text-xs text-slate-300">ステータス更新 / 倉庫</p>
+            </div>
+          </button>
+
+          <button 
+            onClick={() => {/* 設定など */}}
+            className="group relative h-32 bg-slate-800/90 border-2 border-slate-600 rounded-lg p-4 hover:bg-slate-700 hover:border-amber-400 transition-all duration-300 text-left overflow-hidden shadow-lg"
+          >
+             <div className="absolute right-0 bottom-0 opacity-10 group-hover:opacity-20 text-8xl font-serif">O</div>
+            <div className="relative z-10">
+              <h3 className="text-xl font-bold text-amber-100 group-hover:text-amber-400 mb-1">オプション</h3>
+              <p className="text-xs text-slate-300">設定 / セーブ</p>
+            </div>
+          </button>
+
+        </div>
+      </div>
+
+      {/* Dungeon Button (Bottom) */}
+      <div className="relative z-10 w-full p-8 bg-gradient-to-t from-black/90 to-transparent flex justify-center">
+        <button 
+          onClick={onDungeon}
+          className="w-full max-w-md py-4 bg-gradient-to-r from-red-800 to-red-600 border-2 border-red-400 rounded-lg text-white font-bold text-xl tracking-widest hover:scale-105 hover:from-red-700 hover:to-red-500 shadow-[0_0_20px_rgba(220,38,38,0.5)] transition-all duration-300"
+        >
+          ダンジョンへ挑む
+        </button>
+      </div>
+
     </div>
   );
 };
+
+export default TownScreen;
