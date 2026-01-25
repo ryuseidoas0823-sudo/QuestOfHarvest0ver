@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { TitleScreen } from './components/TitleScreen';
 import { JobSelectScreen } from './components/JobSelectScreen';
 import GodSelectScreen from './components/GodSelectScreen';
