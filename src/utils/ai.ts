@@ -2,7 +2,6 @@ import { EnemyInstance } from '../types/enemy';
 import { DungeonMap } from '../types';
 import { getDistance } from '../utils';
 
-// AIの行動決定結果
 export type AIResult = 
   | { type: 'attack'; targetId: string }
   | { type: 'move'; x: number; y: number }
@@ -13,15 +12,15 @@ export type AIResult =
  */
 export const decideAction = (
   actor: EnemyInstance,
-  allEnemies: EnemyInstance[], // 自分を含む全キャラ
+  allEnemies: EnemyInstance[],
   playerPos: { x: number; y: number },
   dungeon: DungeonMap
 ): AIResult => {
-  // 1. ターゲットの選定
+  // 1. ターゲット選定
   let target: { id: string; x: number; y: number; dist: number; faction: string } | null = null;
 
   if (actor.faction === 'player_ally') {
-    // 味方: 一番近いモンスターを狙う
+    // 味方: 一番近いモンスター
     const enemies = allEnemies
       .filter(e => e.faction === 'monster' && e.hp > 0)
       .map(e => ({
@@ -29,12 +28,12 @@ export const decideAction = (
         x: e.x,
         y: e.y,
         dist: getDistance(actor.x, actor.y, e.x, e.y),
-        faction: e.faction || 'monster' // factionがない場合のデフォルト
+        faction: 'monster'
       }))
       .sort((a, b) => a.dist - b.dist);
     target = enemies[0] || null;
   } else {
-    // モンスター: プレイヤー または 味方NPC の近い方を狙う
+    // モンスター: プレイヤー or 味方NPC
     const potentialTargets = [
       { id: 'player', x: playerPos.x, y: playerPos.y, dist: getDistance(actor.x, actor.y, playerPos.x, playerPos.y), faction: 'player' },
       ...allEnemies
@@ -50,46 +49,40 @@ export const decideAction = (
     target = potentialTargets[0] || null;
   }
 
-  // 2. 行動の決定
   if (!target) {
-    // ターゲットがいない場合
     if (actor.faction === 'player_ally') {
-      // 味方はプレイヤーに追従
       const distToPlayer = getDistance(actor.x, actor.y, playerPos.x, playerPos.y);
-      if (distToPlayer > 2) {
-        return getMoveTowards(actor, playerPos.x, playerPos.y, dungeon);
-      }
+      if (distToPlayer > 2) return getMoveTowards(actor, playerPos.x, playerPos.y, dungeon);
     }
     return { type: 'wait' };
   }
 
-  // ターゲットがいる場合
-  // 索敵範囲 (味方は狭め、敵は広め等の調整も可。ここでは固定)
-  const detectionRange = actor.faction === 'player_ally' ? 6 : 8;
+  // 2. 行動決定 (タイプ別AI)
+  const isRanged = actor.type === 'ranged' || actor.type === 'magic';
+  const detectionRange = actor.faction === 'player_ally' ? 6 : (actor.visionRange || 8);
 
-  if (target.dist <= detectionRange) {
-    // 攻撃範囲 (隣接)
-    if (target.dist <= 1.5) {
-      return { type: 'attack', targetId: target.id };
-    } 
-    // 移動 (接近)
-    else {
-      return getMoveTowards(actor, target.x, target.y, dungeon);
-    }
-  } else {
-    // 範囲外
-    if (actor.faction === 'player_ally') {
-      // 追従優先
-      return getMoveTowards(actor, playerPos.x, playerPos.y, dungeon);
-    }
-    // 敵は待機（またはランダムウォーク）
+  // 索敵範囲外なら待機
+  if (target.dist > detectionRange) {
+    if (actor.faction === 'player_ally') return getMoveTowards(actor, playerPos.x, playerPos.y, dungeon);
     return { type: 'wait' };
+  }
+
+  // 攻撃範囲内か？
+  const attackRange = isRanged ? 4.0 : 1.5;
+
+  if (target.dist <= attackRange) {
+    // 射線チェック (壁がないか)
+    if (isRanged && !hasLineOfSight(actor.x, actor.y, target.x, target.y, dungeon)) {
+        // 射線が通らないなら近づく
+        return getMoveTowards(actor, target.x, target.y, dungeon);
+    }
+    return { type: 'attack', targetId: target.id };
+  } else {
+    // 接近
+    return getMoveTowards(actor, target.x, target.y, dungeon);
   }
 };
 
-/**
- * 目的地に向かう次の座標を計算
- */
 const getMoveTowards = (
   actor: { x: number; y: number },
   targetX: number,
@@ -99,13 +92,45 @@ const getMoveTowards = (
   let newX = actor.x;
   let newY = actor.y;
 
-  // X軸移動優先かY軸優先かをランダムにすると自然だが、今回は簡易的に
-  // 壁判定を行いながら近づく
-  if (targetX > actor.x && dungeon.tiles[actor.y][actor.x + 1] !== 'wall') newX++;
-  else if (targetX < actor.x && dungeon.tiles[actor.y][actor.x - 1] !== 'wall') newX--;
-  else if (targetY > actor.y && dungeon.tiles[actor.y + 1][actor.x] !== 'wall') newY++;
-  else if (targetY < actor.y && dungeon.tiles[actor.y - 1][actor.x] !== 'wall') newY--;
+  // 簡易的な経路探索 (壁があっても避けるように少しランダム性を入れると良いが、今回はX/Y軸移動)
+  if (targetX > actor.x && isWalkable(actor.x + 1, actor.y, dungeon)) newX++;
+  else if (targetX < actor.x && isWalkable(actor.x - 1, actor.y, dungeon)) newX--;
+  else if (targetY > actor.y && isWalkable(actor.x, actor.y + 1, dungeon)) newY++;
+  else if (targetY < actor.y && isWalkable(actor.x, actor.y - 1, dungeon)) newY--;
 
   if (newX === actor.x && newY === actor.y) return { type: 'wait' };
   return { type: 'move', x: newX, y: newY };
+};
+
+const isWalkable = (x: number, y: number, dungeon: DungeonMap): boolean => {
+    if (x < 0 || x >= dungeon.width || y < 0 || y >= dungeon.height) return false;
+    const tile = dungeon.tiles[y][x];
+    return tile !== 'wall';
+};
+
+// 簡易的な射線チェック (Bresenham's line algorithm base)
+const hasLineOfSight = (x0: number, y0: number, x1: number, y1: number, dungeon: DungeonMap): boolean => {
+    let dx = Math.abs(x1 - x0);
+    let dy = Math.abs(y1 - y0);
+    let sx = (x0 < x1) ? 1 : -1;
+    let sy = (y0 < y1) ? 1 : -1;
+    let err = dx - dy;
+
+    let x = x0;
+    let y = y0;
+
+    while (true) {
+        if (x === x1 && y === y1) return true;
+        if (dungeon.tiles[y][x] === 'wall') return false;
+
+        let e2 = 2 * err;
+        if (e2 > -dy) {
+            err -= dy;
+            x += sx;
+        }
+        if (e2 < dx) {
+            err += dx;
+            y += sy;
+        }
+    }
 };
