@@ -10,6 +10,8 @@ export interface SaveData {
     level: number;
     maxHp: number;
     hp: number;
+    maxMp: number; // 追加
+    mp: number;    // 追加
     exp: number;
     attack: number;
     defense: number;
@@ -22,9 +24,9 @@ export interface SaveData {
   };
   gold: number;
   chapter: number;
-  activeQuestIds: string[]; // データ容量削減のためIDのみ保存
+  activeQuestIds: string[];
   completedQuestIds: string[];
-  inventory: string[]; // Item ID list
+  inventory: string[];
   unlockedCompanions: string[];
   savedAt: number;
 }
@@ -35,10 +37,15 @@ export const loadGame = (): SaveData | null => {
     const rawData = localStorage.getItem(SAVE_KEY);
     if (!rawData) return null;
 
-    // 簡易的な復号化 (Base64デコード)
     const jsonStr = atob(rawData);
     const data = JSON.parse(jsonStr) as SaveData;
     
+    // 古いセーブデータとの互換性チェック（mpがない場合は補完）
+    if (data.playerStats && typeof data.playerStats.mp === 'undefined') {
+        data.playerStats.maxMp = 50;
+        data.playerStats.mp = 50;
+    }
+
     console.log('Game loaded successfully:', data);
     return data;
   } catch (e) {
@@ -55,7 +62,6 @@ export const saveGame = (data: SaveData): boolean => {
       savedAt: Date.now()
     });
     
-    // 簡易的な暗号化 (Base64エンコード)
     const encodedData = btoa(jsonStr);
     localStorage.setItem(SAVE_KEY, encodedData);
     
@@ -67,12 +73,10 @@ export const saveGame = (data: SaveData): boolean => {
   }
 };
 
-// セーブデータの削除（リセット用）
 export const clearSaveData = () => {
   localStorage.removeItem(SAVE_KEY);
 };
 
-// セーブデータが存在するかチェック
 export const hasSaveData = (): boolean => {
   return !!localStorage.getItem(SAVE_KEY);
 };
