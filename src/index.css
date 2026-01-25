@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body { margin: 0; padding: 0; background-color: #0f172a; color: white; overflow: hidden; }
+.pixel-art { image-rendering: pixelated; }
+.text-shadow-strong { text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
+
+@keyframes mist {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.bg-mist {
+  background: linear-gradient(-45deg, #0f172a, #1e293b, #0f172a, #312e81);
+  background-size: 400% 400%;
+  animation: mist 15s ease infinite;
+}
+
+/* Custom Scrollbar for Shop */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #1e293b; 
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #d97706; 
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #b45309; 
+}
