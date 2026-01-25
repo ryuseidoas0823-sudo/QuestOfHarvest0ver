@@ -1,143 +1,41 @@
-import React, { useState, useEffect } from 'react';
-import { DialogueTree, DialogueChoice } from '../types/dialogue';
-import { SPEAKERS } from '../data/dialogues';
+import React from 'react';
 
-// Props定義を拡張: Tree形式とSimple形式の両方に対応
-export interface DialogueWindowProps {
-  // Tree形式の場合
-  dialogueTree?: DialogueTree;
-  
-  // Simple形式の場合 (TownScreenからの呼び出し用)
-  text?: string;
-  speakerName?: string;
-  
-  // 共通
-  onFinish?: () => void; // 終了時
-  onNext?: () => void;   // Simple形式での「次へ」
-  onAction?: (action: string) => void;
+interface DialogueWindowProps {
+  text: string;
+  speaker: string;
+  onNext: () => void;
 }
 
-export const DialogueWindow: React.FC<DialogueWindowProps> = ({ 
-  dialogueTree, 
-  text, 
-  speakerName, 
-  onFinish, 
-  onNext, 
-  onAction 
-}) => {
-  // Treeモードかどうか
-  const isTreeMode = !!dialogueTree;
-  
-  const [currentNodeId, setCurrentNodeId] = useState<string | null>(
-    dialogueTree ? dialogueTree.rootNodeId : null
-  );
-
-  // 終了判定 (Treeモード時)
-  useEffect(() => {
-    if (isTreeMode && !currentNodeId && onFinish) {
-      onFinish();
-    }
-  }, [currentNodeId, onFinish, isTreeMode]);
-
-  // 表示内容の決定
-  let displayText = '';
-  let displaySpeakerName = '';
-  let displaySpeakerTitle = '';
-  let displaySpeakerColor = 'text-white';
-  let choices: DialogueChoice[] = [];
-
-  if (isTreeMode && dialogueTree && currentNodeId) {
-    const node = dialogueTree.nodes[currentNodeId];
-    if (node) {
-      displayText = node.text;
-      choices = node.choices || [];
-      const speakerData = SPEAKERS[node.speakerId];
-      if (speakerData) {
-        displaySpeakerName = speakerData.name;
-        displaySpeakerTitle = speakerData.title || '';
-        displaySpeakerColor = speakerData.color || 'text-white';
-      }
-    }
-  } else if (!isTreeMode && text) {
-    // Simpleモード
-    displayText = text;
-    displaySpeakerName = speakerName || '？？？';
-  } else {
-    return null; // 表示するものがない
-  }
-
-  const handleNext = () => {
-    if (isTreeMode && dialogueTree && currentNodeId) {
-      const node = dialogueTree.nodes[currentNodeId];
-      if (node) {
-         if (node.nextId) {
-            setCurrentNodeId(node.nextId);
-         } else if (!node.choices || node.choices.length === 0) {
-            if (onFinish) onFinish();
-         }
-      }
-    } else {
-      // Simpleモード
-      if (onNext) onNext();
-      else if (onFinish) onFinish();
-    }
-  };
-
-  const handleChoice = (choice: DialogueChoice) => {
-    if (choice.action && onAction) {
-      onAction(choice.action);
-    }
-    if (choice.nextId) {
-      setCurrentNodeId(choice.nextId);
-    } else {
-      if (onFinish) onFinish();
-    }
-  };
-
+const DialogueWindow: React.FC<DialogueWindowProps> = ({ text, speaker, onNext }) => {
   return (
-    <div className="absolute inset-x-0 bottom-0 p-4 z-50 flex justify-center items-end pointer-events-none">
-      <div className="w-full max-w-4xl bg-slate-900/95 border-2 border-slate-500 rounded-lg p-6 shadow-2xl pointer-events-auto animate-fade-in-up flex flex-col min-h-[160px]">
-        {/* 名前欄 */}
-        <div className="flex items-baseline mb-2 border-b border-slate-700 pb-1">
-          <span className={`text-xl font-bold mr-4 ${displaySpeakerColor}`}>
-            {displaySpeakerName}
-          </span>
-          {displaySpeakerTitle && (
-            <span className="text-sm text-slate-400">
-              {displaySpeakerTitle}
-            </span>
-          )}
+    <div 
+      className="w-full bg-gradient-to-b from-blue-900/90 to-blue-950/95 border-4 border-white rounded-lg shadow-lg p-4 text-white font-sans cursor-pointer select-none"
+      onClick={onNext}
+    >
+      <div className="flex gap-4">
+        {/* Face Graphic Placeholder */}
+        <div className="w-16 h-16 bg-black/40 border border-blue-400 rounded flex-shrink-0 flex items-center justify-center">
+          <span className="text-3xl">👤</span>
         </div>
 
-        {/* 本文 */}
-        <div className="text-lg text-slate-100 whitespace-pre-wrap leading-relaxed flex-grow">
-          {displayText}
-        </div>
-
-        {/* 次へボタン または 選択肢 */}
-        <div className="mt-4 flex justify-end">
-          {choices.length > 0 ? (
-            <div className="flex flex-wrap gap-2 justify-end">
-              {choices.map((choice, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleChoice(choice)}
-                  className="bg-indigo-700 hover:bg-indigo-600 text-white px-6 py-2 rounded border border-indigo-400 transition-colors"
-                >
-                  {choice.text}
-                </button>
-              ))}
+        {/* Text Area */}
+        <div className="flex-1 flex flex-col">
+          {speaker && (
+            <div className="font-bold text-yellow-300 text-sm mb-1 px-2 py-0.5 bg-blue-800/50 w-fit rounded border border-blue-600">
+              {speaker}
             </div>
-          ) : (
-            <button
-              onClick={handleNext}
-              className="animate-bounce text-slate-400 hover:text-white"
-            >
-              ▼ 次へ
-            </button>
           )}
+          <div className="text-base leading-relaxed tracking-wide min-h-[3rem]">
+            {text}
+          </div>
+          {/* Next Cursor */}
+          <div className="self-end mt-1 animate-bounce text-yellow-200 text-xs">
+            ▼
+          </div>
         </div>
       </div>
     </div>
   );
 };
+
+export default DialogueWindow;
