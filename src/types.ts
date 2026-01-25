@@ -3,8 +3,8 @@ export type JobId = 'swordsman' | 'mage' | 'thief' | 'cleric';
 export interface Stats {
   maxHp: number;
   hp: number;
-  maxMp: number; // 追加
-  mp: number;    // 追加
+  maxMp: number;
+  mp: number;
   attack: number;
   defense: number;
   str: number;
@@ -19,6 +19,14 @@ export interface Stats {
 
 export type ResolutionMode = 'low' | 'standard' | 'high';
 
-// ゲームロジック・ダンジョン生成で共通して使う型
 export type TileType = 'floor' | 'wall' | 'stairs_down' | 'door';
-export type DungeonMap = TileType[][];
+
+export interface DungeonMap {
+  width: number;
+  height: number;
+  tiles: TileType[][];
+  rooms: { x: number; y: number; w: number; h: number }[];
+  playerStart: { x: number; y: number };
+  stairs: { x: number; y: number };
+  visited: boolean[][];
+}
