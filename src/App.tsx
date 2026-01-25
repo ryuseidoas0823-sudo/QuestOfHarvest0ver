@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { TitleScreen } from './components/TitleScreen';
 import { JobSelectScreen } from './components/JobSelectScreen';
 import GodSelectScreen from './components/GodSelectScreen';
 import { TownScreen } from './components/TownScreen';
 import { ResultScreen } from './components/ResultScreen';
 import { InventoryMenu } from './components/InventoryMenu';
-import { PauseMenu } from './components/PauseMenu'; // 追加
+import { PauseMenu } from './components/PauseMenu';
 import { renderDungeon } from './renderer';
 import { useGameLogic } from './gameLogic';
 import { Job } from './types/job';
@@ -21,6 +21,8 @@ import { calculateLevel, calculateExpForLevel } from './utils';
 import { visualManager } from './utils/visualManager';
 import { MAX_INVENTORY_SIZE } from './config';
 import { ResolutionMode } from './types';
+import { useGamepad } from './hooks/useGamepad'; // 追加
+import { InputAction } from './types/input';     // 追加
 
 type ScreenState = 'title' | 'jobSelect' | 'godSelect' | 'town' | 'dungeon' | 'result' | 'inventory';
 
@@ -85,9 +87,11 @@ export default function App() {
     const initAudio = () => audioManager.init();
     window.addEventListener('click', initAudio, { once: true });
     window.addEventListener('keydown', initAudio, { once: true });
+    window.addEventListener('gamepadconnected', initAudio, { once: true }); // ゲームパッド接続時もオーディオ初期化
     return () => {
         window.removeEventListener('click', initAudio);
         window.removeEventListener('keydown', initAudio);
+        window.removeEventListener('gamepadconnected', initAudio);
     };
   }, []);
 
@@ -114,11 +118,12 @@ export default function App() {
     handleGameOverCallback
   );
 
+  // 描画ループ
   useEffect(() => {
     if (screen !== 'dungeon' || !dungeon || !canvasRef.current) return;
     let animationFrameId: number;
     const renderLoop = () => {
-      if (!isPaused) { // ポーズ中はエフェクト更新を止める（時間を止める）
+      if (!isPaused) {
         visualManager.update();
       }
       renderDungeon(canvasRef.current!, dungeon, playerPos, enemies);
@@ -128,43 +133,90 @@ export default function App() {
     return () => cancelAnimationFrame(animationFrameId);
   }, [screen, dungeon, playerPos, enemies, isPaused]);
 
+  // --- 入力処理の統合 ---
+  const handleInput = useCallback((action: InputAction) => {
+    // 1. グローバルな操作 (ポーズなど)
+    if (action === 'PAUSE') {
+        if (screen === 'dungeon') togglePause();
+        else if (screen === 'inventory') setScreen(dungeon ? 'dungeon' : 'town');
+        return;
+    }
+    
+    // 2. インベントリ画面の操作（簡易）
+    if (screen === 'inventory') {
+        if (action === 'CANCEL' || action === 'MENU') {
+            setScreen(dungeon ? 'dungeon' : 'town');
+        }
+        // TODO: 十字キーでカーソル移動などの実装はフェーズ1後半で
+        return;
+    }
+
+    // 3. ダンジョン画面の操作
+    if (screen === 'dungeon') {
+        if (action === 'MENU' && !isPaused) {
+            setScreen('inventory');
+            return;
+        }
+
+        if (isPaused) {
+            // ポーズメニュー操作
+            if (action === 'CANCEL') togglePause();
+            // TODO: 十字キーでメニュー選択
+            return;
+        }
+
+        // 移動・行動
+        switch (action) {
+            case 'UP': movePlayer(0, -1); break;
+            case 'DOWN': movePlayer(0, 1); break;
+            case 'LEFT': movePlayer(-1, 0); break;
+            case 'RIGHT': movePlayer(1, 0); break;
+            case 'CONFIRM': 
+                // 目の前の敵を攻撃する、等のアクションがあればここに。現在は移動で攻撃を兼ねるため特になし
+                break;
+            case 'SKILL_1': if(playerJob.skills[0]) useSkill(playerJob.skills[0]); break;
+            case 'SKILL_2': if(playerJob.skills[1]) useSkill(playerJob.skills[1]); break;
+            case 'SKILL_3': if(playerJob.skills[2]) useSkill(playerJob.skills[2]); break;
+            case 'SKILL_4': if(playerJob.skills[3]) useSkill(playerJob.skills[3]); break;
+        }
+        return;
+    }
+
+    // 4. その他の画面（タイトル、街など）
+    // 今回は簡易的に、CANCELボタンで戻る動作などを割り当て
+    if (action === 'CANCEL') {
+        if (screen === 'godSelect') setScreen('jobSelect');
+        // 他の画面の戻る処理...
+    }
+
+  }, [screen, dungeon, isPaused, togglePause, movePlayer, useSkill, playerJob]);
+
+  // ゲームパッド入力の監視
+  useGamepad(handleInput);
+
+  // キーボード入力の監視 (互換性維持)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // ポーズ（ESCキー）の処理
-      if (e.key === 'Escape') {
-        if (screen === 'inventory') {
-            setScreen(dungeon ? 'dungeon' : 'town');
-        } else if (screen === 'dungeon') {
-            togglePause();
-        }
-        return;
-      }
-
-      if (e.key === 'i' && (screen === 'town' || screen === 'dungeon')) {
-        // ポーズ中はインベントリを開けないようにする
-        if (!isPaused) {
-            setScreen('inventory');
-        }
-        return;
-      }
-
-      // ポーズ中は操作を受け付けない
-      if (screen !== 'dungeon' || isPaused) return;
-      
-      switch(e.key) {
-        case 'ArrowUp': movePlayer(0, -1); break;
-        case 'ArrowDown': movePlayer(0, 1); break;
-        case 'ArrowLeft': movePlayer(-1, 0); break;
-        case 'ArrowRight': movePlayer(1, 0); break;
-        case '1': if(playerJob.skills[0]) useSkill(playerJob.skills[0]); break;
-        case '2': if(playerJob.skills[1]) useSkill(playerJob.skills[1]); break;
-        case '3': if(playerJob.skills[2]) useSkill(playerJob.skills[2]); break;
-        case '4': if(playerJob.skills[3]) useSkill(playerJob.skills[3]); break;
-      }
+      // キー入力をInputActionに変換してhandleInputに渡す
+      if (e.key === 'Escape') handleInput('PAUSE');
+      else if (e.key === 'i') handleInput('MENU');
+      else if (e.key === 'ArrowUp') handleInput('UP');
+      else if (e.key === 'ArrowDown') handleInput('DOWN');
+      else if (e.key === 'ArrowLeft') handleInput('LEFT');
+      else if (e.key === 'ArrowRight') handleInput('RIGHT');
+      else if (e.key === 'Enter' || e.key === 'z') handleInput('CONFIRM');
+      else if (e.key === 'x' || e.key === 'Backspace') handleInput('CANCEL');
+      else if (e.key === '1') handleInput('SKILL_1');
+      else if (e.key === '2') handleInput('SKILL_2');
+      else if (e.key === '3') handleInput('SKILL_3');
+      else if (e.key === '4') handleInput('SKILL_4');
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [screen, movePlayer, useSkill, playerJob, dungeon, isPaused, togglePause]);
+  }, [handleInput]);
+
+
+  // --- 各種ハンドラ (既存コード) ---
 
   const handleUseItem = (itemId: string) => {
     const item = itemData.find(i => i.id === itemId);
