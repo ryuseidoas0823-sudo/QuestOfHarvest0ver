@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DialogueTree, DialogueNode, DialogueChoice } from '../types/dialogue';
+import { DialogueTree, DialogueChoice } from '../types/dialogue';
 import { SPEAKERS } from '../data/dialogues';
 
 // Props定義を拡張: Tree形式とSimple形式の両方に対応
