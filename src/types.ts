@@ -1,35 +1,68 @@
-export type JobId = 'swordsman' | 'mage' | 'thief' | 'cleric';
+// 型定義の集約ファイル
+
+export * from './types/gameState';
+export * from './types/input';
+export * from './types/item';
+export * from './types/job';
+export * from './types/skill';
+export * from './types/quest';
+export * from './types/enemy';
+export * from './types/event';
+export * from './types/dialogue';
+
+// 共通型定義
+
+export type Direction = 'up' | 'down' | 'left' | 'right';
+
+export interface Tile {
+  type: 'wall' | 'floor' | 'corridor' | 'stairs_down' | 'stairs_up' | 'door';
+  visible: boolean;
+  x: number;
+  y: number;
+  roomId?: number;
+}
 
 export interface Stats {
-  maxHp: number;
-  hp: number;
-  maxMp: number;
-  mp: number;
-  attack: number;
-  defense: number;
   str: number;
   vit: number;
   dex: number;
   agi: number;
   int: number;
   luc: number;
-  level: number;
-  exp?: number;
 }
 
-export type ResolutionMode = 'low' | 'standard' | 'high';
+export type JobId = 'swordsman' | 'warrior' | 'archer' | 'mage';
+export type GodId = 'war' | 'blacksmith' | 'wine';
 
-export type TileType = 'floor' | 'wall' | 'stairs_down' | 'door' | 'carpet_red'; // ボス部屋用に装飾タイル追加
-
-export type FloorType = 'standard' | 'big_room' | 'boss' | 'maze'; // フロアタイプ追加
+export interface PlayerState {
+  name: string;
+  hp: number;
+  maxHp: number;
+  sp: number;
+  maxSp: number;
+  stats: Stats;
+  level: number;
+  exp: number;
+  nextExp: number;
+  gold: number;
+  equipment: {
+    weapon: any | null;
+    armor: any | null;
+    accessory: any | null;
+  };
+  inventory: any[];
+  jobId: JobId;
+  godId: GodId;
+  skills: string[];
+  quests: any[];
+  x: number; // 座標を追加
+  y: number;
+}
 
 export interface DungeonMap {
+  floor: number;
   width: number;
   height: number;
-  tiles: TileType[][];
-  rooms: { x: number; y: number; w: number; h: number }[];
-  playerStart: { x: number; y: number };
-  stairs: { x: number; y: number };
-  visited: boolean[][];
-  floorType: FloorType; // 追加
+  map: Tile[][];
+  rooms: any[];
 }
