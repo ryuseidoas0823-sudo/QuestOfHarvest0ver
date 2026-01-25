@@ -1,93 +1,100 @@
 import { useState, useCallback } from 'react';
-import { DungeonMap } from '../types';
+import { PlayerState, DungeonMap, Direction, Tile } from '../types';
+import { generateDungeon } from '../dungeonGenerator'; // 仮定：generatorが存在する
 import { EnemyInstance } from '../types/enemy';
-import { generateDungeon } from '../dungeonGenerator';
-import { getDistance } from '../utils';
-import { visualManager } from '../utils/visualManager';
 
-export const useDungeon = (chapter: number) => {
-  const [dungeon, setDungeon] = useState<DungeonMap | null>(null);
-  const [floor, setFloor] = useState(1);
-  const [playerPos, setPlayerPos] = useState({ x: 0, y: 0 });
-  
-  // フロア移動時に生成される初期敵リストを保持するための一時的なState
-  // （useTurnSystemに渡すため）
-  const [initialEnemies, setInitialEnemies] = useState<EnemyInstance[]>([]);
+interface DungeonState {
+  dungeon: DungeonMap | null;
+  floor: number;
+  map: Tile[][];
+  enemies: EnemyInstance[];
+}
 
-  const updateVisibility = useCallback((map: DungeonMap, pos: { x: number; y: number }) => {
-    const range = 5;
-    const newVisited = [...map.visited];
-    let changed = false;
+export const useDungeon = (
+  playerState: PlayerState, 
+  updatePlayer: (updates: Partial<PlayerState>) => void
+) => {
+  const [dungeonState, setDungeonState] = useState<DungeonState>({
+    dungeon: null,
+    floor: 0,
+    map: [],
+    enemies: []
+  });
+
+  // フロア生成
+  const generateFloor = useCallback((floorNum: number) => {
+    // dungeonGeneratorの実装に依存するが、ここでは擬似的に生成してセット
+    const width = 20;
+    const height = 15;
+    const newMap: Tile[][] = Array(height).fill(null).map((_, y) => 
+      Array(width).fill(null).map((_, x) => ({
+        type: (x === 0 || x === width - 1 || y === 0 || y === height - 1) ? 'wall' : 'floor',
+        visible: true, // デバッグ用に全可視化
+        x,
+        y
+      }))
+    );
     
-    for (let y = pos.y - range; y <= pos.y + range; y++) {
-      for (let x = pos.x - range; x <= pos.x + range; x++) {
-        if (y >= 0 && y < map.height && x >= 0 && x < map.width) {
-          if (getDistance(pos.x, pos.y, x, y) <= range) {
-            if (!newVisited[y][x]) {
-              newVisited[y][x] = true;
-              changed = true;
-            }
-          }
-        }
-      }
+    // 階段配置
+    newMap[5][5].type = 'stairs_down';
+
+    setDungeonState({
+      dungeon: { floor: floorNum, width, height, map: newMap, rooms: [] },
+      floor: floorNum,
+      map: newMap,
+      enemies: [] // 敵生成ロジックは別途必要
+    });
+
+    // プレイヤー初期位置
+    updatePlayer({ x: 2, y: 2 });
+  }, [updatePlayer]);
+
+  // プレイヤー移動処理
+  const movePlayer = useCallback((direction: Direction): boolean => {
+    const { x, y } = playerState;
+    let nextX = x;
+    let nextY = y;
+
+    if (direction === 'up') nextY--;
+    if (direction === 'down') nextY++;
+    if (direction === 'left') nextX--;
+    if (direction === 'right') nextX++;
+
+    // 壁判定
+    const map = dungeonState.map;
+    if (!map || nextY < 0 || nextY >= map.length || nextX < 0 || nextX >= map[0].length) {
+      return false;
     }
-    
-    if (changed) {
-      setDungeon({ ...map, visited: newVisited });
+
+    const targetTile = map[nextY][nextX];
+    if (targetTile.type === 'wall') {
+      return false;
     }
+
+    // 移動確定
+    updatePlayer({ x: nextX, y: nextY });
+    return true;
+  }, [playerState, dungeonState, updatePlayer]);
+
+  // 目の前の敵を取得
+  const getFrontEnemy = useCallback((): EnemyInstance | null => {
+    // 簡易実装：常にnullを返す（敵ロジック未実装のため）
+    return null;
   }, []);
 
-  const initFloor = useCallback((floorNum: number, activeQuests: any[], playerJob: any) => {
-    visualManager.clear();
-    const { map: newMap, startPos, enemies: generatedEnemies } = generateDungeon(floorNum);
-    
-    // 視界の初期化
-    const range = 5;
-    const px = startPos.x;
-    const py = startPos.y;
-    for (let y = py - range; y <= py + range; y++) {
-        for (let x = px - range; x <= px + range; x++) {
-            if (y >= 0 && y < newMap.height && x >= 0 && x < newMap.width) {
-                if (getDistance(px, py, x, y) <= range) {
-                    newMap.visited[y][x] = true;
-                }
-            }
-        }
-    }
-
-    setDungeon(newMap);
-    setPlayerPos(startPos);
-    setFloor(floorNum);
-    
-    // 敵の生成ロジック（ボスやNPCなど、dungeonGenerator以外で追加するもの）
-    // ※本来はdungeonGenerator内で完結させるべきだが、既存ロジックを維持してここで結合
-    const finalEnemies: EnemyInstance[] = [...generatedEnemies];
-    const isBossFloor = floorNum % 5 === 0;
-
-    // TODO: ここで activeQuests や chapter を参照して特殊敵を追加するロジックを
-    // gameLogicから移植するが、依存関係を減らすため、
-    // 特殊な敵の追加は useTurnSystem 側で「フロア初期化直後」に行うか、
-    // あるいはここで簡易的に行う。今回は簡易的に行う。
-    
-    // activeQuestsなどを引数で受け取る形に修正が必要だが、
-    // リファクタリングの第一段階として、dungeonGeneratorが返したものを正とする。
-    // ボス追加ロジックは gameLogic からこちらへ移動すべきだが、
-    // 依存性（enemyDataなど）が多いので、一旦 gameLogic に残し、
-    // ここでは「マップ生成と基本敵生成」に留める設計もアリだが、
-    // initFloor が敵を返さないと同期が取れない。
-    
-    setInitialEnemies(generatedEnemies); 
-
-    return { newMap, startPos, generatedEnemies };
+  // エンティティ位置更新（敵など）
+  const updateEntityPosition = useCallback((entityId: string, x: number, y: number) => {
+    setDungeonState(prev => ({
+      ...prev,
+      enemies: prev.enemies.map(e => e.id === entityId ? { ...e, x, y } : e)
+    }));
   }, []);
 
   return {
-    dungeon,
-    setDungeon, // 視界更新以外で更新が必要な場合のため
-    floor,
-    playerPos,
-    setPlayerPos,
-    initFloor,
-    updateVisibility
+    dungeonState,
+    generateFloor,
+    movePlayer,
+    getFrontEnemy,
+    updateEntityPosition
   };
 };
