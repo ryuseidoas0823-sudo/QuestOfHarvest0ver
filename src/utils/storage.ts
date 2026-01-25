@@ -1,6 +1,3 @@
-import { Job } from '../types/job';
-import { Quest } from '../types/quest';
-
 const SAVE_KEY = 'quest_of_harvest_save_v1';
 
 // セーブデータの型定義
