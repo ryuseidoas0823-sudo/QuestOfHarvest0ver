@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { TitleScreen } from './components/TitleScreen';
 import { JobSelectScreen } from './components/JobSelectScreen';
-import { GodSelectScreen } from './components/GodSelectScreen';
+// Named export ではなく Default export としてインポートするように修正
+import GodSelectScreen from './components/GodSelectScreen';
 import { TownScreen } from './components/TownScreen';
 import { ResultScreen } from './components/ResultScreen';
 import { InventoryMenu } from './components/InventoryMenu';
@@ -19,6 +20,7 @@ import { audioManager } from './utils/audioManager';
 import { calculateLevel, calculateExpForLevel } from './utils';
 import { visualManager } from './utils/visualManager';
 import { MAX_INVENTORY_SIZE } from './config';
+import { ResolutionMode } from './types';
 
 type ScreenState = 'title' | 'jobSelect' | 'godSelect' | 'town' | 'dungeon' | 'result' | 'inventory';
 
@@ -29,7 +31,8 @@ export default function App() {
   const [playerExp, setPlayerExp] = useState(0);
   const [gold, setGold] = useState(0);
   const [baseStats, setBaseStats] = useState({
-    level: 1, maxHp: 100, hp: 100, attack: 10, defense: 5,
+    level: 1, maxHp: 100, hp: 100, maxMp: 50, mp: 50,
+    attack: 10, defense: 5,
     str: 10, vit: 10, dex: 10, agi: 10, int: 10, luc: 10
   });
   const [chapter, setChapter] = useState(1);
@@ -40,6 +43,8 @@ export default function App() {
     weapon: null, armor: null, accessory: null
   });
   const [unlockedCompanions, setUnlockedCompanions] = useState<string[]>([]);
+  const [resolution, setResolution] = useState<ResolutionMode>('high');
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const finalStats = useMemo(() => {
@@ -48,8 +53,8 @@ export default function App() {
       if (!itemId) return;
       const item = itemData.find(i => i.id === itemId);
       if (item && item.equipStats) {
-        if (item.equipStats.attack) stats.attack += item.equipStats.attack;
-        if (item.equipStats.defense) stats.defense += item.equipStats.defense;
+        if (item.equipStats.attack) stats.attack = (stats.attack || 0) + item.equipStats.attack;
+        if (item.equipStats.defense) stats.defense = (stats.defense || 0) + item.equipStats.defense;
         if (item.equipStats.str) stats.str += item.equipStats.str;
         if (item.equipStats.vit) stats.vit += item.equipStats.vit;
         if (item.equipStats.maxHp) stats.maxHp += item.equipStats.maxHp;
@@ -91,8 +96,6 @@ export default function App() {
       else audioManager.stopBgm();
   }, [screen]);
 
-  // handleQuestUpdateとhandleGameOverを先に定義するか、useGameLogic内で参照するために工夫が必要
-  // ここではuseGameLogicに渡す関数をインラインまたは事前に定義
   const handleQuestUpdateCallback = (questId: string, amount: number) => {
       console.log(`Quest Updated: ${questId}, Progress: ${amount}`);
   };
@@ -194,11 +197,18 @@ export default function App() {
 
   const handleSelectJob = (job: Job) => {
     audioManager.playSeSelect(); setPlayerJob(job);
-    setBaseStats({ ...baseStats, maxHp: job.baseStats.vit * 10, hp: job.baseStats.vit * 10, attack: job.baseStats.str * 2, str: job.baseStats.str, vit: job.baseStats.vit, dex: job.baseStats.dex, agi: job.baseStats.agi, int: job.baseStats.int, luc: job.baseStats.luc });
+    setBaseStats({ 
+        ...baseStats, 
+        maxHp: job.baseStats.vit * 10, hp: job.baseStats.vit * 10, 
+        attack: job.baseStats.str * 2, 
+        str: job.baseStats.str, vit: job.baseStats.vit, dex: job.baseStats.dex, agi: job.baseStats.agi, int: job.baseStats.int, luc: job.baseStats.luc 
+    });
     setScreen('godSelect');
   };
 
-  const handleSelectGod = (godId: string) => { audioManager.playSeSelect(); setScreen('town'); setTimeout(performAutoSave, 100); };
+  const handleSelectGod = (_godId: string) => { 
+    audioManager.playSeSelect(); setScreen('town'); setTimeout(performAutoSave, 100); 
+  };
   
   const handleGoToDungeon = () => { audioManager.playSeSelect(); setScreen('dungeon'); };
   
@@ -223,7 +233,6 @@ export default function App() {
     setTimeout(performAutoSave, 500);
   };
 
-  // 修正済みのアイテム購入（インベントリ制限チェック付き）
   const handleBuyItem = (item: ShopItem) => {
     if (gold >= item.price) {
       if (inventory.length >= MAX_INVENTORY_SIZE) { 
@@ -240,21 +249,18 @@ export default function App() {
     }
   };
 
-  // 修正済みのステータスアップ（コスト連動）
   const handleUpgradeStatus = (stat: 'str' | 'vit' | 'dex' | 'agi' | 'int' | 'luc', cost: number) => {
       if (playerExp >= cost) {
           audioManager.playSeSelect(); 
           const newExp = playerExp - cost; 
           setPlayerExp(newExp); 
-          const newLevel = calculateLevel(newExp);
-          setBaseStats(prev => ({ ...prev, level: newLevel, [stat]: prev[stat] + 1 })); 
+          setBaseStats(prev => ({ ...prev, [stat]: prev[stat] + 1 })); 
           setTimeout(performAutoSave, 100);
       } else { 
           audioManager.playSeCancel(); 
       }
   };
 
-  // TownScreenに渡すアイテムデータを生成
   const displayItems = inventory.map(id => {
       const data = itemData.find(i => i.id === id);
       return {
@@ -268,8 +274,13 @@ export default function App() {
     <div className="w-full h-screen bg-black text-white font-sans">
       {screen === 'title' && (
           <div className="flex flex-col items-center justify-center h-full space-y-4 bg-gray-900">
-              <TitleScreen onStart={handleStartGame} />
-              {canContinue && <button onClick={handleContinueGame} className="px-8 py-3 bg-blue-600 hover:bg-blue-500 rounded text-xl font-bold animate-pulse border-2 border-blue-400">続きから始める</button>}
+              <TitleScreen 
+                onStart={handleStartGame} 
+                onContinue={handleContinueGame}
+                canContinue={canContinue}
+                resolution={resolution}
+                setResolution={setResolution}
+              />
           </div>
       )}
       
@@ -285,7 +296,7 @@ export default function App() {
                 chapter={chapter} 
                 activeQuests={activeQuests} 
                 completedQuestIds={completedQuestIds} 
-                items={displayItems} // 修正済みデータを渡す
+                items={displayItems} 
                 onGoToDungeon={handleGoToDungeon} 
                 onAcceptQuest={handleAcceptQuest} 
                 onReportQuest={handleReportQuest} 
@@ -303,14 +314,30 @@ export default function App() {
       
       {screen === 'inventory' && (
           <div className="absolute inset-0 bg-black bg-opacity-95 z-50 p-4">
-              <InventoryMenu inventory={inventory} equippedItems={equippedItems} onUseItem={handleUseItem} onEquipItem={handleEquipItem} onClose={() => setScreen(dungeon ? 'dungeon' : 'town')} />
+              <InventoryMenu 
+                inventory={inventory} 
+                equippedItems={equippedItems} 
+                onUseItem={handleUseItem} 
+                onEquipItem={handleEquipItem} 
+                onClose={() => setScreen(dungeon ? 'dungeon' : 'town')} 
+              />
           </div>
       )}
       
       {screen === 'dungeon' && (
           <div className="relative w-full h-full flex flex-col items-center justify-center">
               <div className="absolute top-0 left-0 w-full z-10">
-                  <GameHUD playerJob={playerJob} level={finalStats.level} hp={playerHp} maxHp={finalStats.maxHp} exp={playerExp} nextExp={calculateExpForLevel(finalStats.level + 1)} floor={floor} gold={gold} skillCooldowns={skillCooldowns} />
+                  <GameHUD 
+                    playerJob={playerJob} 
+                    level={finalStats.level} 
+                    hp={playerHp} 
+                    maxHp={finalStats.maxHp} 
+                    exp={playerExp} 
+                    nextExp={calculateExpForLevel(finalStats.level + 1)} 
+                    floor={floor} 
+                    gold={gold} 
+                    skillCooldowns={skillCooldowns} 
+                  />
               </div>
               <canvas ref={canvasRef} width={800} height={600} className="border-4 border-gray-700 bg-gray-900 shadow-2xl" />
               <div className="absolute bottom-4 left-4 bg-black bg-opacity-70 p-4 rounded max-w-md pointer-events-none">
@@ -328,7 +355,17 @@ export default function App() {
           </div>
       )}
       
-      {screen === 'result' && <ResultScreen onReturnToTown={handleReturnToTown} />}
+      {screen === 'result' && (
+        <ResultScreen 
+            onReturnToTown={handleReturnToTown} 
+            resultData={{
+                exp: 0, 
+                gold: 0,
+                items: [],
+                floorReached: floor
+            }}
+        />
+      )}
     </div>
   );
 }
