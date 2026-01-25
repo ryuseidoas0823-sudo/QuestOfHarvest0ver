@@ -6,7 +6,7 @@ import { TownScreen } from './components/TownScreen';
 import { ResultScreen } from './components/ResultScreen';
 import { InventoryMenu } from './components/InventoryMenu';
 import { PauseMenu } from './components/PauseMenu';
-import { EventModal } from './components/EventModal'; // 追加
+import { EventModal } from './components/EventModal';
 import { renderDungeon } from './renderer';
 import { useGameLogic } from './gameLogic';
 import { Job } from './types/job';
@@ -24,6 +24,7 @@ import { MAX_INVENTORY_SIZE } from './config';
 import { ResolutionMode } from './types';
 import { useGamepad } from './hooks/useGamepad';
 import { InputAction } from './types/input';
+import { initAuth } from './utils/firebase';
 
 type ScreenState = 'title' | 'jobSelect' | 'godSelect' | 'town' | 'dungeon' | 'result' | 'inventory';
 
@@ -49,6 +50,13 @@ export default function App() {
   const [resolution, setResolution] = useState<ResolutionMode>('high');
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Initialize Auth
+  useEffect(() => {
+    initAuth().then(user => {
+      if (user) console.log("Logged in as:", user.uid);
+    });
+  }, []);
 
   const finalStats = useMemo(() => {
     let stats = { ...baseStats };
@@ -99,7 +107,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-      if (screen === 'dungeon') audioManager.playBgmDungeon();
+      if (screen === 'town') audioManager.playBgmTown();
+      else if (screen === 'dungeon') audioManager.playBgmDungeon();
       else audioManager.stopBgm();
   }, [screen]);
 
@@ -111,7 +120,6 @@ export default function App() {
       setScreen('result');
   };
 
-  // アイテム入手コールバック
   const handleAddItem = (itemId: string) => {
     if (inventory.length >= MAX_INVENTORY_SIZE) {
         alert("持ち物がいっぱいです！");
@@ -122,7 +130,7 @@ export default function App() {
 
   const { 
     dungeon, playerPos, enemies, floor, gameOver, isPaused, togglePause, 
-    currentEvent, handleEventChoice, // 追加
+    currentEvent, handleEventChoice,
     messageLog, movePlayer, useSkill, skillCooldowns, playerHp
   } = useGameLogic(
     playerJob,
@@ -130,7 +138,7 @@ export default function App() {
     activeQuests,
     handleQuestUpdateCallback,
     handleGameOverCallback,
-    handleAddItem // 追加
+    handleAddItem 
   );
 
   useEffect(() => {
@@ -140,12 +148,13 @@ export default function App() {
       if (!isPaused && !currentEvent) {
         visualManager.update();
       }
-      renderDungeon(canvasRef.current!, dungeon, playerPos, enemies);
+      // playerJob.id を渡して見た目を切り替え
+      renderDungeon(canvasRef.current!, dungeon, playerPos, enemies, playerJob.id);
       animationFrameId = requestAnimationFrame(renderLoop);
     };
     renderLoop();
     return () => cancelAnimationFrame(animationFrameId);
-  }, [screen, dungeon, playerPos, enemies, isPaused, currentEvent]);
+  }, [screen, dungeon, playerPos, enemies, isPaused, currentEvent, playerJob]); // playerJob依存追加
 
   const handleInput = useCallback((action: InputAction) => {
     if (action === 'PAUSE') {
@@ -162,7 +171,6 @@ export default function App() {
     }
 
     if (screen === 'dungeon') {
-        // イベント中は操作無効 (EventModal側で処理)
         if (currentEvent) return;
 
         if (action === 'MENU' && !isPaused) {
