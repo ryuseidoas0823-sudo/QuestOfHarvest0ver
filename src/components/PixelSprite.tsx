@@ -1,50 +1,70 @@
-import React, { useEffect, useRef } from 'react';
-import { getSprite } from '../assets/spriteManager';
+import React from 'react';
+import { CHAR_SVG } from '../assets/pixelData';
+// spriteManagerへの依存を削除
 
 interface PixelSpriteProps {
-  spriteKey: string; // 表示したいアセットのキー（'player', 'slime'など）
-  size?: number;     // 表示サイズ（px）
-  className?: string; // 追加のCSSクラス
+  type: 'player' | 'enemy' | 'item' | 'npc';
+  jobId?: string; 
+  data?: any;     
+  state?: 'idle' | 'move' | 'attack' | 'damage';
+  direction?: 'left' | 'right' | 'up' | 'down'; 
+  scale?: number;
 }
 
-export const PixelSprite: React.FC<PixelSpriteProps> = ({ spriteKey, size = 40, className = '' }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // スプライトを取得
-    // 取得できない場合は ? マークなどを描画しても良いが、ここでは何も描画しない
-    const sprite = getSprite(spriteKey) || getSprite('player'); // 最悪playerを表示
-
-    if (sprite) {
-      // 鮮明に描画するための設定
-      ctx.imageSmoothingEnabled = false;
-      
-      // キャンバスをクリア
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // 画像を描画
-      ctx.drawImage(sprite, 0, 0, canvas.width, canvas.height);
-    } else {
-        // 画像がない場合
-        ctx.fillStyle = '#666';
-        ctx.fillRect(0,0, canvas.width, canvas.height);
+const PixelSprite: React.FC<PixelSpriteProps> = ({ 
+  type, 
+  jobId = 'swordsman', 
+  data, 
+  state = 'idle',
+  direction = 'down',
+  scale = 1
+}) => {
+  let svgContent = '';
+  
+  if (type === 'player') {
+    switch (jobId) {
+      case 'warrior': svgContent = CHAR_SVG.warrior(); break;
+      case 'archer': svgContent = CHAR_SVG.swordsman('#15803d'); break;
+      case 'mage': svgContent = CHAR_SVG.swordsman('#7e22ce'); break;
+      case 'swordsman': default: svgContent = CHAR_SVG.swordsman(); break;
     }
-  }, [spriteKey, size]);
+  } else if (type === 'enemy') {
+    const name = data?.name || '';
+    if (name.includes('スライム')) svgContent = CHAR_SVG.slime;
+    else if (name.includes('ゴブリン')) svgContent = CHAR_SVG.goblin;
+    else if (name.includes('スケルトン') || name.includes('ガイコツ')) svgContent = CHAR_SVG.skeleton;
+    else svgContent = CHAR_SVG.unknown;
+  }
 
-  // keyが変わったときに再描画するため、key属性を付与
+  const getAnimationClass = () => {
+    switch (state) {
+      case 'attack': return 'animate-bounce'; 
+      case 'damage': return 'animate-pulse opacity-50';
+      case 'move': return 'animate-pulse';
+      case 'idle': default: return 'animate-[bounce_3s_infinite]';
+    }
+  };
+
+  const getTransform = () => {
+    const baseScale = `scale(${scale})`;
+    if (direction === 'left') {
+      return `${baseScale} scaleX(-1)`;
+    }
+    return baseScale;
+  };
+
   return (
-    <canvas 
-        ref={canvasRef} 
-        width={size} 
-        height={size} 
-        className={`inline-block ${className}`}
-        style={{ imageRendering: 'pixelated' }} // CSSでもドット絵補間を無効化
-    />
+    <div 
+      className={`relative w-8 h-8 flex items-center justify-center transition-transform duration-200 ${getAnimationClass()}`}
+      style={{ transform: getTransform() }}
+    >
+      <div className="absolute bottom-0 w-6 h-1.5 bg-black/40 rounded-[50%] blur-[1px]" />
+      <div 
+        className="relative z-10 w-full h-full drop-shadow-md"
+        dangerouslySetInnerHTML={{ __html: svgContent }} 
+      />
+    </div>
   );
 };
+
+export default PixelSprite;
