@@ -6,6 +6,7 @@ import { TownScreen } from './components/TownScreen';
 import { ResultScreen } from './components/ResultScreen';
 import { InventoryMenu } from './components/InventoryMenu';
 import { PauseMenu } from './components/PauseMenu';
+import { EventModal } from './components/EventModal'; // 追加
 import { renderDungeon } from './renderer';
 import { useGameLogic } from './gameLogic';
 import { Job } from './types/job';
@@ -110,21 +111,33 @@ export default function App() {
       setScreen('result');
   };
 
+  // アイテム入手コールバック
+  const handleAddItem = (itemId: string) => {
+    if (inventory.length >= MAX_INVENTORY_SIZE) {
+        alert("持ち物がいっぱいです！");
+        return;
+    }
+    setInventory(prev => [...prev, itemId]);
+  };
+
   const { 
-    dungeon, playerPos, enemies, floor, gameOver, isPaused, togglePause, messageLog, movePlayer, useSkill, skillCooldowns, playerHp
+    dungeon, playerPos, enemies, floor, gameOver, isPaused, togglePause, 
+    currentEvent, handleEventChoice, // 追加
+    messageLog, movePlayer, useSkill, skillCooldowns, playerHp
   } = useGameLogic(
     playerJob,
     chapter,
     activeQuests,
     handleQuestUpdateCallback,
-    handleGameOverCallback
+    handleGameOverCallback,
+    handleAddItem // 追加
   );
 
   useEffect(() => {
     if (screen !== 'dungeon' || !dungeon || !canvasRef.current) return;
     let animationFrameId: number;
     const renderLoop = () => {
-      if (!isPaused) {
+      if (!isPaused && !currentEvent) {
         visualManager.update();
       }
       renderDungeon(canvasRef.current!, dungeon, playerPos, enemies);
@@ -132,11 +145,11 @@ export default function App() {
     };
     renderLoop();
     return () => cancelAnimationFrame(animationFrameId);
-  }, [screen, dungeon, playerPos, enemies, isPaused]);
+  }, [screen, dungeon, playerPos, enemies, isPaused, currentEvent]);
 
   const handleInput = useCallback((action: InputAction) => {
     if (action === 'PAUSE') {
-        if (screen === 'dungeon') togglePause();
+        if (screen === 'dungeon' && !currentEvent) togglePause();
         else if (screen === 'inventory') setScreen(dungeon ? 'dungeon' : 'town');
         return;
     }
@@ -149,6 +162,9 @@ export default function App() {
     }
 
     if (screen === 'dungeon') {
+        // イベント中は操作無効 (EventModal側で処理)
+        if (currentEvent) return;
+
         if (action === 'MENU' && !isPaused) {
             setScreen('inventory');
             return;
@@ -178,7 +194,7 @@ export default function App() {
         if (screen === 'godSelect') setScreen('jobSelect');
     }
 
-  }, [screen, dungeon, isPaused, togglePause, movePlayer, useSkill, playerJob]);
+  }, [screen, dungeon, isPaused, togglePause, movePlayer, useSkill, playerJob, currentEvent]);
 
   useGamepad(handleInput);
 
@@ -372,7 +388,7 @@ export default function App() {
               <InventoryMenu 
                 inventory={inventory} 
                 equippedItems={equippedItems} 
-                playerStats={finalStats} // 追加
+                playerStats={finalStats} 
                 onUseItem={handleUseItem} 
                 onEquipItem={handleEquipItem} 
                 onClose={() => setScreen(dungeon ? 'dungeon' : 'town')} 
@@ -403,10 +419,18 @@ export default function App() {
                   <button onClick={() => setScreen('inventory')} className="px-3 py-1 bg-blue-700 text-xs rounded border border-blue-500 hover:bg-blue-600 opacity-80">🎒 アイテム</button>
               </div>
 
-              {isPaused && (
+              {isPaused && !currentEvent && (
                 <PauseMenu 
                     onResume={togglePause} 
                     onRetire={handleReturnToTown} 
+                />
+              )}
+
+              {/* イベントモーダル */}
+              {currentEvent && (
+                <EventModal 
+                    event={currentEvent} 
+                    onChoice={handleEventChoice} 
                 />
               )}
 
