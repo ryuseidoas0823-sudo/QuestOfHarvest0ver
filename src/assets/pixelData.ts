@@ -19,14 +19,16 @@ const C = {
   // エフェクト用
   CY: '#00FFFF', // シアン
   MG: '#FF00FF', // マゼンタ
+  // カーペット用
+  RC: '#C0392B', // 濃い赤
+  RD: '#922B21', // さらに濃い赤
 };
 
 // 12x12 ピクセルアート定義
 export const pixelArtData: Record<string, { palette: any, grid: string[] }> = {
-  // ... (既存のデータ: player, wall, floor, stairs, goblin, slime, orc, boss, ally, skill_*) ...
-  // ※既存データは保持したまま、以下を追加してください
+  // ... (既存データ) ...
+  // ※既存の定義はそのまま残し、以下を追加/上書きしてください
 
-  // --- プレイヤー ---
   'player': {
     palette: C,
     grid: [
@@ -44,7 +46,6 @@ export const pixelArtData: Record<string, { palette: any, grid: string[] }> = {
       "__KK____KK__"
     ]
   },
-  // --- マップチップ ---
   'wall': {
     palette: C,
     grid: [
@@ -96,7 +97,6 @@ export const pixelArtData: Record<string, { palette: any, grid: string[] }> = {
       "KKKKKKKKKKKK"
     ]
   },
-  // --- モンスター ---
   'goblin': {
     palette: C,
     grid: [
@@ -182,6 +182,24 @@ export const pixelArtData: Record<string, { palette: any, grid: string[] }> = {
       "__KK____KK__"
     ]
   },
+  // --- 新規追加 ---
+  'carpet_red': {
+    palette: C,
+    grid: [
+      "RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC",
+      "RC,RD,RC,RC,RC,RC,RC,RC,RC,RD,RC,RC",
+      "RC,RC,RC,RC,RD,RC,RC,RC,RC,RC,RC,RC",
+      "RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC",
+      "RC,RC,RC,RD,RC,RC,RC,RC,RC,RC,RD,RC",
+      "RC,RC,RC,RC,RC,RC,RD,RC,RC,RC,RC,RC",
+      "RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC",
+      "RC,RD,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC",
+      "RC,RC,RC,RC,RC,RD,RC,RC,RC,RC,RD,RC",
+      "RC,RC,RD,RC,RC,RC,RC,RC,RC,RC,RC,RC",
+      "RC,RC,RC,RC,RC,RC,RC,RC,RD,RC,RC,RC",
+      "RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC"
+    ].map(s => s.replace(/,/g, ''))
+  },
   'chest': {
     palette: C,
     grid: [
@@ -199,7 +217,7 @@ export const pixelArtData: Record<string, { palette: any, grid: string[] }> = {
       "____________"
     ]
   },
-  // --- スキルアイコン ---
+  // ... (Skill, Effectは既存のまま) ...
   'skill_sword': {
     palette: C,
     grid: [
@@ -285,8 +303,6 @@ export const pixelArtData: Record<string, { palette: any, grid: string[] }> = {
       "____________"
     ]
   },
-
-  // --- Visual Effects ---
   'effect_slash': {
     palette: C,
     grid: [
