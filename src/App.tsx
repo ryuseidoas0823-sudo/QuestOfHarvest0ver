@@ -5,6 +5,7 @@ import GodSelectScreen from './components/GodSelectScreen';
 import { TownScreen } from './components/TownScreen';
 import { ResultScreen } from './components/ResultScreen';
 import { InventoryMenu } from './components/InventoryMenu';
+import { PauseMenu } from './components/PauseMenu'; // 追加
 import { renderDungeon } from './renderer';
 import { useGameLogic } from './gameLogic';
 import { Job } from './types/job';
@@ -104,7 +105,7 @@ export default function App() {
   };
 
   const { 
-    dungeon, playerPos, enemies, floor, gameOver, messageLog, movePlayer, useSkill, skillCooldowns, playerHp
+    dungeon, playerPos, enemies, floor, gameOver, isPaused, togglePause, messageLog, movePlayer, useSkill, skillCooldowns, playerHp
   } = useGameLogic(
     playerJob,
     chapter,
@@ -117,23 +118,38 @@ export default function App() {
     if (screen !== 'dungeon' || !dungeon || !canvasRef.current) return;
     let animationFrameId: number;
     const renderLoop = () => {
-      visualManager.update();
+      if (!isPaused) { // ポーズ中はエフェクト更新を止める（時間を止める）
+        visualManager.update();
+      }
       renderDungeon(canvasRef.current!, dungeon, playerPos, enemies);
       animationFrameId = requestAnimationFrame(renderLoop);
     };
     renderLoop();
     return () => cancelAnimationFrame(animationFrameId);
-  }, [screen, dungeon, playerPos, enemies]);
+  }, [screen, dungeon, playerPos, enemies, isPaused]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // ポーズ（ESCキー）の処理
+      if (e.key === 'Escape') {
+        if (screen === 'inventory') {
+            setScreen(dungeon ? 'dungeon' : 'town');
+        } else if (screen === 'dungeon') {
+            togglePause();
+        }
+        return;
+      }
+
       if (e.key === 'i' && (screen === 'town' || screen === 'dungeon')) {
-        setScreen('inventory'); return;
+        // ポーズ中はインベントリを開けないようにする
+        if (!isPaused) {
+            setScreen('inventory');
+        }
+        return;
       }
-      if (e.key === 'Escape' && screen === 'inventory') {
-        setScreen(dungeon ? 'dungeon' : 'town'); return;
-      }
-      if (screen !== 'dungeon') return;
+
+      // ポーズ中は操作を受け付けない
+      if (screen !== 'dungeon' || isPaused) return;
       
       switch(e.key) {
         case 'ArrowUp': movePlayer(0, -1); break;
@@ -148,7 +164,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [screen, movePlayer, useSkill, playerJob, dungeon]);
+  }, [screen, movePlayer, useSkill, playerJob, dungeon, isPaused, togglePause]);
 
   const handleUseItem = (itemId: string) => {
     const item = itemData.find(i => i.id === itemId);
@@ -350,6 +366,15 @@ export default function App() {
               <div className="absolute top-16 right-2 z-50">
                   <button onClick={() => setScreen('inventory')} className="px-3 py-1 bg-blue-700 text-xs rounded border border-blue-500 hover:bg-blue-600 opacity-80">🎒 アイテム</button>
               </div>
+
+              {/* ポーズ画面 */}
+              {isPaused && (
+                <PauseMenu 
+                    onResume={togglePause} 
+                    onRetire={handleReturnToTown} 
+                />
+              )}
+
               {gameOver && (
                   <div className="absolute inset-0 bg-red-900 bg-opacity-80 flex items-center justify-center flex-col z-20">
                       <h2 className="text-4xl font-bold mb-4">YOU DIED</h2>
