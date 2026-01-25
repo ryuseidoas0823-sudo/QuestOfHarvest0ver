@@ -1,6 +1,6 @@
-import { EnemyInstance, Faction } from '../types/enemy';
-import { DungeonMap, TileType } from '../types';
-import { getDistance } from '../utils'; // getDistanceをインポート
+import { EnemyInstance } from '../types/enemy';
+import { DungeonMap } from '../types';
+import { getDistance } from '../utils';
 
 // AIの行動決定結果
 export type AIResult = 
