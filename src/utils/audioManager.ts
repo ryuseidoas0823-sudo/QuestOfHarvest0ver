@@ -98,7 +98,6 @@ class AudioManager {
   // レベルアップ音
   playSeLevelUp() {
     this.init();
-    const now = 0;
     this.playTone(440, 'square', 0.1, 0.0);
     this.playTone(554, 'square', 0.1, 0.1);
     this.playTone(659, 'square', 0.1, 0.2);
