@@ -1,4 +1,4 @@
-import { DungeonMap, TileType, FloorType } from './types';
+import { DungeonMap, TileType } from './types';
 import { EnemyInstance } from './types/enemy';
 import { enemies as enemyData } from './data/enemies';
 
