@@ -2,6 +2,7 @@ import { DungeonMap } from './types';
 import { EnemyInstance } from './types/enemy';
 import { getSprite } from './assets/spriteManager';
 import { visualManager } from './utils/visualManager';
+import { JobId } from './types/job';
 
 export const TILE_SIZE = 32;
 
@@ -12,7 +13,8 @@ export const renderDungeon = (
   canvas: HTMLCanvasElement,
   map: DungeonMap,
   playerPos: { x: number; y: number },
-  enemies: EnemyInstance[]
+  enemies: EnemyInstance[],
+  playerJobId?: string // 追加
 ) => {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -43,36 +45,20 @@ export const renderDungeon = (
           return;
       }
 
-      // タイル描画ロジック
-      if (tile === 'wall') {
-        const sprite = getSprite('wall');
-        if (sprite) ctx.drawImage(sprite, posX, posY, TILE_SIZE, TILE_SIZE);
-        else {
-            ctx.fillStyle = '#444';
-            ctx.fillRect(posX, posY, TILE_SIZE, TILE_SIZE);
-        }
-      } else if (tile === 'floor' || tile === 'stairs_down' || tile === 'carpet_red') {
-        
-        let spriteKey = 'floor';
-        if (tile === 'carpet_red') spriteKey = 'carpet_red';
+      // タイル描画
+      let spriteKey = 'wall';
+      if (tile === 'floor') spriteKey = 'floor';
+      else if (tile === 'stairs_down') spriteKey = 'stairs';
+      else if (tile === 'carpet_red') spriteKey = 'carpet_red';
+      else if (tile === 'wall') spriteKey = 'wall';
 
-        const sprite = getSprite(spriteKey);
-        if (sprite) ctx.drawImage(sprite, posX, posY, TILE_SIZE, TILE_SIZE);
-        else {
-            ctx.fillStyle = tile === 'carpet_red' ? '#800000' : '#222';
-            ctx.fillRect(posX, posY, TILE_SIZE, TILE_SIZE);
-            ctx.strokeStyle = '#333';
-            ctx.strokeRect(posX, posY, TILE_SIZE, TILE_SIZE);
-        }
-        
-        if (tile === 'stairs_down') {
-            const stairsSprite = getSprite('stairs');
-            if (stairsSprite) ctx.drawImage(stairsSprite, posX, posY, TILE_SIZE, TILE_SIZE);
-            else {
-                ctx.fillStyle = '#aaf';
-                ctx.fillRect(posX, posY, TILE_SIZE, TILE_SIZE);
-            }
-        }
+      const sprite = getSprite(spriteKey);
+      if (sprite) {
+        ctx.drawImage(sprite, posX, posY, TILE_SIZE, TILE_SIZE);
+      } else {
+        // フォールバック
+        ctx.fillStyle = tile === 'wall' ? '#444' : '#222';
+        ctx.fillRect(posX, posY, TILE_SIZE, TILE_SIZE);
       }
     });
   });
@@ -93,9 +79,11 @@ export const renderDungeon = (
       const sprite = getSprite(spriteKey) || getSprite('goblin');
 
       if (sprite) {
-          ctx.drawImage(sprite, screenX, screenY, TILE_SIZE, TILE_SIZE);
+          // 少し大きく描画して迫力を出す (32x32 -> 36x36 などを中心合わせで)
+          const offset = (36 - TILE_SIZE) / 2;
+          ctx.drawImage(sprite, screenX - offset, screenY - offset, 36, 36);
       } else {
-          ctx.fillStyle = enemy.faction === 'player_ally' ? '#4ade80' : 'red';
+          ctx.fillStyle = 'red';
           ctx.fillRect(screenX + 4, screenY + 4, TILE_SIZE - 8, TILE_SIZE - 8);
       }
       
@@ -109,9 +97,20 @@ export const renderDungeon = (
   // プレイヤー描画
   const playerScreenX = playerPos.x * TILE_SIZE;
   const playerScreenY = playerPos.y * TILE_SIZE;
-  const playerSprite = getSprite('player');
+  
+  // ジョブに応じたスプライトキーの決定
+  let playerSpriteKey = 'hero_warrior'; // デフォルト
+  if (playerJobId === 'mage') playerSpriteKey = 'hero_mage';
+  else if (playerJobId === 'archer') playerSpriteKey = 'hero_archer';
+  else if (playerJobId === 'cleric') playerSpriteKey = 'hero_cleric';
+  else if (playerJobId === 'warrior') playerSpriteKey = 'hero_warrior';
+  
+  const playerSprite = getSprite(playerSpriteKey) || getSprite('player');
+  
   if (playerSprite) {
-      ctx.drawImage(playerSprite, playerScreenX, playerScreenY, TILE_SIZE, TILE_SIZE);
+      // プレイヤーも少し強調
+      const offset = (40 - TILE_SIZE) / 2;
+      ctx.drawImage(playerSprite, playerScreenX - offset, playerScreenY - offset, 40, 40);
   } else {
       ctx.fillStyle = 'cyan';
       ctx.fillRect(playerScreenX + 4, playerScreenY + 4, TILE_SIZE - 8, TILE_SIZE - 8);
@@ -136,7 +135,7 @@ export const renderDungeon = (
   ctx.textAlign = 'center';
   visualManager.popups.forEach(popup => {
       const screenX = popup.x * TILE_SIZE + TILE_SIZE / 2;
-      const screenY = popup.y * TILE_SIZE;
+      const screenY = popup.y * TILE_SIZE - (1.0 - popup.life) * 20; // 少し上に移動させるアニメーション
       
       ctx.globalAlpha = popup.life;
       ctx.lineWidth = 3;
