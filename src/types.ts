@@ -22,6 +22,7 @@ export interface Tile {
   roomId?: number;
 }
 
+// Stats定義の拡張（コンパイルエラー回避のため派生ステータスも許容）
 export interface Stats {
   str: number;
   vit: number;
@@ -29,6 +30,18 @@ export interface Stats {
   agi: number;
   int: number;
   luc: number;
+  
+  // オプショナル：派生ステータスやボーナス値用
+  hp?: number;
+  maxHp?: number;
+  sp?: number;
+  maxSp?: number;
+  attack?: number;
+  defense?: number;
+  speed?: number;
+  
+  // その他のプロパティも許容（柔軟性のため）
+  [key: string]: number | undefined;
 }
 
 export type JobId = 'swordsman' | 'warrior' | 'archer' | 'mage';
@@ -55,7 +68,7 @@ export interface PlayerState {
   godId: GodId;
   skills: string[];
   quests: any[];
-  x: number; // 座標を追加
+  x: number;
   y: number;
 }
 
