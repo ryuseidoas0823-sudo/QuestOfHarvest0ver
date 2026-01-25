@@ -43,6 +43,7 @@ export const renderDungeon = (
           return;
       }
 
+      // タイル描画ロジック
       if (tile === 'wall') {
         const sprite = getSprite('wall');
         if (sprite) ctx.drawImage(sprite, posX, posY, TILE_SIZE, TILE_SIZE);
@@ -50,11 +51,15 @@ export const renderDungeon = (
             ctx.fillStyle = '#444';
             ctx.fillRect(posX, posY, TILE_SIZE, TILE_SIZE);
         }
-      } else if (tile === 'floor' || tile === 'stairs_down') {
-        const sprite = getSprite('floor');
+      } else if (tile === 'floor' || tile === 'stairs_down' || tile === 'carpet_red') {
+        
+        let spriteKey = 'floor';
+        if (tile === 'carpet_red') spriteKey = 'carpet_red';
+
+        const sprite = getSprite(spriteKey);
         if (sprite) ctx.drawImage(sprite, posX, posY, TILE_SIZE, TILE_SIZE);
         else {
-            ctx.fillStyle = '#222';
+            ctx.fillStyle = tile === 'carpet_red' ? '#800000' : '#222';
             ctx.fillRect(posX, posY, TILE_SIZE, TILE_SIZE);
             ctx.strokeStyle = '#333';
             ctx.strokeRect(posX, posY, TILE_SIZE, TILE_SIZE);
@@ -72,16 +77,13 @@ export const renderDungeon = (
     });
   });
 
-  // 敵描画 (視界内チェックはgameLogic側で行うか、ここで行う)
+  // 敵描画
   enemies.forEach(enemy => {
-      // 座標は EnemyInstance に含まれている (x, y)
       const ex = enemy.x;
       const ey = enemy.y;
-
       const screenX = ex * TILE_SIZE;
       const screenY = ey * TILE_SIZE;
 
-      // カリング
       if (screenX < cameraX - TILE_SIZE || screenX > cameraX + width ||
           screenY < cameraY - TILE_SIZE || screenY > cameraY + height) {
           return;
@@ -97,7 +99,6 @@ export const renderDungeon = (
           ctx.fillRect(screenX + 4, screenY + 4, TILE_SIZE - 8, TILE_SIZE - 8);
       }
       
-      // HPバー
       const hpPercent = enemy.hp / enemy.stats.maxHp;
       ctx.fillStyle = '#000';
       ctx.fillRect(screenX, screenY - 6, TILE_SIZE, 4);
@@ -108,7 +109,6 @@ export const renderDungeon = (
   // プレイヤー描画
   const playerScreenX = playerPos.x * TILE_SIZE;
   const playerScreenY = playerPos.y * TILE_SIZE;
-  
   const playerSprite = getSprite('player');
   if (playerSprite) {
       ctx.drawImage(playerSprite, playerScreenX, playerScreenY, TILE_SIZE, TILE_SIZE);
@@ -134,7 +134,6 @@ export const renderDungeon = (
   // ポップアップ描画
   ctx.font = 'bold 16px monospace';
   ctx.textAlign = 'center';
-  
   visualManager.popups.forEach(popup => {
       const screenX = popup.x * TILE_SIZE + TILE_SIZE / 2;
       const screenY = popup.y * TILE_SIZE;
