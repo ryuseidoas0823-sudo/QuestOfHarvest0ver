@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Job } from './types/job';
 import { Quest } from './types/quest';
 import { skills as skillData } from './data/skills';
-import { enemies as enemyData } from './data/enemies'; // ボス追加用
+import { enemies as enemyData } from './data/enemies';
 import { audioManager } from './utils/audioManager';
 import { visualManager } from './utils/visualManager';
 import { getDistance } from './utils';
@@ -40,7 +40,7 @@ export const useGameLogic = (
   // --- Custom Hooks ---
   const { 
     dungeon, 
-    setDungeon, // 視界更新以外で手動更新が必要な場合
+    setDungeon, 
     floor, 
     playerPos, 
     setPlayerPos, 
@@ -62,13 +62,12 @@ export const useGameLogic = (
   });
 
   // --- Floor Initialization Wrapper ---
-  // BossやNPCの追加ロジックをここで吸収する
   const startFloor = useCallback((floorNum: number) => {
+    // generateDungeonがボス生成も行うようになったため、ここでは受け取るだけ
     const { newMap, generatedEnemies } = initFloor(floorNum, activeQuests, playerJob);
     
-    // 敵リストの拡張 (ボスやNPC)
+    // NPCなど、Quest状態依存の追加要素のみここで行う
     const finalEnemies = [...generatedEnemies];
-    const isBossFloor = floorNum % 5 === 0;
 
     // 味方NPC (Chapter 2以降)
     if (chapter >= 2) {
@@ -85,38 +84,20 @@ export const useGameLogic = (
       }
     }
 
-    if (isBossFloor) {
-      const bossData = enemyData.find(e => e.type === 'boss') || enemyData[0];
-      let currentBoss = bossData;
-      if (floorNum === 5) currentBoss = enemyData.find(e => e.id === 'orc_general') || bossData;
-      if (floorNum === 10) currentBoss = enemyData.find(e => e.id === 'cerberus') || bossData;
-      if (floorNum === 15) currentBoss = enemyData.find(e => e.id === 'chimera_golem') || bossData;
-      if (floorNum === 20) currentBoss = enemyData.find(e => e.id === 'abyss_commander') || bossData;
-      if (floorNum === 25) currentBoss = enemyData.find(e => e.id === 'fallen_hero') || bossData;
-      
-      const room = newMap.rooms[0];
-      if (room) {
-          finalEnemies.push({ 
-              ...currentBoss, 
-              uniqueId: `boss_${floorNum}`, 
-              hp: currentBoss.maxHp, 
-              x: Math.floor(room.x + room.w / 2), 
-              y: Math.floor(room.y + room.h / 2),
-              stats: { ...playerJob.baseStats, hp: currentBoss.maxHp, maxHp: currentBoss.maxHp, attack: currentBoss.attack, defense: currentBoss.defense } 
-          } as EnemyInstance);
-
-          if (floorNum === 5 && activeQuests.some(q => q.id === 'mq_1_5')) {
-              const npcData = enemyData.find(e => e.id === 'injured_adventurer');
-              if (npcData) finalEnemies.push({ 
-                  ...npcData, 
-                  uniqueId: 'npc', 
-                  x: room.x+2, 
-                  y: room.y+2, 
-                  hp: npcData.maxHp,
-                  stats: { ...playerJob.baseStats, hp: npcData.maxHp } 
-              } as EnemyInstance);
-          }
-      }
+    // クエスト依存のNPC配置 (例: mq_1_5 の負傷者)
+    // ボス階層判定はdungeonGenerator側で行われるが、クエストフラグが必要なNPC配置はここで
+    if (floorNum === 5 && activeQuests.some(q => q.id === 'mq_1_5') && newMap.floorType === 'boss') {
+        const npcData = enemyData.find(e => e.id === 'injured_adventurer');
+        // ボス部屋の隅に配置
+        const room = newMap.rooms[0];
+        if (npcData && room) finalEnemies.push({ 
+            ...npcData, 
+            uniqueId: 'npc_quest', 
+            x: room.x + 2, 
+            y: room.y + 2, 
+            hp: npcData.maxHp,
+            stats: { ...playerJob.baseStats, hp: npcData.maxHp } 
+        } as EnemyInstance);
     }
 
     setEnemies(finalEnemies);
@@ -124,7 +105,7 @@ export const useGameLogic = (
 
   useEffect(() => {
     startFloor(1);
-  }, []); // 初回のみ
+  }, []);
 
   // --- Player Actions ---
 
@@ -146,7 +127,6 @@ export const useGameLogic = (
   const processTurn = () => {
     if (isPaused) return;
     
-    // スキルクールダウン減少
     setSkillCooldowns(prev => {
       const next = { ...prev };
       Object.keys(next).forEach(key => { if (next[key] > 0) next[key]--; });
@@ -220,7 +200,7 @@ export const useGameLogic = (
       setSkillCooldowns(prev => ({ ...prev, [skillId]: skill.cooldown }));
       processTurn();
     }
-  }, [dungeon, enemies, playerPos, playerMaxHp, playerAttack, skillCooldowns, gameOver, addLog, isPaused, processEnemyTurn, applyDamageToEnemy]); // processTurnの代わりにprocessEnemyTurnに依存
+  }, [dungeon, enemies, playerPos, playerMaxHp, playerAttack, skillCooldowns, gameOver, addLog, isPaused, processEnemyTurn, applyDamageToEnemy]);
 
   const movePlayer = useCallback((dx: number, dy: number) => {
     if (gameOver || !dungeon || isPaused) return;
