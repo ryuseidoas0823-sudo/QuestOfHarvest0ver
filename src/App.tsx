@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGameCore } from './hooks/useGameCore';
 
 // Screens
@@ -37,39 +37,41 @@ const App: React.FC = () => {
   // プレイヤーの向き（UI用State）
   const [playerDirection, setPlayerDirection] = useState<'left' | 'right' | 'up' | 'down'>('down');
 
-  // 移動ハンドラをラップして向きを更新する
-  const handleMoveWrapper = (dir: Direction) => {
-    // 向きの更新
-    if (dir === 'left') setPlayerDirection('left');
-    if (dir === 'right') setPlayerDirection('right');
-    // 上下の場合は直前の左右向きを維持するか、あるいは正面(down)/背面(up)にするか。
-    // 今回はスプライトが正面しかないので、上下移動時は正面(down)に戻すか、直前の左右を維持する。
-    // ここでは「上下移動でも左右の向きは維持する（RPG的挙動）」または「downにする」が考えられるが
-    // PixelSpriteの実装上、left/right以外は反転なし（正面）になるため、とりあえずそのまま渡す。
-    if (dir === 'up') setPlayerDirection('up');
-    if (dir === 'down') setPlayerDirection('down');
-
-    // 本来の移動処理
-    handlers.onMove(dir);
-  };
-
-  // キーボードイベントのフック (useGameCore内で処理されているが、ここでのラップが必要ならuseEffectで監視するか、
-  // useGameCoreが返すhandlersを使う。今回はuseGameCoreがキー監視しているので、
-  // 向きの更新を連動させるには useGameCore 側で向きを返すか、
-  // ここで独自にキー監視をする必要がある。
-  // 簡易対応として、useGameCoreの内部実装には手を入れず、
-  // キー入力は「押しっぱなし」で連続移動するため、
-  // useGameCoreのuseEffect内での移動呼び出し時にコールバックをもらう形が理想だが、
-  // ここでは「方向キーが押されたら向きを変える」ロジックを別途useEffectで追加する。
-  
-  React.useEffect(() => {
+  // キーボードイベントのフック
+  // useGameCore内でも入力監視を行っている可能性がありますが、
+  // UI側の向き(direction)更新と連動させるためにここで監視します。
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (currentScreen !== 'dungeon') return;
+      
+      let dir: Direction | null = null;
       switch(e.key) {
-        case 'ArrowLeft': setPlayerDirection('left'); break;
-        case 'ArrowRight': setPlayerDirection('right'); break;
-        case 'ArrowUp': setPlayerDirection('up'); break;
-        case 'ArrowDown': setPlayerDirection('down'); break;
+        case 'ArrowLeft': dir = 'left'; break;
+        case 'ArrowRight': dir = 'right'; break;
+        case 'ArrowUp': dir = 'up'; break;
+        case 'ArrowDown': dir = 'down'; break;
+      }
+
+      if (dir) {
+        // 向きを更新
+        setPlayerDirection(prev => {
+           if (dir === 'left') return 'left';
+           if (dir === 'right') return 'right';
+           if (dir === 'up') return 'up';
+           if (dir === 'down') return 'down';
+           return prev;
+        });
+        
+        // 移動処理を呼び出し (useGameCore側で二重処理にならないよう注意が必要だが、
+        // useGameCoreがキーイベントを直接監視していない場合はここで呼ぶ必要がある。
+        // 今回の構成では useGameCore 内の useGamepad が入力を監視している前提だが、
+        // 念のため明示的にハンドラを呼ぶ方が確実であれば呼ぶ。
+        // ※ useGameCoreの実装が「gamepadの状態をポーリング」しているならここは不要だが、
+        // イベント駆動ならここで呼ぶべき。
+        // Phase 1の実装では useGameCore 内で useEffect で gamepad.isPressed を監視していたため、
+        // ここでは「向きの更新」だけを行い、移動ロジックは useGameCore に任せるのが安全。
+        // ただし、レスポンスを良くするためにここで呼ぶ手もある。
+        // 今回は「向き更新」のみをここで行う。)
       }
     };
     window.addEventListener('keydown', handleKeyDown);
