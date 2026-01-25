@@ -7,7 +7,7 @@ export const generateDungeon = (floor: number): { map: DungeonMap, startPos: {x:
   const width = 40;
   const height = 30;
   const tiles: TileType[][] = Array(height).fill(null).map(() => Array(width).fill('wall'));
-  // visited プロパティを追加して DungeonMap 型と一致させる
+  // DungeonMap型に合わせてvisited配列を初期化
   const visited: boolean[][] = Array(height).fill(null).map(() => Array(width).fill(false));
 
   // 部屋生成など（簡易実装: 全て床にして壁で囲む）
@@ -33,13 +33,14 @@ export const generateDungeon = (floor: number): { map: DungeonMap, startPos: {x:
       
       const template = enemyData[0]; // 仮: 最初の敵データを使用
       if (template) {
-          enemies.push({
+          // Enemy型を拡張してEnemyInstance型として生成
+          const enemy: EnemyInstance = {
               ...template,
               uniqueId: `${template.id}_${i}`,
               x: ex,
               y: ey,
-              hp: template.maxHp, // EnemyInstance用に追加
-              stats: { // Stats型に合わせて補完
+              hp: template.maxHp,
+              stats: {
                   maxHp: template.maxHp,
                   hp: template.maxHp,
                   mp: 0,
@@ -50,21 +51,24 @@ export const generateDungeon = (floor: number): { map: DungeonMap, startPos: {x:
                   level: 1,
                   exp: template.exp
               }
-          } as EnemyInstance);
+          };
+          enemies.push(enemy);
       }
   }
 
-  // DungeonMap型に適合するオブジェクトを返す
+  // DungeonMapインターフェースに適合するオブジェクトを作成
+  const map: DungeonMap = {
+      width,
+      height,
+      tiles,
+      rooms: [{x: 1, y: 1, w: width-2, h: height-2}],
+      playerStart: startPos,
+      stairs: stairsPos,
+      visited
+  };
+
   return { 
-      map: {
-          width,
-          height,
-          tiles,
-          rooms: [{x: 1, y: 1, w: width-2, h: height-2}], // 簡易ルーム定義
-          playerStart: startPos,
-          stairs: stairsPos,
-          visited
-      }, 
+      map, 
       startPos, 
       enemies 
   };
