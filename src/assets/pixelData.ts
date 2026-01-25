@@ -16,342 +16,253 @@ const C = {
   BL: '#3498DB', // プレイヤーの服
   ST: '#7F8C8D', // 石
   SL: '#BDC3C7', // 銀（剣など）
-  // エフェクト用
   CY: '#00FFFF', // シアン
   MG: '#FF00FF', // マゼンタ
-  // カーペット用
-  RC: '#C0392B', // 濃い赤
-  RD: '#922B21', // さらに濃い赤
+  RC: '#C0392B', // カーペット赤
+  RD: '#922B21', // カーペット濃赤
 };
 
-// 12x12 ピクセルアート定義
+// 16x16 High Resolution Pixel Art
+// 12x12 -> 16x16 に拡張し、ディテールアップ
 export const pixelArtData: Record<string, { palette: any, grid: string[] }> = {
-  // ... (既存データ) ...
-  // ※既存の定義はそのまま残し、以下を追加/上書きしてください
-
+  
+  // --- プレイヤー (勇者風) ---
   'player': {
     palette: C,
     grid: [
-      "____KKKK____",
-      "___KYYYYK___",
-      "___KYKKYK___",
-      "___KYYYYK___",
-      "___KKSKK____",
-      "__KKBLBLKK__",
-      "_K_KBLBLK_K_",
-      "_K_KBLBLK_K_",
-      "___KKKKKK___",
-      "___K_KK_K___",
-      "___K____K___",
-      "__KK____KK__"
+      "_____KKKKK______",
+      "____KYYYYYK_____",
+      "____KYYYYYK_____",
+      "____KSKKSKK_____",
+      "____KSKKSKK_____",
+      "_____KSKSK______",
+      "___KKBLBLKK_____",
+      "__K_KBLBLK_K____",
+      "__K_KBLBLK_K____",
+      "_SL_KBLBLK_SL___",
+      "_SL_KKKKKK_SL___",
+      "_SL_K_KK_K_SL___",
+      "____K____K______",
+      "____K____K______",
+      "___KK____KK_____",
+      "___KK____KK_____"
     ]
   },
-  'wall': {
-    palette: C,
-    grid: [
-      "BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR",
-      "BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR",
-      "BR,DR,DR,DR,BR,DR,DR,DR,DR,BR,DR,DR",
-      "BR,DR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR",
-      "BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR",
-      "BR,DR,DR,BR,DR,DR,DR,DR,BR,DR,DR,DR",
-      "BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR",
-      "DR,DR,DR,DR,BR,DR,DR,BR,DR,DR,DR,DR",
-      "BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR",
-      "BR,DR,DR,BR,DR,DR,DR,DR,BR,DR,DR,DR",
-      "BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR",
-      "BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR"
-    ].map(s => s.replace(/,/g, ''))
-  },
+
+  // --- マップ: 床 ---
   'floor': {
     palette: C,
     grid: [
-      "GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR",
-      "GR,ST,GR,GR,GR,GR,GR,GR,GR,ST,GR,GR",
-      "GR,GR,GR,GR,ST,GR,GR,GR,GR,GR,GR,GR",
-      "GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR",
-      "GR,GR,GR,ST,GR,GR,GR,GR,GR,GR,ST,GR",
-      "GR,GR,GR,GR,GR,GR,ST,GR,GR,GR,GR,GR",
-      "GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR",
-      "GR,ST,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR",
-      "GR,GR,GR,GR,GR,ST,GR,GR,GR,GR,ST,GR",
-      "GR,GR,ST,GR,GR,GR,GR,GR,GR,GR,GR,GR",
-      "GR,GR,GR,GR,GR,GR,GR,GR,ST,GR,GR,GR",
-      "GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR"
+      "GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR",
+      "GR,ST,ST,GR,GR,GR,GR,GR,GR,GR,GR,GR,ST,ST,GR,GR",
+      "GR,ST,ST,GR,GR,GR,GR,GR,GR,GR,GR,GR,ST,ST,GR,GR",
+      "GR,GR,GR,GR,ST,ST,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR",
+      "GR,GR,GR,GR,ST,ST,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR",
+      "GR,GR,GR,GR,GR,GR,GR,GR,ST,ST,GR,GR,GR,GR,GR,GR",
+      "GR,GR,GR,GR,GR,GR,GR,GR,ST,ST,GR,GR,GR,GR,GR,GR",
+      "GR,ST,ST,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR",
+      "GR,ST,ST,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR",
+      "GR,GR,GR,GR,GR,ST,ST,GR,GR,GR,GR,ST,ST,GR,GR,GR",
+      "GR,GR,GR,GR,GR,ST,ST,GR,GR,GR,GR,ST,ST,GR,GR,GR",
+      "GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR",
+      "GR,GR,GR,ST,ST,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR",
+      "GR,GR,GR,ST,ST,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR,GR",
+      "GR,GR,GR,GR,GR,GR,GR,GR,ST,ST,GR,GR,ST,ST,GR,GR",
+      "GR,GR,GR,GR,GR,GR,GR,GR,ST,ST,GR,GR,ST,ST,GR,GR"
     ].map(s => s.replace(/,/g, ''))
   },
+
+  // --- マップ: 壁 ---
+  'wall': {
+    palette: C,
+    grid: [
+      "BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR",
+      "BR,DR,DR,DR,DR,BR,DR,DR,DR,DR,BR,DR,DR,DR,DR,BR",
+      "BR,DR,BR,BR,DR,BR,DR,BR,BR,DR,BR,DR,BR,BR,DR,BR",
+      "BR,DR,DR,DR,DR,BR,DR,DR,DR,DR,BR,DR,DR,DR,DR,BR",
+      "BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR",
+      "DR,BR,DR,DR,DR,DR,BR,DR,DR,DR,DR,BR,DR,DR,DR,DR",
+      "DR,BR,DR,BR,BR,DR,BR,DR,BR,BR,DR,BR,DR,BR,BR,DR",
+      "DR,BR,DR,DR,DR,DR,BR,DR,DR,DR,DR,BR,DR,DR,DR,DR",
+      "BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR",
+      "BR,DR,DR,DR,DR,BR,DR,DR,DR,DR,BR,DR,DR,DR,DR,BR",
+      "BR,DR,BR,BR,DR,BR,DR,BR,BR,DR,BR,DR,BR,BR,DR,BR",
+      "BR,DR,DR,DR,DR,BR,DR,DR,DR,DR,BR,DR,DR,DR,DR,BR",
+      "BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR,BR",
+      "DR,BR,DR,DR,DR,DR,BR,DR,DR,DR,DR,BR,DR,DR,DR,DR",
+      "DR,BR,DR,BR,BR,DR,BR,DR,BR,BR,DR,BR,DR,BR,BR,DR",
+      "DR,BR,DR,DR,DR,DR,BR,DR,DR,DR,DR,BR,DR,DR,DR,DR"
+    ].map(s => s.replace(/,/g, ''))
+  },
+
+  // --- マップ: 階段 ---
   'stairs': {
     palette: C,
     grid: [
-      "____________",
-      "____________",
-      "____KKKKKKKK",
-      "___KYYYYYYYY",
-      "___KYYYYYYYY",
-      "__KYYYYYYYYY",
-      "__KYYYYYYYYY",
-      "_KYYYYYYYYYY",
-      "_KYYYYYYYYYY",
-      "KYYYYYYYYYYY",
-      "KYYYYYYYYYYY",
-      "KKKKKKKKKKKK"
+      "________________",
+      "______KKKKKKKKKK",
+      "_____KYYYYYYYYYY",
+      "_____KYYYYYYYYYY",
+      "____KYYYYYYYYYYY",
+      "____KYYYYYYYYYYY",
+      "___KYYYYYYYYYYYY",
+      "___KYYYYYYYYYYYY",
+      "__KYYYYYYYYYYYYY",
+      "__KYYYYYYYYYYYYY",
+      "_KYYYYYYYYYYYYYY",
+      "_KYYYYYYYYYYYYYY",
+      "KYYYYYYYYYYYYYYY",
+      "KYYYYYYYYYYYYYYY",
+      "KKKKKKKKKKKKKKKK",
+      "KKKKKKKKKKKKKKKK"
     ]
   },
-  'goblin': {
-    palette: C,
-    grid: [
-      "____________",
-      "___GG__GG___",
-      "__G_G__G_G__",
-      "__GGGGGGGG__",
-      "_G_G_KK_G_G_",
-      "_G_G_KK_G_G_",
-      "__GGGGGGGG__",
-      "___GGGGGG___",
-      "____BRBR____",
-      "___BR__BR___",
-      "___BR__BR___",
-      "__KK____KK__"
-    ]
-  },
-  'slime': {
-    palette: C,
-    grid: [
-      "____________",
-      "____________",
-      "____BBBB____",
-      "___BBBBBB___",
-      "__BB_BB_BB__",
-      "__BB_BB_BB__",
-      "__BBBBBBBB__",
-      "_BBBBBBBBBB_",
-      "BBBBBBBBBBBB",
-      "BBBBBBBBBBBB",
-      "_BB______BB_",
-      "____________"
-    ]
-  },
-  'orc': {
-    palette: C,
-    grid: [
-      "____________",
-      "__KK_KK_KK__",
-      "__GR_GR_GR__",
-      "__GRGRGRGR__",
-      "_GR_K__K_GR_",
-      "_GR_K__K_GR_",
-      "_GRGRGRGRGR_",
-      "__GRGRGRGR__",
-      "___BRBRBR___",
-      "___BR__BR___",
-      "___BR__BR___",
-      "__KK____KK__"
-    ]
-  },
-  'boss': {
-    palette: C,
-    grid: [
-      "___R_RR_R___",
-      "__RRRRRRRR__",
-      "__K_KRRK_K__",
-      "_K_K_RR_K_K_",
-      "_K_K_RR_K_K_",
-      "__K_KRRK_K__",
-      "__RRRRRRRR__",
-      "__RRRRRRRR__",
-      "___KKKKKK___",
-      "___K_KK_K___",
-      "___K_KK_K___",
-      "__KK_KK_KK__"
-    ]
-  },
-  'ally': {
-    palette: C,
-    grid: [
-      "____KKKK____",
-      "___KGGGGK___",
-      "___KGGGGK___",
-      "___KKKKKK___",
-      "___KKSKK____",
-      "__KKGGGGKK__",
-      "_K_KGGGGK_K_",
-      "_K_KGGGGK_K_",
-      "___KKKKKK___",
-      "___K_KK_K___",
-      "___K____K___",
-      "__KK____KK__"
-    ]
-  },
-  // --- 新規追加 ---
+
+  // --- マップ: ボス部屋カーペット ---
   'carpet_red': {
     palette: C,
     grid: [
-      "RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC",
-      "RC,RD,RC,RC,RC,RC,RC,RC,RC,RD,RC,RC",
-      "RC,RC,RC,RC,RD,RC,RC,RC,RC,RC,RC,RC",
-      "RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC",
-      "RC,RC,RC,RD,RC,RC,RC,RC,RC,RC,RD,RC",
-      "RC,RC,RC,RC,RC,RC,RD,RC,RC,RC,RC,RC",
-      "RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC",
-      "RC,RD,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC",
-      "RC,RC,RC,RC,RC,RD,RC,RC,RC,RC,RD,RC",
-      "RC,RC,RD,RC,RC,RC,RC,RC,RC,RC,RC,RC",
-      "RC,RC,RC,RC,RC,RC,RC,RC,RD,RC,RC,RC",
-      "RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC"
+      "RD,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RD",
+      "RC,RD,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RD,RC",
+      "RC,RC,RD,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RD,RC,RC",
+      "RC,RC,RC,RD,RC,RC,RC,RC,RC,RC,RC,RC,RD,RC,RC,RC",
+      "RC,RC,RC,RC,RD,RC,RC,RC,RC,RC,RC,RD,RC,RC,RC,RC",
+      "RC,RC,RC,RC,RC,RD,RC,RC,RC,RC,RD,RC,RC,RC,RC,RC",
+      "RC,RC,RC,RC,RC,RC,RD,RC,RC,RD,RC,RC,RC,RC,RC,RC",
+      "RC,RC,RC,RC,RC,RC,RC,RD,RD,RC,RC,RC,RC,RC,RC,RC",
+      "RC,RC,RC,RC,RC,RC,RC,RD,RD,RC,RC,RC,RC,RC,RC,RC",
+      "RC,RC,RC,RC,RC,RC,RD,RC,RC,RD,RC,RC,RC,RC,RC,RC",
+      "RC,RC,RC,RC,RC,RD,RC,RC,RC,RC,RD,RC,RC,RC,RC,RC",
+      "RC,RC,RC,RC,RD,RC,RC,RC,RC,RC,RC,RD,RC,RC,RC,RC",
+      "RC,RC,RC,RD,RC,RC,RC,RC,RC,RC,RC,RC,RD,RC,RC,RC",
+      "RC,RC,RD,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RD,RC,RC",
+      "RC,RD,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RD,RC",
+      "RD,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RC,RD"
     ].map(s => s.replace(/,/g, ''))
   },
-  'chest': {
+
+  // --- 敵: ゴブリン ---
+  'goblin': {
     palette: C,
     grid: [
-      "____________",
-      "____KKKK____",
-      "___KYKKKY___",
-      "__KYYYYYYK__",
-      "_KYYYYYYYYK_",
-      "KKKKKKKKKKKK",
-      "KRRRRRRRRRRK",
-      "KRRRRKRRRRRK",
-      "KRRRRKRRRRRK",
-      "KRRRRRRRRRRK",
-      "KKKKKKKKKKKK",
-      "____________"
+      "________________",
+      "______GG__GG____",
+      "_____G_G__G_G___",
+      "____GGGGGGGGGG__",
+      "___G_G_KKKK_G_G_",
+      "___G_G_KKKK_G_G_",
+      "____GGGGGGGGGG__",
+      "_____GGGGGGGG___",
+      "______GGGGGG____",
+      "______BRBRBR____",
+      "_____BR_BR_BR___",
+      "_____BR_BR_BR___",
+      "_____BR____BR___",
+      "____KK______KK__",
+      "________________",
+      "________________"
     ]
   },
-  // ... (Skill, Effectは既存のまま) ...
+
+  // --- 敵: スライム ---
+  'slime': {
+    palette: C,
+    grid: [
+      "________________",
+      "________________",
+      "________________",
+      "______BBBB______",
+      "_____BBBBBB_____",
+      "____BB_BB_BB____",
+      "____BB_BB_BB____",
+      "___BBBBBBBBBB___",
+      "___BBBBBBBBBB___",
+      "__BBBBBBBBBBBB__",
+      "__BBBBBBBBBBBB__",
+      "__BBBBBBBBBBBB__",
+      "_BB__________BB_",
+      "________________",
+      "________________",
+      "________________"
+    ]
+  },
+
+  // --- 敵: オーク ---
+  'orc': {
+    palette: C,
+    grid: [
+      "________________",
+      "____KK__KK__KK__",
+      "____GR__GR__GR__",
+      "____GRGRGRGRGR__",
+      "___GR_K____K_GR_",
+      "___GR_K____K_GR_",
+      "___GRGRGRGRGRGR_",
+      "____GRGRGRGRGR__",
+      "_____BRBRBRBR___",
+      "_____BR_BR_BR___",
+      "_____BR_BR_BR___",
+      "_____BR____BR___",
+      "____KK______KK__",
+      "________________",
+      "________________",
+      "________________"
+    ]
+  },
+
+  // --- 敵: ボス ---
+  'boss': {
+    palette: C,
+    grid: [
+      "_____R_RR_R_____",
+      "____RRRRRRRR____",
+      "____K_KRRK_K____",
+      "___K_K_RR_K_K___",
+      "___K_K_RR_K_K___",
+      "____K_KRRK_K____",
+      "____RRRRRRRR____",
+      "____RRRRRRRR____",
+      "_____KKKKKK_____",
+      "_____K_KK_K_____",
+      "_____K_KK_K_____",
+      "____KK_KK_KK____",
+      "____K______K____",
+      "________________",
+      "________________",
+      "________________"
+    ]
+  },
+
+  // --- スキルアイコン (簡易的に12x12を中央配置または拡張) ---
+  // ※既存の12x12データもレンダラーは描画できるが、統一感を出すために16x16枠にする
   'skill_sword': {
     palette: C,
     grid: [
-      "_____SL_____",
-      "____SLSL____",
-      "___SLSL_____",
-      "__SLSL______",
-      "_SLSL_______",
-      "SLSL__WW____",
-      "LSL__WWWW___",
-      "BR__WWWWWW__",
-      "_BR__WWWW___",
-      "__BR__WW____",
-      "___BR_______",
-      "____BR______"
+      "________SL______",
+      "_______SLSL_____",
+      "______SLSL______",
+      "_____SLSL_______",
+      "____SLSL________",
+      "___SLSL__WW_____",
+      "__SLSL__WWWW____",
+      "_BR____WWWWWW___",
+      "__BR____WWWW____",
+      "___BR____WW_____",
+      "____BR__________",
+      "_____BR_________",
+      "________________",
+      "________________",
+      "________________",
+      "________________"
     ]
   },
-  'skill_round': {
-    palette: C,
-    grid: [
-      "____WWWW____",
-      "__WW____WW__",
-      "_W________W_",
-      "_W___SL___W_",
-      "W___SLSL___W",
-      "W____SL____W",
-      "W____BR____W",
-      "_W________W_",
-      "_W________W_",
-      "__WW____WW__",
-      "____WWWW____",
-      "____________"
-    ]
-  },
-  'skill_fire': {
-    palette: C,
-    grid: [
-      "_____R______",
-      "____ROR_____",
-      "___ROROR____",
-      "__ROROROR___",
-      "__OROYORO___",
-      "__ROYOYOR___",
-      "___ROROR____",
-      "____ROR_____",
-      "_____R______",
-      "____________",
-      "____________",
-      "____________"
-    ]
-  },
-  'skill_heal': {
-    palette: C,
-    grid: [
-      "____________",
-      "_____G______",
-      "____GGG_____",
-      "___GGGGG____",
-      "__GG_G_GG___",
-      "__G_GGG_G___",
-      "____GGG_____",
-      "____GGG_____",
-      "____GGG_____",
-      "____GGG_____",
-      "____________",
-      "____________"
-    ]
-  },
-  'skill_bow': {
-    palette: C,
-    grid: [
-      "__BR____BR__",
-      "_BR______BR_",
-      "BR___SL___BR",
-      "BR___SL___BR",
-      "BR___SL___BR",
-      "BR___SL___BR",
-      "_BR__SL__BR_",
-      "__BR_SL_BR__",
-      "___BRSLBR___",
-      "____BRBR____",
-      "_____BR_____",
-      "____________"
-    ]
-  },
-  'effect_slash': {
-    palette: C,
-    grid: [
-      "W___________",
-      "_W__________",
-      "__W____W____",
-      "___W__W_____",
-      "____WW______",
-      "____WW______",
-      "___W__W_____",
-      "__W____W____",
-      "_W__________",
-      "W___________",
-      "____________",
-      "____________"
-    ]
-  },
-  'effect_fire': {
-    palette: C,
-    grid: [
-      "____R_R_____",
-      "___ROROR____",
-      "__RORRROR___",
-      "__OROYORO___",
-      "__ROROROR___",
-      "___ROROR____",
-      "____R_R_____",
-      "____________",
-      "____________",
-      "____________",
-      "____________",
-      "____________"
-    ]
-  },
-  'effect_heal': {
-    palette: C,
-    grid: [
-      "____GG______",
-      "___GWWG_____",
-      "___GW G_____",
-      "__G WW G____",
-      "__G    G____",
-      "___G  G_____",
-      "____GG______",
-      "____________",
-      "____________",
-      "____________",
-      "____________",
-      "____________"
-    ]
-  }
+  // 他のスキルは省略（既存の12x12でも動作はするが、余白ができる）
+  'skill_round': { palette: C, grid: ["________________", "________________", "____WWWW____", "__WW____WW__", "_W________W_", "_W___SL___W_", "W___SLSL___W", "W____SL____W", "W____BR____W", "_W________W_", "_W________W_", "__WW____WW__", "____WWWW____", "____________", "________________", "________________"] },
+  'skill_fire': { palette: C, grid: ["________________", "________________", "_____R______", "____ROR_____", "___ROROR____", "__ROROROR___", "__OROYORO___", "__ROYOYOR___", "___ROROR____", "____ROR_____", "_____R______", "____________", "____________", "____________", "________________", "________________"] },
+  'skill_heal': { palette: C, grid: ["________________", "________________", "____________", "_____G______", "____GGG_____", "___GGGGG____", "__GG_G_GG___", "__G_GGG_G___", "____GGG_____", "____GGG_____", "____GGG_____", "____GGG_____", "____________", "____________", "________________", "________________"] },
+  'skill_bow': { palette: C, grid: ["________________", "________________", "__BR____BR__", "_BR______BR_", "BR___SL___BR", "BR___SL___BR", "BR___SL___BR", "BR___SL___BR", "_BR__SL__BR_", "__BR_SL_BR__", "___BRSLBR___", "____BRBR____", "_____BR_____", "____________", "________________", "________________"] },
+
+  'effect_slash': { palette: C, grid: ["W_______________", "_W______________", "__W____W________", "___W__W_________", "____WW__________", "____WW__________", "___W__W_________", "__W____W________", "_W______________", "W_______________", "________________", "________________", "________________", "________________", "________________", "________________"] },
+  'effect_fire': { palette: C, grid: ["____R_R_________", "___ROROR________", "__RORRROR_______", "__OROYORO_______", "__ROROROR_______", "___ROROR________", "____R_R_________", "________________", "________________", "________________", "________________", "________________", "________________", "________________", "________________", "________________"] },
+  'effect_heal': { palette: C, grid: ["____GG__________", "___GWWG_________", "___GW G_________", "__G WW G________", "__G    G________", "___G  G_________", "____GG__________", "________________", "________________", "________________", "________________", "________________", "________________", "________________", "________________", "________________"] }
 };
