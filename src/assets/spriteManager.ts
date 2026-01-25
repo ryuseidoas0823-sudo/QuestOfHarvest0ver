@@ -1,91 +1,76 @@
-import { pixelArtData } from './pixelData';
+import React from 'react';
+import { CHAR_SVG } from '../assets/pixelData';
 
-// キャッシュ用のストレージ
-const spriteCache: Record<string, HTMLCanvasElement> = {};
+interface PixelSpriteProps {
+  type: 'player' | 'enemy' | 'item' | 'npc';
+  jobId?: string; // プレイヤーの場合
+  data?: any;     // 敵データ等
+  state?: 'idle' | 'move' | 'attack' | 'damage';
+  scale?: number;
+}
 
-/**
- * ドット絵データまたはSVGから画像（Canvas）を生成する
- * @param key アセットキー (例: 'player', 'goblin')
- */
-export const getSprite = (key: string): HTMLCanvasElement | null => {
-  // キャッシュにあればそれを返す
-  if (spriteCache[key]) {
-    return spriteCache[key];
-  }
-
-  // データ定義を取得
-  let data = pixelArtData[key];
+const PixelSprite: React.FC<PixelSpriteProps> = ({ 
+  type, 
+  jobId = 'swordsman', 
+  data, 
+  state = 'idle',
+  scale = 1
+}) => {
+  // SVGコンテンツの取得
+  let svgContent = '';
   
-  // フォールバックロジック
-  if (!data) {
-    if (key.includes('orc')) data = pixelArtData['orc'];
-    else if (key.includes('boss') || key.includes('general') || key.includes('commander')) data = pixelArtData['boss'];
-    else if (key.includes('ally') || key.includes('npc')) data = pixelArtData['ally'];
-    // ジョブ関連のフォールバック (SVGデータがあればそちらを優先したいので、キー名を合わせるのがベストだが念のため)
-    else if (['warrior', 'mage', 'rogue', 'cleric', 'swordsman', 'archer'].some(job => key.includes(job))) {
-        // ここに来るということは個別SVGが見つかっていない
-        data = pixelArtData['hero_warrior']; // デフォルト
+  if (type === 'player') {
+    switch (jobId) {
+      case 'warrior':
+        svgContent = CHAR_SVG.warrior();
+        break;
+      case 'archer':
+        // 仮：剣士の色違い
+        svgContent = CHAR_SVG.swordsman('#15803d'); 
+        break;
+      case 'mage':
+        // 仮：剣士の色違い
+        svgContent = CHAR_SVG.swordsman('#7e22ce');
+        break;
+      case 'swordsman':
+      default:
+        svgContent = CHAR_SVG.swordsman();
+        break;
     }
-    else {
-        return null;
-    }
+  } else if (type === 'enemy') {
+    // 敵IDに応じたSVGを取得（簡易判定）
+    const name = data?.name || '';
+    if (name.includes('スライム')) svgContent = CHAR_SVG.slime;
+    else if (name.includes('ゴブリン')) svgContent = CHAR_SVG.goblin;
+    else if (name.includes('ガイコツ') || name.includes('スケルトン')) svgContent = CHAR_SVG.skeleton;
+    else svgContent = CHAR_SVG.unknown;
   }
 
-  // Canvas作成
-  const canvas = document.createElement('canvas');
-  // デフォルトサイズは32x32 (高解像度化)
-  canvas.width = 32;
-  canvas.height = 32;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
+  // アニメーションクラスの決定
+  const getAnimationClass = () => {
+    switch (state) {
+      case 'attack': return 'animate-bounce'; // 簡易的な攻撃モーション
+      case 'damage': return 'animate-pulse bg-red-500/50 rounded-full';
+      case 'move': return 'animate-pulse';
+      case 'idle': default: return 'animate-[bounce_3s_infinite]'; // ゆっくり上下
+    }
+  };
 
-  // --- SVG描画処理 ---
-  if (data.svg) {
-    const img = new Image();
-    const svgBlob = new Blob([data.svg], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(svgBlob);
-    
-    img.onload = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      URL.revokeObjectURL(url);
-    };
-    img.src = url;
-    
-    // 非同期ロードだが、初回は空のCanvasを返し、ロード完了後に描画される
-    // Reactの再描画サイクルで更新されることを期待するか、
-    // ゲームループが毎フレーム描画しているので、次フレームから表示される
-    spriteCache[key] = canvas;
-    return canvas;
-  }
-
-  // --- ドット絵描画処理 (Legacy) ---
-  if (data.grid && data.palette) {
-    const { palette, grid } = data;
-    const height = grid.length;
-    const width = grid[0].split(',').length > 1 ? grid[0].split(',').length : grid[0].length; // カンマ区切り対応
-    
-    // グリッドサイズに合わせてCanvasサイズ調整（拡大描画用）
-    // 元データが16x16なら2倍して32x32にするなど
-    const scale = canvas.width / width;
-
-    // ドットを描画
-    for (let y = 0; y < height; y++) {
-      // カンマ区切りの場合は配列化、そうでなければ文字列そのまま
-      const row = grid[y].includes(',') ? grid[y].split(',') : grid[y];
+  return (
+    <div 
+      className={`relative w-8 h-8 flex items-center justify-center transition-transform duration-200 ${getAnimationClass()}`}
+      style={{ transform: `scale(${scale})` }}
+    >
+      {/* 影 */}
+      <div className="absolute bottom-0 w-6 h-1.5 bg-black/40 rounded-[50%] blur-[1px]" />
       
-      for (let x = 0; x < width; x++) {
-        const char = row[x];
-        const color = palette[char];
-        if (color) {
-          ctx.fillStyle = color;
-          ctx.fillRect(x * scale, y * scale, scale, scale);
-        }
-      }
-    }
-    spriteCache[key] = canvas;
-    return canvas;
-  }
-
-  return null;
+      {/* キャラクター本体 (SVG文字列を注入) */}
+      <div 
+        className="relative z-10 w-full h-full drop-shadow-md"
+        dangerouslySetInnerHTML={{ __html: svgContent }} 
+      />
+    </div>
+  );
 };
+
+export default PixelSprite;
