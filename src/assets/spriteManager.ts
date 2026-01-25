@@ -1,76 +1,29 @@
-import React from 'react';
-import { CHAR_SVG } from '../assets/pixelData';
+import { CHAR_SVG, TILE_PATTERNS } from './pixelData';
 
-interface PixelSpriteProps {
-  type: 'player' | 'enemy' | 'item' | 'npc';
-  jobId?: string; // プレイヤーの場合
-  data?: any;     // 敵データ等
-  state?: 'idle' | 'move' | 'attack' | 'damage';
-  scale?: number;
-}
+/**
+ * Sprite Manager (Legacy Support / Wrapper)
+ * * ビジュアルデータは `src/assets/pixelData.ts` と `src/components/PixelSprite.tsx` 
+ * に移行されました。このファイルは互換性のために残されており、
+ * pixelData.ts の内容を返却するヘルパー関数を提供します。
+ */
 
-const PixelSprite: React.FC<PixelSpriteProps> = ({ 
-  type, 
-  jobId = 'swordsman', 
-  data, 
-  state = 'idle',
-  scale = 1
-}) => {
-  // SVGコンテンツの取得
-  let svgContent = '';
+export const getCharacterSVG = (type: string, color?: string): string => {
+  if (type === 'swordsman') return CHAR_SVG.swordsman(color);
+  if (type === 'warrior') return CHAR_SVG.warrior(color);
+  if (type === 'archer') return CHAR_SVG.swordsman('#15803d'); // Placeholder
+  if (type === 'mage') return CHAR_SVG.swordsman('#7e22ce'); // Placeholder
   
-  if (type === 'player') {
-    switch (jobId) {
-      case 'warrior':
-        svgContent = CHAR_SVG.warrior();
-        break;
-      case 'archer':
-        // 仮：剣士の色違い
-        svgContent = CHAR_SVG.swordsman('#15803d'); 
-        break;
-      case 'mage':
-        // 仮：剣士の色違い
-        svgContent = CHAR_SVG.swordsman('#7e22ce');
-        break;
-      case 'swordsman':
-      default:
-        svgContent = CHAR_SVG.swordsman();
-        break;
-    }
-  } else if (type === 'enemy') {
-    // 敵IDに応じたSVGを取得（簡易判定）
-    const name = data?.name || '';
-    if (name.includes('スライム')) svgContent = CHAR_SVG.slime;
-    else if (name.includes('ゴブリン')) svgContent = CHAR_SVG.goblin;
-    else if (name.includes('ガイコツ') || name.includes('スケルトン')) svgContent = CHAR_SVG.skeleton;
-    else svgContent = CHAR_SVG.unknown;
-  }
-
-  // アニメーションクラスの決定
-  const getAnimationClass = () => {
-    switch (state) {
-      case 'attack': return 'animate-bounce'; // 簡易的な攻撃モーション
-      case 'damage': return 'animate-pulse bg-red-500/50 rounded-full';
-      case 'move': return 'animate-pulse';
-      case 'idle': default: return 'animate-[bounce_3s_infinite]'; // ゆっくり上下
-    }
-  };
-
-  return (
-    <div 
-      className={`relative w-8 h-8 flex items-center justify-center transition-transform duration-200 ${getAnimationClass()}`}
-      style={{ transform: `scale(${scale})` }}
-    >
-      {/* 影 */}
-      <div className="absolute bottom-0 w-6 h-1.5 bg-black/40 rounded-[50%] blur-[1px]" />
-      
-      {/* キャラクター本体 (SVG文字列を注入) */}
-      <div 
-        className="relative z-10 w-full h-full drop-shadow-md"
-        dangerouslySetInnerHTML={{ __html: svgContent }} 
-      />
-    </div>
-  );
+  if (type === 'slime') return CHAR_SVG.slime;
+  if (type === 'goblin') return CHAR_SVG.goblin;
+  if (type === 'skeleton') return CHAR_SVG.skeleton;
+  
+  return CHAR_SVG.unknown;
 };
 
-export default PixelSprite;
+export const getTilePattern = (type: string): string => {
+  if (type === 'floor') return TILE_PATTERNS.floor;
+  if (type === 'wall') return TILE_PATTERNS.wall;
+  if (type === 'corridor') return TILE_PATTERNS.corridor;
+  if (type === 'stairs') return TILE_PATTERNS.stairs;
+  return '';
+};
