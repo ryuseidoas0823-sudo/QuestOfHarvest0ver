@@ -1,6 +1,6 @@
-import { EnemyInstance } from '../types/enemy';
+import { EnemyInstance, Faction } from '../types/enemy';
 import { DungeonMap, TileType } from '../types';
-import { getDistance } from '../utils';
+import { getDistance } from '../utils'; // getDistanceをインポート
 
 // AIの行動決定結果
 export type AIResult = 
@@ -29,7 +29,7 @@ export const decideAction = (
         x: e.x,
         y: e.y,
         dist: getDistance(actor.x, actor.y, e.x, e.y),
-        faction: e.faction
+        faction: e.faction || 'monster' // factionがない場合のデフォルト
       }))
       .sort((a, b) => a.dist - b.dist);
     target = enemies[0] || null;
