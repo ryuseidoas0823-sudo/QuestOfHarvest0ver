@@ -22,7 +22,9 @@ export interface Tile {
   roomId?: number;
 }
 
-// Stats定義の拡張（コンパイルエラー回避のため派生ステータスも許容）
+export type TileType = Tile['type'];
+
+// Stats定義の拡張
 export interface Stats {
   str: number;
   vit: number;
@@ -31,7 +33,7 @@ export interface Stats {
   int: number;
   luc: number;
   
-  // オプショナル：派生ステータスやボーナス値用
+  // 派生・ボーナス
   hp?: number;
   maxHp?: number;
   sp?: number;
@@ -40,12 +42,36 @@ export interface Stats {
   defense?: number;
   speed?: number;
   
-  // その他のプロパティも許容（柔軟性のため）
   [key: string]: number | undefined;
 }
 
 export type JobId = 'swordsman' | 'warrior' | 'archer' | 'mage';
 export type GodId = 'war' | 'blacksmith' | 'wine';
+
+export interface JobDefinition {
+  id: JobId;
+  name: string;
+  description: string;
+  baseStats: Stats;
+  growthRates: Stats;
+  skills: string[];
+  assetKey: string;
+  allowedWeapons: string[];
+}
+
+export interface GodDefinition {
+  id: GodId;
+  name: string;
+  description: string;
+  bonuses: {
+    attack?: number;
+    defense?: number;
+    maxHp?: number;
+    dropRate?: number;
+    expRate?: number;
+    critRate?: number;
+  };
+}
 
 export interface PlayerState {
   name: string;
@@ -68,6 +94,7 @@ export interface PlayerState {
   godId: GodId;
   skills: string[];
   quests: any[];
+  // 座標プロパティを追加
   x: number;
   y: number;
 }
@@ -76,6 +103,6 @@ export interface DungeonMap {
   floor: number;
   width: number;
   height: number;
-  map: Tile[][];
+  map: Tile[][]; // 'tiles' ではなく 'map' に統一
   rooms: any[];
 }
