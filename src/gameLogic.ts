@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { generateDungeon } from './dungeonGenerator';
-import { DungeonMap } from './types';
-import { EnemyInstance } from './types/enemy';
+import { DungeonMap } from './types'; // typesからインポート
+import { EnemyInstance, Faction } from './types/enemy';
 import { enemies as enemyData } from './data/enemies';
 import { Job } from './types/job';
 import { Quest } from './types/quest';
-import { getDistance } from './utils';
+import { getDistance } from './utils'; // utilsからインポート
 import { skills as skillData } from './data/skills';
 import { audioManager } from './utils/audioManager';
 import { visualManager } from './utils/visualManager';
@@ -15,8 +15,8 @@ export const useGameLogic = (
   playerJob: Job,
   chapter: number,
   activeQuests: Quest[],
-  onQuestUpdate: (questId: string, progress: number) => void,
-  onPlayerDeath: () => void
+  onQuestUpdate: (questId: string, amount: number) => void,
+  onGameOver: () => void
 ) => {
   const [dungeon, setDungeon] = useState<DungeonMap | null>(null);
   const [playerPos, setPlayerPos] = useState({ x: 0, y: 0 });
@@ -61,6 +61,7 @@ export const useGameLogic = (
     visualManager.clear();
     const newDungeon = generateDungeon(floorNum);
     
+    // 視界の初期化
     const range = 5;
     const px = newDungeon.playerStart.x;
     const py = newDungeon.playerStart.y;
@@ -81,7 +82,7 @@ export const useGameLogic = (
     const newEnemies: EnemyInstance[] = [];
     const isBossFloor = floorNum % 5 === 0;
     
-    // 味方NPCの配置 (Chapter 2以降)
+    // 味方NPC (Chapter 2以降)
     if (chapter >= 2) {
       const allyData = enemyData.find(e => e.id === 'elias_ally');
       if (allyData) {
@@ -91,7 +92,7 @@ export const useGameLogic = (
             hp: allyData.maxHp, 
             x: newDungeon.playerStart.x + 1, 
             y: newDungeon.playerStart.y, 
-            stats: { ...playerJob.baseStats, hp: allyData.maxHp, maxHp: allyData.maxHp } // 仮のstats設定
+            stats: { ...playerJob.baseStats, hp: allyData.maxHp, maxHp: allyData.maxHp }
         } as EnemyInstance);
       }
     }
@@ -214,7 +215,7 @@ export const useGameLogic = (
                   const dmg = Math.max(1, actor.attack - 5);
                   setPlayerHp(prev => {
                       const next = prev - dmg;
-                      if (next <= 0) { setGameOver(true); onPlayerDeath(); }
+                      if (next <= 0) { setGameOver(true); onGameOver(); }
                       return next;
                   });
                   addLog(`${actor.name}の攻撃！ ${dmg}ダメージ`);
@@ -333,7 +334,7 @@ export const useGameLogic = (
     setPlayerPos({ x: newX, y: newY });
     updateVisibility(dungeon, { x: newX, y: newY });
 
-    if (dungeon.tiles[newY][newX] === 'stairs') {
+    if (dungeon.tiles[newY][newX] === 'stairs_down') {
         addLog('階段を降りた。');
         audioManager.playSeSelect();
         initFloor(floor + 1);
