@@ -8,10 +8,12 @@ interface GameHUDProps {
   miniMap: Tile[][];
 }
 
-const GameHUD: React.FC<GameHUDProps> = ({ playerState, floor, logs, miniMap }) => {
+const GameHUD: React.FC<GameHUDProps> = ({ playerState, floor, logs, miniMap: _miniMap }) => {
   // HP/SPの割合計算
   const hpPercent = Math.max(0, Math.min(100, (playerState.hp / playerState.maxHp) * 100));
   const spPercent = Math.max(0, Math.min(100, (playerState.sp / playerState.maxSp) * 100));
+
+  // _miniMap is currently unused but kept for future implementation or interface compliance.
 
   return (
     <div className="w-full px-4 py-2 pointer-events-none flex justify-between items-start font-sans text-sm">
