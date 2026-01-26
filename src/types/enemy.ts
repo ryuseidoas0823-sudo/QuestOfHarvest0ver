@@ -24,11 +24,16 @@ export interface Enemy {
   visionRange?: number;
 }
 
+// EnemyDefとしてエクスポート (Alias)
+export type EnemyDef = Enemy;
+
 // ゲーム内で生成された敵インスタンス
 export interface EnemyInstance extends Enemy {
-  uniqueId: string;
+  defId?: string; // 定義ID
+  uniqueId?: string;
   hp: number;
+  status?: string; // 'idle' | 'move' | 'attack' | 'damage'
   x: number;
   y: number;
-  stats: Stats; // 動的なステータス管理用（バフ・デバフ対応）
+  stats?: Stats; // 動的なステータス管理用（バフ・デバフ対応）
 }
