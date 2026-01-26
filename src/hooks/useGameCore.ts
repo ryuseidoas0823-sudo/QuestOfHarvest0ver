@@ -34,7 +34,8 @@ export const useGameCore = () => {
     dungeon.dungeonState,
     dungeon.updateEntityPosition,
     player.updatePlayerStatus,
-    eventSystem.addLog
+    eventSystem.addLog,
+    dungeon.damageEnemy // 追加
   );
 
   // Input System (Gamepad/Keyboard)
