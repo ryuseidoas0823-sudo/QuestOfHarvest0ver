@@ -12,6 +12,7 @@ export const useGameCore = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [showStatus, setShowStatus] = useState(false);
+  const [showShop, setShowShop] = useState(false); // 追加
 
   const player = usePlayer();
   const eventSystem = useEventSystem();
@@ -60,15 +61,12 @@ export const useGameCore = () => {
   }, []);
 
   const handleEnterDungeon = useCallback(() => {
-    // 毎回1階層からスタート（ローグライク的仕様）
-    // 将来的には到達階層保存なども検討
     dungeon.generateFloor(1);
     setCurrentScreen('dungeon');
     eventSystem.addLog('ダンジョンに入った！');
   }, [dungeon, eventSystem]);
 
   const handleReturnToTown = useCallback(() => {
-    // 街に戻る（ゲームオーバー時やメニューからの帰還）
     if (player.playerState.hp <= 0) {
         player.respawnAtTown();
         eventSystem.addLog('命からがら街に戻った... (所持金半減)');
@@ -77,7 +75,6 @@ export const useGameCore = () => {
   }, [player, eventSystem]);
 
   const handleHealAtInn = useCallback(() => {
-      // 本来は所持金チェックが必要
       player.fullHeal();
       eventSystem.addLog('宿屋で休んで全回復した。');
   }, [player, eventSystem]);
@@ -117,9 +114,7 @@ export const useGameCore = () => {
         return;
     }
     
-    // 3. 階段を降りる（アクションボタンで降りる場合）
-    // 現状は乗った瞬間に降りる処理を入れるか、ここで判定するか。
-    // 今回は「階段に乗った状態でアクション」で降りるようにする
+    // 3. 階段
     const currentTile = dungeon.dungeonState.map[player.playerState.y]?.[player.playerState.x];
     if (currentTile && (currentTile.type === 'stairs_down' || currentTile.type === 'stairs')) {
         const nextFloor = dungeon.dungeonState.floor + 1;
@@ -150,9 +145,7 @@ export const useGameCore = () => {
     if (gamepad.isPressed('Y')) setShowInventory(prev => !prev);
   }, [gamepad.inputState, handleMove, handleAction]);
 
-  // ゲームオーバー監視
   useEffect(() => {
-    // HP0以下になった瞬間、少し遅延させてリザルトへ（アニメーション見せるため）
     if (player.playerState.hp <= 0 && currentScreen === 'dungeon') {
         const timer = setTimeout(() => {
             setCurrentScreen('result');
@@ -177,6 +170,8 @@ export const useGameCore = () => {
     setShowInventory,
     showStatus,
     setShowStatus,
+    showShop,    // 追加
+    setShowShop, // 追加
     player,
     dungeon,
     turnSystem,
@@ -189,7 +184,7 @@ export const useGameCore = () => {
       onTutorialComplete: handleTutorialComplete,
       onEnterDungeon: handleEnterDungeon,
       onReturnToTown: handleReturnToTown,
-      onHealAtInn: handleHealAtInn, // 追加
+      onHealAtInn: handleHealAtInn,
       onMove: handleMove,
       onAction: handleAction,
       onUseItem: handleUseItem,
