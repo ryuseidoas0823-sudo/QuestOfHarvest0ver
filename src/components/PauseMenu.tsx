@@ -2,21 +2,27 @@ import React from 'react';
 
 interface PauseMenuProps {
   onResume: () => void;
-  onRetire: () => void;
+  onTitle: () => void; // 追加
 }
 
-const PauseMenu: React.FC<PauseMenuProps> = ({ onResume, onRetire }) => {
+const PauseMenu: React.FC<PauseMenuProps> = ({ onResume, onTitle }) => {
   return (
-    <div className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center">
-      <div className="bg-slate-800 border border-slate-500 p-6 rounded shadow-xl w-64 flex flex-col gap-4">
-        <h3 className="text-xl font-bold text-center text-white mb-2">PAUSE</h3>
-        <button onClick={onResume} className="py-2 bg-blue-600 hover:bg-blue-500 text-white rounded">
-          Resume
-        </button>
-        <button onClick={onRetire} className="py-2 bg-red-700 hover:bg-red-600 text-white rounded">
-          Retire (Town)
-        </button>
-      </div>
+    <div className="flex flex-col items-center gap-4 bg-neutral-900 border border-neutral-600 p-8 rounded shadow-2xl min-w-[300px]">
+      <h2 className="text-2xl font-bold text-neutral-300 mb-2">PAUSE</h2>
+      
+      <button 
+        onClick={onResume}
+        className="w-full py-3 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 rounded text-lg transition-colors"
+      >
+        再開する
+      </button>
+
+      <button 
+        onClick={onTitle}
+        className="w-full py-3 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 rounded text-lg transition-colors text-red-300 hover:text-red-200"
+      >
+        タイトルに戻る
+      </button>
     </div>
   );
 };
