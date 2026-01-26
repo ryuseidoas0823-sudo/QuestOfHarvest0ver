@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { PlayerState, DungeonMap, Direction, Tile } from '../types';
 import { generateDungeon } from '../dungeonGenerator'; 
-import { EnemyInstance, EnemyDef } from '../types/enemy';
+import { EnemyInstance } from '../types/enemy';
 import { enemies as enemyData } from '../data/enemies';
 
 interface DungeonState {
@@ -25,11 +25,8 @@ export const useDungeon = (
   // 敵の生成ヘルパー
   const spawnEnemies = (spawnPoints: {x: number, y: number}[], floor: number): EnemyInstance[] => {
     const enemies: EnemyInstance[] = [];
-    // 階層に応じた敵を選出（簡易ロジック：全敵データからランダム）
-    // 本来はfloorLevelに基づいてフィルタリングする
     const availableEnemies = Object.values(enemyData);
     
-    // スポーン地点の数だけ、確率で敵を配置 (例: 50%)
     spawnPoints.forEach((point, index) => {
       if (Math.random() < 0.5 && availableEnemies.length > 0) {
         const template = availableEnemies[Math.floor(Math.random() * availableEnemies.length)];
@@ -37,6 +34,11 @@ export const useDungeon = (
           id: `enemy-${floor}-${index}`,
           defId: template.id,
           name: template.name,
+          type: template.type,
+          dropItems: template.dropItems,
+          exp: template.exp,
+          attack: template.attack,
+          defense: template.defense,
           x: point.x,
           y: point.y,
           hp: template.maxHp,
@@ -74,12 +76,6 @@ export const useDungeon = (
   const getFrontEnemy = useCallback((): EnemyInstance | null => {
     if (!dungeonState.enemies) return null;
     
-    // プレイヤーの向きはPlayerStateに含まれていないため、
-    // 簡易的に「周囲1マス」あるいは「移動しようとした先」で判定する必要があるが、
-    // ここでは戦闘ロジック側で「攻撃対象」を渡す形にするか、
-    // movePlayerで「衝突した敵」を返す設計にするのが良い。
-    
-    // 今回は「接触している敵」を返す（上下左右）
     const { x, y } = playerState;
     return dungeonState.enemies.find(e => 
       (Math.abs(e.x - x) === 1 && e.y === y) || 
@@ -112,8 +108,6 @@ export const useDungeon = (
     // 敵との衝突判定
     const enemyAtTarget = dungeonState.enemies.find(e => e.x === nextX && e.y === nextY);
     if (enemyAtTarget) {
-      // 敵がいる場合は移動せず、衝突（攻撃の予兆など）として扱う
-      // ここではfalseを返すが、上位コンポーネントで「攻撃」アクションにつなげる
       return false;
     }
 
@@ -138,7 +132,7 @@ export const useDungeon = (
           return { ...e, hp: Math.max(0, e.hp - damage), status: 'damage' as const };
         }
         return e;
-      }).filter(e => e.hp > 0); // HP0以下は削除（死亡）
+      }).filter(e => e.hp > 0); 
 
       return {
         ...prev,
