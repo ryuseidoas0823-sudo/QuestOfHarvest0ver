@@ -1,6 +1,6 @@
 import React from 'react';
 import { EnemyInstance } from '../types/enemy';
-import { JobId } from '../types';
+import { JobId, Tile } from '../types';
 
 interface PixelSpriteProps {
   type: string; // 'player', 'enemy', 'wall', 'floor', etc.
@@ -9,8 +9,8 @@ interface PixelSpriteProps {
   className?: string; // アニメーションなどの追加クラス用
   scale?: number;
   
-  // App.tsxからの受け渡し用に追加
   data?: EnemyInstance;
+  tileData?: Tile; // 追加: App.tsxから渡されるtileDataを受け取る
   state?: string;
   jobId?: JobId;
   direction?: string;
@@ -23,12 +23,9 @@ const PixelSprite: React.FC<PixelSpriteProps> = ({
   className = '',
   scale = 1,
   data,
+  tileData,
   state,
-  // jobId,
-  // direction
 }) => {
-  // 簡易的な色分けによるスプライト表現
-  
   let content = null;
   const baseStyle: React.CSSProperties = {
     width: size,
@@ -42,7 +39,6 @@ const PixelSprite: React.FC<PixelSpriteProps> = ({
     transition: 'transform 0.1s'
   };
 
-  // 状態に応じたクラスの追加
   let statusClass = className;
   if (state === 'attack') statusClass += ' animate-attack';
   if (data?.status === 'damage') statusClass += ' animate-damage';
@@ -83,6 +79,18 @@ const PixelSprite: React.FC<PixelSpriteProps> = ({
         className="bg-neutral-900 border border-neutral-800/50"
         style={{ width: size, height: size }}
       />
+    );
+  } else if (type === 'chest') {
+    const isOpened = tileData?.meta?.opened;
+    content = (
+      <div 
+        className={`border-2 shadow-sm ${isOpened ? 'bg-amber-900 border-amber-800' : 'bg-amber-600 border-amber-400'}`}
+        style={{ width: size * 0.7, height: size * 0.6, borderRadius: '4px' }}
+      >
+        {!isOpened && (
+          <div className="w-full h-1 bg-amber-800 mt-1" />
+        )}
+      </div>
     );
   } else if (type === 'stairs_down' || type === 'stairs') {
     content = (
