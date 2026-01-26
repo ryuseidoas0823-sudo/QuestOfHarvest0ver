@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { PlayerState, JobId, GodId, Stats, Item } from '../types';
-import { jobs } from '../data/jobs';
+import { PlayerState, JobId, GodId, Stats } from '../types';
+import { JOBS } from '../data/jobs'; // jobs -> JOBS に修正
 import { getNextLevelExp } from '../data/balance';
 import { items as itemData } from '../data/items';
 
@@ -20,7 +20,7 @@ const INITIAL_STATE: PlayerState = {
   level: 1,
   exp: 0,
   nextExp: getNextLevelExp(1),
-  gold: 100, // 初期所持金を少し増やす
+  gold: 100,
   equipment: { weapon: null, armor: null, accessory: null },
   inventory: [], 
   jobId: 'swordsman',
@@ -51,19 +51,6 @@ export const usePlayer = () => {
     const item = itemData[itemId];
     if (!item) return false;
 
-    // 所持金チェック
-    // Reactのstate更新関数内で判定しないと最新のgoldが取れない可能性があるが、
-    // ここでは簡易的に現在のstateを参照する形にするか、updater内で処理する
-    // ただし、updater内だと戻り値を返しにくい。
-    // 今回はuseCallbackの依存配列にplayerStateを入れるか、
-    // 呼び出し元でチェックしてからupdaterを呼ぶ形にする。
-    
-    // ここでは簡易的に「処理が成功したか」を返すために、
-    // setPlayerState内で条件分岐し、失敗なら変更せず、
-    // 呼び出し元には「stateが更新されたか」をどう伝えるか...
-    // シンプルに playerState を依存配列に入れて直接判定します。
-    
-    // ※ 本来は reducer パターンの方が安全ですが、この構成に合わせて実装します。
     if (playerState.gold < item.price) return false;
 
     setPlayerState(prev => ({
@@ -72,7 +59,7 @@ export const usePlayer = () => {
       inventory: [...prev.inventory, itemId]
     }));
     return true;
-  }, [playerState.gold, playerState.inventory]); // goldとinventoryに依存
+  }, [playerState.gold, playerState.inventory]);
 
   // アイテム売却
   const sellItem = useCallback((index: number) => {
@@ -108,6 +95,7 @@ export const usePlayer = () => {
       let newSp = prev.sp;
       let used = false;
 
+      // item.effect.type の型安全性を考慮
       if (item.effect?.type === 'heal_hp') {
         if (prev.hp < prev.maxHp) {
             newHp = Math.min(prev.maxHp, prev.hp + (item.effect.value || 0));
@@ -167,7 +155,8 @@ export const usePlayer = () => {
         return { ...prev, exp: currentExp, nextExp: nextLevelExp };
       }
 
-      const jobGrowth = jobs[prev.jobId]?.growthRates || { str: 1, vit: 1, dex: 1, agi: 1, int: 1, luc: 1 };
+      // JOBSに修正
+      const jobGrowth = JOBS[prev.jobId]?.growthRates || { str: 1, vit: 1, dex: 1, agi: 1, int: 1, luc: 1 };
       
       const newStats = { ...prev.stats };
       newStats.str += jobGrowth.str;
@@ -226,7 +215,7 @@ export const usePlayer = () => {
   }, []);
 
   const selectJob = useCallback((jobId: JobId) => {
-    const job = jobs[jobId];
+    const job = JOBS[jobId]; // JOBSに修正
     if (!job) return;
 
     setPlayerState(prev => {
@@ -259,8 +248,8 @@ export const usePlayer = () => {
     selectGod,
     gainExp,
     addItem,
-    buyItem, // 追加
-    sellItem, // 追加
+    buyItem,
+    sellItem,
     useItem, 
     levelUpLog,
     clearLevelUpLog
