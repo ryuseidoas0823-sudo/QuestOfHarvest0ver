@@ -3,6 +3,7 @@ import { PlayerState, DungeonMap, Direction, Tile } from '../types';
 import { generateDungeon } from '../dungeonGenerator'; 
 import { EnemyInstance } from '../types/enemy';
 import { enemies as enemyData } from '../data/enemies';
+import { items as itemData } from '../data/items';
 
 interface DungeonState {
   dungeon: DungeonMap | null;
@@ -22,7 +23,6 @@ export const useDungeon = (
     enemies: []
   });
 
-  // 敵の生成ヘルパー
   const spawnEnemies = (spawnPoints: {x: number, y: number}[], floor: number): EnemyInstance[] => {
     const enemies: EnemyInstance[] = [];
     const availableEnemies = Object.values(enemyData);
@@ -50,11 +50,8 @@ export const useDungeon = (
     return enemies;
   };
 
-  // フロア生成
   const generateFloor = useCallback((floorNum: number) => {
     const newDungeon = generateDungeon(floorNum);
-    
-    // 敵の生成
     const newEnemies = spawnEnemies(newDungeon.spawnPoints || [], floorNum);
 
     setDungeonState({
@@ -64,7 +61,6 @@ export const useDungeon = (
       enemies: newEnemies
     });
 
-    // プレイヤー初期位置
     if (newDungeon.startPosition) {
       updatePlayer({ x: newDungeon.startPosition.x, y: newDungeon.startPosition.y });
     } else {
@@ -72,10 +68,8 @@ export const useDungeon = (
     }
   }, [updatePlayer]);
 
-  // 目の前の敵を取得
   const getFrontEnemy = useCallback((): EnemyInstance | null => {
     if (!dungeonState.enemies) return null;
-    
     const { x, y } = playerState;
     return dungeonState.enemies.find(e => 
       (Math.abs(e.x - x) === 1 && e.y === y) || 
@@ -83,7 +77,50 @@ export const useDungeon = (
     ) || null;
   }, [dungeonState.enemies, playerState]);
 
-  // プレイヤー移動処理
+  // 目の前のタイル情報を取得（宝箱など）
+  const getFrontTile = useCallback((): Tile | null => {
+      const { x, y } = playerState;
+      // プレイヤーの向きを保存していないので、一旦「移動先」ではなく「現在地」を見るか、
+      // 簡易的に「攻撃ボタン」＝「アクションボタン」として、周囲のインタラクト可能なものを探す
+      // ここでは、隣接する宝箱を優先して探すロジックにする
+      
+      const neighbors = [
+          { dx: 0, dy: -1 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 1, dy: 0 }
+      ];
+
+      for (const {dx, dy} of neighbors) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (dungeonState.map[ny] && dungeonState.map[ny][nx]) {
+              const tile = dungeonState.map[ny][nx];
+              if (tile.type === 'chest' && !tile.meta?.opened) {
+                  return tile;
+              }
+          }
+      }
+      return null;
+  }, [dungeonState.map, playerState]);
+
+  // 宝箱を開ける
+  const openChest = useCallback((x: number, y: number): string | null => {
+      let resultMessage = null;
+      setDungeonState(prev => {
+          const newMap = [...prev.map];
+          const tile = { ...newMap[y][x], meta: { ...newMap[y][x].meta, opened: true } };
+          newMap[y] = [...newMap[y]];
+          newMap[y][x] = tile as Tile;
+          
+          const itemId = tile.meta?.itemId;
+          if (itemId) {
+              const item = itemData[itemId];
+              resultMessage = item ? `${item.name}を手に入れた！` : '何も入っていなかった...';
+          }
+
+          return { ...prev, map: newMap };
+      });
+      return resultMessage;
+  }, []);
+
   const movePlayer = useCallback((direction: Direction): boolean => {
     const { x, y } = playerState;
     let nextX = x;
@@ -94,7 +131,6 @@ export const useDungeon = (
     if (direction === 'left') nextX--;
     if (direction === 'right') nextX++;
 
-    // 壁判定
     const map = dungeonState.map;
     if (!map || nextY < 0 || nextY >= map.length || nextX < 0 || nextX >= map[0].length) {
       return false;
@@ -104,19 +140,21 @@ export const useDungeon = (
     if (targetTile.type === 'wall') {
       return false;
     }
+    // 宝箱は踏めるようにするか、障害物にするか。
+    // 今回は「障害物」として、アクションボタンで開ける方式にする
+    if (targetTile.type === 'chest') {
+        return false; 
+    }
 
-    // 敵との衝突判定
     const enemyAtTarget = dungeonState.enemies.find(e => e.x === nextX && e.y === nextY);
     if (enemyAtTarget) {
       return false;
     }
 
-    // 移動確定
     updatePlayer({ x: nextX, y: nextY });
     return true;
   }, [playerState, dungeonState, updatePlayer]);
 
-  // エンティティ位置更新（敵など）
   const updateEntityPosition = useCallback((entityId: string, x: number, y: number) => {
     setDungeonState(prev => ({
       ...prev,
@@ -124,7 +162,6 @@ export const useDungeon = (
     }));
   }, []);
 
-  // 敵のダメージ反映・死亡処理
   const damageEnemy = useCallback((enemyId: string, damage: number) => {
     setDungeonState(prev => {
       const updatedEnemies = prev.enemies.map(e => {
@@ -146,6 +183,8 @@ export const useDungeon = (
     generateFloor,
     movePlayer,
     getFrontEnemy,
+    getFrontTile, // 追加
+    openChest,    // 追加
     updateEntityPosition,
     damageEnemy
   };
