@@ -44,7 +44,7 @@ const createV_Tunnel = (y1: number, y2: number, x: number, map: Tile[][]) => {
   }
 };
 
-export const generateDungeon = (floorLevel: number): DungeonMap => {
+export const generateDungeon = (_floorLevel: number): DungeonMap => {
   // 1. 全てを壁で埋める
   const map: Tile[][] = [];
   for (let y = 0; y < MAP_HEIGHT; y++) {
@@ -122,8 +122,9 @@ export const generateDungeon = (floorLevel: number): DungeonMap => {
   // 3. 階段の配置（最後の部屋の中心）
   const lastRoom = rooms[rooms.length - 1];
   if (lastRoom) {
+    // TileType に合わせて 'stairs_down' を使用
     map[lastRoom.center.y][lastRoom.center.x] = { 
-      type: 'stairs', 
+      type: 'stairs_down', 
       x: lastRoom.center.x, 
       y: lastRoom.center.y, 
       visible: false, 
@@ -134,9 +135,11 @@ export const generateDungeon = (floorLevel: number): DungeonMap => {
   }
 
   return {
+    floor: _floorLevel,
     map,
     width: MAP_WIDTH,
     height: MAP_HEIGHT,
+    rooms: rooms,
     startPosition: playerStart,
     spawnPoints: validSpawnPoints
   };
