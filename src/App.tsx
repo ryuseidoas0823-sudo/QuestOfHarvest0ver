@@ -10,7 +10,8 @@ import PauseMenu from './components/PauseMenu';
 import InventoryMenu from './components/InventoryMenu';
 import Tutorial from './components/Tutorial';
 import StatusUpgradeMenu from './components/StatusUpgradeMenu';
-import NameInputScreen from './components/NameInputScreen'; // 追加
+import NameInputScreen from './components/NameInputScreen';
+import ShopMenu from './components/ShopMenu';
 import { useGameCore } from './hooks/useGameCore';
 
 function App() {
@@ -22,6 +23,8 @@ function App() {
     setShowInventory,
     showStatus,
     setShowStatus,
+    showShop,
+    setShowShop,
     player,
     dungeon,
     eventSystem,
@@ -34,13 +37,10 @@ function App() {
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden select-none font-sans text-white">
       
-      {/* --- Main Screens --- */}
-
       {currentScreen === 'title' && (
         <TitleScreen onStart={handlers.onStartGame} />
       )}
 
-      {/* 名前入力画面 */}
       {currentScreen === 'name_input' && (
         <NameInputScreen onNameDecided={handlers.onNameDecided} />
       )}
@@ -60,29 +60,26 @@ function App() {
       {currentScreen === 'town' && (
         <TownScreen 
           onEnterDungeon={handlers.onEnterDungeon}
-          onOpenShop={() => console.log('Shop open')} // TODO: Shop handler
+          onOpenShop={() => setShowShop(true)}
           onOpenStatus={() => setShowStatus(true)}
-          onSave={() => console.log('Save')} // TODO: Save handler
+          onSave={handlers.onHealAtInn}
         />
       )}
 
       {currentScreen === 'result' && (
         <ResultScreen 
           result="gameover"
-          score={100} // 仮
-          onTitle={() => window.location.reload()} // 簡易リロード
-          onRetry={() => handlers.onReturnToTown()}
+          score={playerState.exp} 
+          floor={dungeonState.floor}
+          onTitle={() => window.location.reload()}
+          onRetry={handlers.onReturnToTown}
         />
       )}
 
-      {/* --- Dungeon Game View --- */}
       {currentScreen === 'dungeon' && dungeonState.map.length > 0 && (
         <div className="relative w-full h-full flex justify-center items-center bg-black">
           
-          {/* Dungeon Renderer (Simplified div-based for now) */}
           <div className="relative" style={{ width: '640px', height: '640px' }}>
-            {/* Camera/Viewport would go here. For now, render visible area around player or full map if small */}
-            {/* Rendering full map for prototype (with overflow hidden container) */}
             <div 
               className="absolute transition-all duration-200 ease-linear"
               style={{
@@ -98,13 +95,12 @@ function App() {
                       key={`${x}-${y}`} 
                       type={tile.type} 
                       variant="dungeon-1" 
+                      tileData={tile}
                     />
                   ))}
                 </div>
               ))}
 
-              {/* Entities */}
-              {/* Enemies */}
               {dungeonState.enemies.map(enemy => (
                 <div 
                   key={enemy.id}
@@ -114,12 +110,11 @@ function App() {
                   <PixelSprite 
                     type="enemy" 
                     variant={enemy.defId} 
-                    data={enemy} // 状態渡し
+                    data={enemy} 
                   />
                 </div>
               ))}
 
-              {/* Player */}
               <div 
                 className="absolute transition-all duration-100 z-20"
                 style={{ left: playerState.x * 32, top: playerState.y * 32 }}
@@ -127,7 +122,7 @@ function App() {
                 <PixelSprite 
                   type="player" 
                   jobId={playerState.jobId}
-                  direction="down" // 向きはstateに持たせるのがベター
+                  direction="down"
                   state={eventSystem.eventState.isEventActive ? 'idle' : 'move'}
                 />
               </div>
@@ -135,7 +130,6 @@ function App() {
             </div>
           </div>
 
-          {/* HUD Layer */}
           <div className="absolute inset-0 pointer-events-none">
             <GameHUD 
               playerState={playerState} 
@@ -147,9 +141,6 @@ function App() {
         </div>
       )}
 
-      {/* --- Overlays / Modals --- */}
-      
-      {/* Pause Menu */}
       {isPaused && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
           <PauseMenu 
@@ -159,24 +150,33 @@ function App() {
         </div>
       )}
 
-      {/* Inventory */}
       {showInventory && (
         <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/80">
           <InventoryMenu 
             items={playerState.inventory} 
             onClose={() => setShowInventory(false)}
-            onUse={(item) => console.log('Use', item)}
+            onUse={handlers.onUseItem} 
           />
         </div>
       )}
 
-      {/* Status Upgrade */}
       {showStatus && (
         <div className="absolute inset-0 z-40 bg-black/90">
            <StatusUpgradeMenu 
              playerState={playerState}
              onClose={() => setShowStatus(false)}
              onUpgrade={(stat) => console.log('Upgrade', stat)}
+           />
+        </div>
+      )}
+
+      {showShop && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+           <ShopMenu
+             playerState={playerState}
+             onClose={() => setShowShop(false)}
+             onBuy={player.buyItem}
+             onSell={player.sellItem}
            />
         </div>
       )}
