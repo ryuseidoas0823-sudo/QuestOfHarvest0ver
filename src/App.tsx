@@ -1,4 +1,3 @@
-import React from 'react';
 import TitleScreen from './components/TitleScreen';
 import JobSelectScreen from './components/JobSelectScreen';
 import GodSelectScreen from './components/GodSelectScreen';
