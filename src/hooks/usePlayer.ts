@@ -22,7 +22,7 @@ const INITIAL_STATE: PlayerState = {
   nextExp: getNextLevelExp(1),
   gold: 0,
   equipment: { weapon: null, armor: null, accessory: null },
-  inventory: [], // string[] of itemIds
+  inventory: [], 
   jobId: 'swordsman',
   godId: 'war',
   skills: [],
@@ -39,7 +39,6 @@ export const usePlayer = () => {
     setPlayerState(prev => ({ ...prev, ...updates }));
   }, []);
 
-  // アイテム入手
   const addItem = useCallback((itemId: string) => {
     setPlayerState(prev => ({
       ...prev,
@@ -47,7 +46,6 @@ export const usePlayer = () => {
     }));
   }, []);
 
-  // アイテム使用
   const useItem = useCallback((index: number): string | null => {
     let message = null;
     
@@ -59,7 +57,6 @@ export const usePlayer = () => {
         return prev;
       }
 
-      // 効果適用
       let newHp = prev.hp;
       let newSp = prev.sp;
       let used = false;
@@ -88,7 +85,6 @@ export const usePlayer = () => {
       }
 
       if (used) {
-        // 使用したアイテムを削除
         const newInventory = [...prev.inventory];
         newInventory.splice(index, 1);
         
@@ -106,8 +102,6 @@ export const usePlayer = () => {
     return message;
   }, []);
 
-
-  // 経験値獲得とレベルアップ処理
   const gainExp = useCallback((amount: number) => {
     setPlayerState(prev => {
       let currentExp = prev.exp + amount;
@@ -165,6 +159,28 @@ export const usePlayer = () => {
     setPlayerState(INITIAL_STATE);
   }, []);
 
+  // ゲームオーバー時の復活処理（街に戻る）
+  const respawnAtTown = useCallback(() => {
+    setPlayerState(prev => ({
+      ...prev,
+      hp: prev.maxHp,
+      sp: prev.maxSp,
+      gold: Math.floor(prev.gold / 2), // デスペナルティ：所持金半減
+      // ダンジョン内座標のリセットなどは別途行われるが、念のため
+      x: 1,
+      y: 1
+    }));
+  }, []);
+
+  // 宿屋などでの全回復
+  const fullHeal = useCallback(() => {
+      setPlayerState(prev => ({
+          ...prev,
+          hp: prev.maxHp,
+          sp: prev.maxSp
+      }));
+  }, []);
+
   const selectJob = useCallback((jobId: JobId) => {
     const job = jobs[jobId];
     if (!job) return;
@@ -193,11 +209,13 @@ export const usePlayer = () => {
     playerState,
     updatePlayerStatus,
     resetPlayer,
+    respawnAtTown, // 追加
+    fullHeal,      // 追加
     selectJob,
     selectGod,
     gainExp,
-    addItem, // 公開
-    useItem, // 公開
+    addItem, 
+    useItem, 
     levelUpLog,
     clearLevelUpLog
   };
