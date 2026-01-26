@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { GameEvent, GameEventChoice } from '../types/event';
+import { GameEvent } from '../types/event';
 
 interface EventState {
   currentEvent: GameEvent | null;
