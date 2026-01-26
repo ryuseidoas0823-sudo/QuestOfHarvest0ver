@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, appId, auth } from './firebase';
 
 const SAVE_KEY = 'quest_of_harvest_save_v1';
