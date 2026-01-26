@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { PlayerState } from '../types';
 import { EnemyInstance } from '../types/enemy';
-import { DungeonMap } from '../types'; // 型定義が必要ならインポート
 
 interface TurnState {
   turnCount: number;
