@@ -12,8 +12,7 @@ const GameHUD: React.FC<GameHUDProps> = ({ playerState, floor, logs, miniMap: _m
   // HP/SPの割合計算
   const hpPercent = Math.max(0, Math.min(100, (playerState.hp / playerState.maxHp) * 100));
   const spPercent = Math.max(0, Math.min(100, (playerState.sp / playerState.maxSp) * 100));
-
-  // _miniMap is currently unused but kept for future implementation or interface compliance.
+  const expPercent = Math.max(0, Math.min(100, (playerState.exp / playerState.nextExp) * 100));
 
   return (
     <div className="w-full px-4 py-2 pointer-events-none flex justify-between items-start font-sans text-sm">
@@ -38,7 +37,7 @@ const GameHUD: React.FC<GameHUDProps> = ({ playerState, floor, logs, miniMap: _m
         </div>
 
         {/* SP Bar */}
-        <div className="relative h-3 w-full bg-neutral-900 rounded border border-neutral-700 overflow-hidden">
+        <div className="relative h-3 w-full bg-neutral-900 rounded border border-neutral-700 overflow-hidden mt-1">
           <div 
             className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-600 to-blue-500 transition-all duration-300"
             style={{ width: `${spPercent}%` }}
@@ -46,6 +45,14 @@ const GameHUD: React.FC<GameHUDProps> = ({ playerState, floor, logs, miniMap: _m
           <div className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white drop-shadow-md">
             SP {playerState.sp}/{playerState.maxSp}
           </div>
+        </div>
+
+        {/* EXP Bar (Thin) */}
+        <div className="relative h-1.5 w-full bg-neutral-800 rounded-full border border-neutral-700 overflow-hidden mt-1">
+          <div 
+            className="absolute top-0 left-0 h-full bg-gradient-to-r from-yellow-500 to-yellow-300 transition-all duration-300"
+            style={{ width: `${expPercent}%` }}
+          />
         </div>
         
         {/* Gold & Floor */}
@@ -79,13 +86,11 @@ const GameHUD: React.FC<GameHUDProps> = ({ playerState, floor, logs, miniMap: _m
       {/* Right: Mini Map */}
       <div className="w-24 h-24 bg-black/80 border-2 border-neutral-600 rounded p-1 opacity-80 relative overflow-hidden hidden sm:block">
          <div className="w-full h-full grid grid-cols-10 grid-rows-10 gap-[1px]">
-            {/* 簡易ミニマップ表示：実際のマップデータを縮小表示するのは複雑なため、
-                ここでは「雰囲気」としてのグリッドを表示し、実際はCanvas等で描画するのが望ましい */}
-            {/* 今回はプレースホルダーとしてコンパスを表示 */}
+            {/* 方角 */}
             <div className="absolute inset-0 flex items-center justify-center text-neutral-600 font-bold text-2xl">
               N
             </div>
-            {/* プレイヤー位置（中央固定） */}
+            {/* プレイヤー位置 */}
             <div className="absolute top-1/2 left-1/2 w-2 h-2 bg-blue-500 rounded-full -translate-x-1/2 -translate-y-1/2 shadow-[0_0_5px_#3b82f6]" />
          </div>
       </div>
