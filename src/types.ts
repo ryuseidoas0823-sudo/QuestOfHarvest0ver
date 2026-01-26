@@ -15,12 +15,18 @@ export * from './types/dialogue';
 export type Direction = 'up' | 'down' | 'left' | 'right';
 
 export interface Tile {
-  type: 'wall' | 'floor' | 'corridor' | 'stairs_down' | 'stairs_up' | 'door';
+  // 'chest' を追加
+  type: 'wall' | 'floor' | 'corridor' | 'stairs_down' | 'stairs_up' | 'door' | 'chest';
   visible: boolean;
-  explored?: boolean; // 追加
+  explored?: boolean;
   x: number;
   y: number;
   roomId?: number;
+  // 宝箱の中身などを保持する場合に使用
+  meta?: {
+      itemId?: string;
+      opened?: boolean;
+  };
 }
 
 export type TileType = Tile['type'];
@@ -74,6 +80,7 @@ export interface GodDefinition {
   };
 }
 
+// PlayerStateの定義 (usePlayerなどで使用)
 export interface PlayerState {
   name: string;
   hp: number;
@@ -90,12 +97,11 @@ export interface PlayerState {
     armor: any | null;
     accessory: any | null;
   };
-  inventory: any[];
+  inventory: string[]; // itemIdの配列
   jobId: JobId;
   godId: GodId;
   skills: string[];
   quests: any[];
-  // 座標プロパティを追加
   x: number;
   y: number;
 }
@@ -104,8 +110,8 @@ export interface DungeonMap {
   floor: number;
   width: number;
   height: number;
-  map: Tile[][]; // 'tiles' ではなく 'map' に統一
+  map: Tile[][];
   rooms: any[];
-  startPosition?: { x: number; y: number }; // 追加
-  spawnPoints?: { x: number; y: number }[]; // 追加
+  startPosition?: { x: number; y: number };
+  spawnPoints?: { x: number; y: number }[];
 }
