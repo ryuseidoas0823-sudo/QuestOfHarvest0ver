@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { PlayerState } from '../types';
 import { EnemyInstance } from '../types/enemy';
+import { calculateDamage } from '../data/balance'; // 追加
 
 interface TurnState {
   turnCount: number;
@@ -14,7 +15,8 @@ export const useTurnSystem = (
   updateEntityPosition: (id: string, x: number, y: number) => void,
   updatePlayerStatus: (updates: Partial<PlayerState>) => void,
   addLog: (msg: string) => void,
-  damageEnemy: (id: string, dmg: number) => void
+  damageEnemy: (id: string, dmg: number) => void,
+  gainExp: (amount: number) => void // 追加
 ) => {
   const [turnState, setTurnState] = useState<TurnState>({
     turnCount: 0,
@@ -23,39 +25,42 @@ export const useTurnSystem = (
 
   // 敵のターン処理
   const processEnemyTurn = useCallback(() => {
-    // 全敵の行動処理
     dungeonState.enemies.forEach(enemy => {
+      if (enemy.hp <= 0) return; // 死体蹴り防止
+
       const dx = playerState.x - enemy.x;
       const dy = playerState.y - enemy.y;
       const distance = Math.abs(dx) + Math.abs(dy);
 
       // 1. 隣接していれば攻撃
       if (distance === 1) {
-        // 簡易ダメージ計算
-        const damage = Math.max(1, Math.floor(Math.random() * 5)); 
+        // 敵攻撃力 vs プレイヤー防御力
+        const atk = enemy.attack || 10;
+        const def = playerState.stats.defense || 0;
+        const damage = calculateDamage(atk, def);
+
         updatePlayerStatus({ hp: Math.max(0, playerState.hp - damage) });
         addLog(`${enemy.name}の攻撃！ ${damage}のダメージ！`);
-        // アニメーション用のフラグなどはここで管理するか、PlayerStateに持たせる
       }
       // 2. 距離が近ければ移動（視界内）
       else if (distance < 8) {
         let newX = enemy.x;
         let newY = enemy.y;
 
-        // X軸移動
-        if (dx !== 0) {
+        // X軸移動優先度などの簡単なAI
+        if (dx !== 0 && Math.random() > 0.3) {
           newX += dx > 0 ? 1 : -1;
-        } 
-        // Y軸移動（Xで移動しなかった場合、またはランダムで）
-        else if (dy !== 0) {
+        } else if (dy !== 0) {
           newY += dy > 0 ? 1 : -1;
         }
 
-        // 壁チェック（簡易）
-        if (dungeonState.map[newY][newX].type !== 'wall') {
-            // 他の敵との重なりチェック
-            const isBlocked = dungeonState.enemies.some(e => e.x === newX && e.y === newY);
-            if (!isBlocked && (newX !== playerState.x || newY !== playerState.y)) {
+        // 壁チェック
+        if (dungeonState.map[newY] && dungeonState.map[newY][newX] && dungeonState.map[newY][newX].type !== 'wall') {
+            // 他の敵やプレイヤーとの重なりチェック
+            const isBlockedByEnemy = dungeonState.enemies.some(e => e.x === newX && e.y === newY && e.hp > 0);
+            const isBlockedByPlayer = (newX === playerState.x && newY === playerState.y);
+
+            if (!isBlockedByEnemy && !isBlockedByPlayer) {
                 updateEntityPosition(enemy.id, newX, newY);
             }
         }
@@ -91,18 +96,27 @@ export const useTurnSystem = (
         return;
     }
 
-    // ダメージ計算
-    // 本来は playerState.attack などを使う
-    const damage = 10 + Math.floor(Math.random() * 5);
+    // プレイヤー攻撃力 vs 敵防御力
+    const atk = playerState.stats.attack || 10;
+    const def = target.defense || 0;
+    const damage = calculateDamage(atk, def);
+
     addLog(`${target.name}に攻撃！ ${damage}のダメージ！`);
     
     // ダメージ適用
     damageEnemy(target.id, damage);
+
+    // 敵撃破判定 (簡易的にここで判定。本来はdamageEnemyの結果やuseEffectで監視)
+    if (target.hp - damage <= 0) {
+        const exp = target.exp || 10;
+        addLog(`${target.name}を倒した！ ${exp} Exp獲得。`);
+        gainExp(exp);
+    }
     
     // 攻撃したらターン経過
     advanceTurn();
 
-  }, [addLog, damageEnemy, advanceTurn]);
+  }, [addLog, damageEnemy, advanceTurn, playerState.stats, gainExp]);
 
   return {
     turnState,
