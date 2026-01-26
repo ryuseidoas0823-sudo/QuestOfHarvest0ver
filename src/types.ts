@@ -15,8 +15,8 @@ export * from './types/dialogue';
 export type Direction = 'up' | 'down' | 'left' | 'right';
 
 export interface Tile {
-  // 'chest' を追加
-  type: 'wall' | 'floor' | 'corridor' | 'stairs_down' | 'stairs_up' | 'door' | 'chest';
+  // 'chest' を明示的に追加
+  type: 'wall' | 'floor' | 'corridor' | 'stairs_down' | 'stairs_up' | 'door' | 'chest' | 'stairs';
   visible: boolean;
   explored?: boolean;
   x: number;
