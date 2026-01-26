@@ -35,7 +35,7 @@ export const useGameCore = () => {
     dungeon.updateEntityPosition,
     player.updatePlayerStatus,
     eventSystem.addLog,
-    dungeon.damageEnemy // 追加
+    dungeon.damageEnemy
   );
 
   // Input System (Gamepad/Keyboard)
@@ -43,9 +43,15 @@ export const useGameCore = () => {
 
   // --- Game Flow Control ---
 
-  // ゲーム開始（タイトル -> ジョブ選択）
+  // ゲーム開始（タイトル -> 名前入力）
   const handleStartGame = useCallback(() => {
     player.resetPlayer();
+    setCurrentScreen('name_input');
+  }, [player]);
+
+  // 名前決定 -> ジョブ選択
+  const handleNameDecided = useCallback((name: string) => {
+    player.updatePlayerStatus({ name });
     setCurrentScreen('job_select');
   }, [player]);
 
@@ -155,6 +161,7 @@ export const useGameCore = () => {
     // Handlers
     handlers: {
       onStartGame: handleStartGame,
+      onNameDecided: handleNameDecided,
       onJobSelect: handleJobSelected,
       onGodSelect: handleGodSelected,
       onTutorialComplete: handleTutorialComplete,
