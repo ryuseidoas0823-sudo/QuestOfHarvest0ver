@@ -1,4 +1,6 @@
 import React from 'react';
+import { EnemyInstance } from '../types/enemy';
+import { JobId } from '../types';
 
 interface PixelSpriteProps {
   type: string; // 'player', 'enemy', 'wall', 'floor', etc.
@@ -6,6 +8,12 @@ interface PixelSpriteProps {
   size?: number;
   className?: string; // アニメーションなどの追加クラス用
   scale?: number;
+  
+  // App.tsxからの受け渡し用に追加
+  data?: EnemyInstance;
+  state?: string;
+  jobId?: JobId;
+  direction?: string;
 }
 
 const PixelSprite: React.FC<PixelSpriteProps> = ({ 
@@ -13,10 +21,13 @@ const PixelSprite: React.FC<PixelSpriteProps> = ({
   variant = 'default', 
   size = 32, 
   className = '',
-  scale = 1
+  scale = 1,
+  data,
+  state,
+  // jobId,
+  // direction
 }) => {
   // 簡易的な色分けによるスプライト表現
-  // 本来は画像アセットを使用するが、ここではCSSで代用
   
   let content = null;
   const baseStyle: React.CSSProperties = {
@@ -31,10 +42,15 @@ const PixelSprite: React.FC<PixelSpriteProps> = ({
     transition: 'transform 0.1s'
   };
 
+  // 状態に応じたクラスの追加
+  let statusClass = className;
+  if (state === 'attack') statusClass += ' animate-attack';
+  if (data?.status === 'damage') statusClass += ' animate-damage';
+
   if (type === 'player') {
     content = (
       <div 
-        className={`bg-blue-500 rounded-full border-2 border-white shadow-lg ${className}`}
+        className={`bg-blue-500 rounded-full border-2 border-white shadow-lg ${statusClass}`}
         style={{ width: size * 0.8, height: size * 0.8 }}
       >
         <div className="w-full h-full flex items-center justify-center text-white font-bold text-xs">
@@ -43,14 +59,14 @@ const PixelSprite: React.FC<PixelSpriteProps> = ({
       </div>
     );
   } else if (type === 'enemy') {
-    const isBoss = variant.includes('boss');
+    const isBoss = variant.includes('boss') || data?.type === 'boss';
     content = (
       <div 
-        className={`${isBoss ? 'bg-red-700' : 'bg-red-500'} rounded-sm border border-red-900 shadow-md ${className}`}
+        className={`${isBoss ? 'bg-red-700' : 'bg-red-500'} rounded-sm border border-red-900 shadow-md ${statusClass}`}
         style={{ width: size * 0.8, height: size * 0.8 }}
       >
          <div className="w-full h-full flex items-center justify-center text-white font-bold text-xs">
-          {variant === 'boss' ? 'B' : 'E'}
+          {isBoss ? 'B' : 'E'}
         </div>
       </div>
     );
@@ -68,7 +84,7 @@ const PixelSprite: React.FC<PixelSpriteProps> = ({
         style={{ width: size, height: size }}
       />
     );
-  } else if (type === 'stairs') {
+  } else if (type === 'stairs_down' || type === 'stairs') {
     content = (
       <div 
         className="bg-yellow-600/50 border-2 border-yellow-500"
