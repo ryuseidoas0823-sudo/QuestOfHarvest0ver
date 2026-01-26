@@ -45,7 +45,6 @@ const createV_Tunnel = (y1: number, y2: number, x: number, map: Tile[][]) => {
 };
 
 export const generateDungeon = (_floorLevel: number): DungeonMap => {
-  // 1. 全てを壁で埋める
   const map: Tile[][] = [];
   for (let y = 0; y < MAP_HEIGHT; y++) {
     const row: Tile[] = [];
@@ -71,7 +70,6 @@ export const generateDungeon = (_floorLevel: number): DungeonMap => {
       center: { x: Math.floor(x + w / 2), y: Math.floor(y + h / 2) }
     };
 
-    // 重なりチェック
     let failed = false;
     for (const otherRoom of rooms) {
       if (
@@ -88,17 +86,12 @@ export const generateDungeon = (_floorLevel: number): DungeonMap => {
     if (!failed) {
       createRoom(newRoom, map);
       
-      // 部屋の中心座標を保存
       const { center } = newRoom;
 
       if (rooms.length === 0) {
-        // 最初の部屋の中心をプレイヤーのスタート地点にする
         playerStart = center;
       } else {
-        // 前の部屋の中心と通路でつなぐ
         const prevCenter = rooms[rooms.length - 1].center;
-        
-        // ランダムに通路の順序を決める
         if (Math.random() > 0.5) {
           createH_Tunnel(prevCenter.x, center.x, prevCenter.y, map);
           createV_Tunnel(prevCenter.y, center.y, center.x, map);
@@ -108,11 +101,30 @@ export const generateDungeon = (_floorLevel: number): DungeonMap => {
         }
       }
 
-      // この部屋のランダムな位置を敵スポーン候補として追加（スタート地点付近以外）
-      if (rooms.length > 0) { // 最初の部屋以外
-          const spawnX = Math.floor(Math.random() * (newRoom.w - 2)) + newRoom.x + 1;
-          const spawnY = Math.floor(Math.random() * (newRoom.h - 2)) + newRoom.y + 1;
-          validSpawnPoints.push({ x: spawnX, y: spawnY });
+      // スポーン候補
+      if (rooms.length > 0) { 
+          // 敵スポーン用
+          for(let k=0; k<2; k++){
+              const sx = Math.floor(Math.random() * (newRoom.w - 2)) + newRoom.x + 1;
+              const sy = Math.floor(Math.random() * (newRoom.h - 2)) + newRoom.y + 1;
+              validSpawnPoints.push({ x: sx, y: sy });
+          }
+      }
+
+      // 宝箱配置 (20%の確率で部屋に配置)
+      if (Math.random() < 0.2 && rooms.length > 0) {
+          const cx = Math.floor(Math.random() * (newRoom.w - 2)) + newRoom.x + 1;
+          const cy = Math.floor(Math.random() * (newRoom.h - 2)) + newRoom.y + 1;
+          
+          // 既存のオブジェクトと被らないか簡易チェック (今回は上書き)
+          map[cy][cx] = {
+              type: 'chest',
+              x: cx, 
+              y: cy,
+              visible: false,
+              explored: false,
+              meta: { itemId: Math.random() > 0.7 ? 'ether' : 'potion', opened: false }
+          };
       }
 
       rooms.push(newRoom);
@@ -122,7 +134,6 @@ export const generateDungeon = (_floorLevel: number): DungeonMap => {
   // 3. 階段の配置（最後の部屋の中心）
   const lastRoom = rooms[rooms.length - 1];
   if (lastRoom) {
-    // TileType に合わせて 'stairs_down' を使用
     map[lastRoom.center.y][lastRoom.center.x] = { 
       type: 'stairs_down', 
       x: lastRoom.center.x, 
@@ -130,7 +141,6 @@ export const generateDungeon = (_floorLevel: number): DungeonMap => {
       visible: false, 
       explored: false 
     };
-    // 階段位置はスポーン候補から除外
     validSpawnPoints = validSpawnPoints.filter(p => p.x !== lastRoom.center.x || p.y !== lastRoom.center.y);
   }
 
