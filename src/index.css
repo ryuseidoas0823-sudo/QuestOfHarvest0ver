@@ -2,32 +2,70 @@
 @tailwind components;
 @tailwind utilities;
 
-body { margin: 0; padding: 0; background-color: #0f172a; color: white; overflow: hidden; }
-.pixel-art { image-rendering: pixelated; }
-.text-shadow-strong { text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
+:root {
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
 
-@keyframes mist {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-.bg-mist {
-  background: linear-gradient(-45deg, #0f172a, #1e293b, #0f172a, #312e81);
-  background-size: 400% 400%;
-  animation: mist 15s ease infinite;
+  color-scheme: dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom Scrollbar for Shop */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 8px;
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: #000;
+  overflow: hidden; /* スクロール防止 */
 }
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: #1e293b; 
+
+/* 攻撃アニメーション（突き） */
+@keyframes attack-thrust {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(10px, -10px) scale(1.1); }
+  40% { transform: translate(-5px, 5px); }
+  100% { transform: translate(0, 0); }
 }
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #d97706; 
-  border-radius: 4px;
+
+/* ダメージ時の振動 */
+@keyframes shake {
+  0% { transform: translate(1px, 1px) rotate(0deg); }
+  10% { transform: translate(-1px, -2px) rotate(-1deg); }
+  20% { transform: translate(-3px, 0px) rotate(1deg); }
+  30% { transform: translate(3px, 2px) rotate(0deg); }
+  40% { transform: translate(1px, -1px) rotate(1deg); }
+  50% { transform: translate(-1px, 2px) rotate(-1deg); }
+  60% { transform: translate(-3px, 1px) rotate(0deg); }
+  70% { transform: translate(3px, 1px) rotate(-1deg); }
+  80% { transform: translate(-1px, -1px) rotate(1deg); }
+  90% { transform: translate(1px, 2px) rotate(0deg); }
+  100% { transform: translate(1px, -2px) rotate(-1deg); }
 }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #b45309; 
+
+/* 被ダメージ時の点滅 */
+@keyframes flash-red {
+  0% { filter: brightness(1) sepia(0) saturate(1) hue-rotate(0deg); }
+  50% { filter: brightness(0.5) sepia(1) saturate(10) hue-rotate(-50deg); } /* 赤く光る */
+  100% { filter: brightness(1) sepia(0) saturate(1) hue-rotate(0deg); }
+}
+
+/* クラス定義 */
+.animate-attack {
+  animation: attack-thrust 0.2s ease-in-out;
+}
+
+.animate-shake {
+  animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+.animate-damage {
+  animation: flash-red 0.3s ease-out;
 }
