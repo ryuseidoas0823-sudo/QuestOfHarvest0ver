@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react';
-import { PlayerState, JobId, GodId, Stats } from '../types';
+import { PlayerState, JobId, GodId, Stats, Item } from '../types';
 import { jobs } from '../data/jobs';
-import { gods } from '../data/gods';
 import { getNextLevelExp } from '../data/balance';
+import { items as itemData } from '../data/items';
 
 const INITIAL_STATS: Stats = {
   str: 10, vit: 10, dex: 10, agi: 10, int: 10, luc: 10,
@@ -22,7 +22,7 @@ const INITIAL_STATE: PlayerState = {
   nextExp: getNextLevelExp(1),
   gold: 0,
   equipment: { weapon: null, armor: null, accessory: null },
-  inventory: [],
+  inventory: [], // string[] of itemIds
   jobId: 'swordsman',
   godId: 'war',
   skills: [],
@@ -39,6 +39,74 @@ export const usePlayer = () => {
     setPlayerState(prev => ({ ...prev, ...updates }));
   }, []);
 
+  // アイテム入手
+  const addItem = useCallback((itemId: string) => {
+    setPlayerState(prev => ({
+      ...prev,
+      inventory: [...prev.inventory, itemId]
+    }));
+  }, []);
+
+  // アイテム使用
+  const useItem = useCallback((index: number): string | null => {
+    let message = null;
+    
+    setPlayerState(prev => {
+      const itemId = prev.inventory[index];
+      const item = itemData[itemId];
+      
+      if (!item || item.type !== 'consumable') {
+        return prev;
+      }
+
+      // 効果適用
+      let newHp = prev.hp;
+      let newSp = prev.sp;
+      let used = false;
+
+      if (item.effect?.type === 'heal_hp') {
+        if (prev.hp < prev.maxHp) {
+            newHp = Math.min(prev.maxHp, prev.hp + (item.effect.value || 0));
+            used = true;
+            message = `${item.name}を使った。HPが回復した。`;
+        } else {
+            message = `HPは満タンだ。`;
+        }
+      } else if (item.effect?.type === 'heal_sp') {
+        if (prev.sp < prev.maxSp) {
+            newSp = Math.min(prev.maxSp, prev.sp + (item.effect.value || 0));
+            used = true;
+            message = `${item.name}を使った。SPが回復した。`;
+        } else {
+            message = `SPは満タンだ。`;
+        }
+      } else if (item.effect?.type === 'heal_full') {
+         newHp = prev.maxHp;
+         newSp = prev.maxSp;
+         used = true;
+         message = `${item.name}を使った。全回復した！`;
+      }
+
+      if (used) {
+        // 使用したアイテムを削除
+        const newInventory = [...prev.inventory];
+        newInventory.splice(index, 1);
+        
+        return {
+          ...prev,
+          hp: newHp,
+          sp: newSp,
+          inventory: newInventory
+        };
+      }
+      
+      return prev;
+    });
+
+    return message;
+  }, []);
+
+
   // 経験値獲得とレベルアップ処理
   const gainExp = useCallback((amount: number) => {
     setPlayerState(prev => {
@@ -47,7 +115,6 @@ export const usePlayer = () => {
       let nextLevelExp = prev.nextExp;
       let leveledUp = false;
 
-      // レベルアップ判定（複数レベルアップ対応）
       while (currentExp >= nextLevelExp) {
         currentExp -= nextLevelExp;
         currentLevel++;
@@ -59,8 +126,6 @@ export const usePlayer = () => {
         return { ...prev, exp: currentExp, nextExp: nextLevelExp };
       }
 
-      // レベルアップ時のステータス上昇
-      // ジョブ成長率を取得
       const jobGrowth = jobs[prev.jobId]?.growthRates || { str: 1, vit: 1, dex: 1, agi: 1, int: 1, luc: 1 };
       
       const newStats = { ...prev.stats };
@@ -71,15 +136,12 @@ export const usePlayer = () => {
       newStats.int += jobGrowth.int;
       newStats.luc += jobGrowth.luc;
 
-      // HP/SP上昇 (VIT/INT依存の簡易計算)
       const hpGain = Math.floor(jobGrowth.vit * 2 + Math.random() * 3);
       const spGain = Math.floor(jobGrowth.int * 1 + Math.random() * 2);
 
       const newMaxHp = prev.maxHp + hpGain;
       const newMaxSp = prev.maxSp + spGain;
 
-      // 派生ステータス再計算
-      // Attack = STR * 2, Defense = VIT * 1.5
       newStats.attack = Math.floor(newStats.str * 2);
       newStats.defense = Math.floor(newStats.vit * 1.5);
 
@@ -92,9 +154,9 @@ export const usePlayer = () => {
         nextExp: nextLevelExp,
         stats: newStats,
         maxHp: newMaxHp,
-        hp: newMaxHp, // 全回復
+        hp: newMaxHp,
         maxSp: newMaxSp,
-        sp: newMaxSp  // 全回復
+        sp: newMaxSp
       };
     });
   }, []);
@@ -108,10 +170,7 @@ export const usePlayer = () => {
     if (!job) return;
 
     setPlayerState(prev => {
-      // 基本ステータスをジョブ補正
-      // ※ 本来はBase + JobBonusだが、ここではベースごと書き換え
       const newStats = { ...job.baseStats };
-      
       return {
         ...prev,
         jobId,
@@ -126,7 +185,6 @@ export const usePlayer = () => {
 
   const selectGod = useCallback((godId: GodId) => {
     setPlayerState(prev => ({ ...prev, godId }));
-    // 神の恩恵（パッシブボーナス）は別途計算時に参照する
   }, []);
 
   const clearLevelUpLog = useCallback(() => setLevelUpLog(null), []);
@@ -138,6 +196,8 @@ export const usePlayer = () => {
     selectJob,
     selectGod,
     gainExp,
+    addItem, // 公開
+    useItem, // 公開
     levelUpLog,
     clearLevelUpLog
   };
