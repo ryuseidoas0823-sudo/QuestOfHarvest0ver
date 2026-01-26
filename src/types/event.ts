@@ -1,5 +1,3 @@
-import { ItemDefinition } from './item';
-
 export type EventType = 'treasure' | 'trap' | 'encounter' | 'fountain' | 'rest';
 
 export interface GameEventChoice {
