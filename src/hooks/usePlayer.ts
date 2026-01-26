@@ -20,7 +20,7 @@ const INITIAL_STATE: PlayerState = {
   level: 1,
   exp: 0,
   nextExp: getNextLevelExp(1),
-  gold: 0,
+  gold: 100, // 初期所持金を少し増やす
   equipment: { weapon: null, armor: null, accessory: null },
   inventory: [], 
   jobId: 'swordsman',
@@ -44,6 +44,53 @@ export const usePlayer = () => {
       ...prev,
       inventory: [...prev.inventory, itemId]
     }));
+  }, []);
+
+  // アイテム購入
+  const buyItem = useCallback((itemId: string): boolean => {
+    const item = itemData[itemId];
+    if (!item) return false;
+
+    // 所持金チェック
+    // Reactのstate更新関数内で判定しないと最新のgoldが取れない可能性があるが、
+    // ここでは簡易的に現在のstateを参照する形にするか、updater内で処理する
+    // ただし、updater内だと戻り値を返しにくい。
+    // 今回はuseCallbackの依存配列にplayerStateを入れるか、
+    // 呼び出し元でチェックしてからupdaterを呼ぶ形にする。
+    
+    // ここでは簡易的に「処理が成功したか」を返すために、
+    // setPlayerState内で条件分岐し、失敗なら変更せず、
+    // 呼び出し元には「stateが更新されたか」をどう伝えるか...
+    // シンプルに playerState を依存配列に入れて直接判定します。
+    
+    // ※ 本来は reducer パターンの方が安全ですが、この構成に合わせて実装します。
+    if (playerState.gold < item.price) return false;
+
+    setPlayerState(prev => ({
+      ...prev,
+      gold: prev.gold - item.price,
+      inventory: [...prev.inventory, itemId]
+    }));
+    return true;
+  }, [playerState.gold, playerState.inventory]); // goldとinventoryに依存
+
+  // アイテム売却
+  const sellItem = useCallback((index: number) => {
+    setPlayerState(prev => {
+      const itemId = prev.inventory[index];
+      const item = itemData[itemId];
+      if (!item) return prev;
+
+      const sellPrice = Math.floor(item.price / 2);
+      const newInventory = [...prev.inventory];
+      newInventory.splice(index, 1);
+
+      return {
+        ...prev,
+        gold: prev.gold + sellPrice,
+        inventory: newInventory
+      };
+    });
   }, []);
 
   const useItem = useCallback((index: number): string | null => {
@@ -159,20 +206,17 @@ export const usePlayer = () => {
     setPlayerState(INITIAL_STATE);
   }, []);
 
-  // ゲームオーバー時の復活処理（街に戻る）
   const respawnAtTown = useCallback(() => {
     setPlayerState(prev => ({
       ...prev,
       hp: prev.maxHp,
       sp: prev.maxSp,
-      gold: Math.floor(prev.gold / 2), // デスペナルティ：所持金半減
-      // ダンジョン内座標のリセットなどは別途行われるが、念のため
+      gold: Math.floor(prev.gold / 2), 
       x: 1,
       y: 1
     }));
   }, []);
 
-  // 宿屋などでの全回復
   const fullHeal = useCallback(() => {
       setPlayerState(prev => ({
           ...prev,
@@ -209,12 +253,14 @@ export const usePlayer = () => {
     playerState,
     updatePlayerStatus,
     resetPlayer,
-    respawnAtTown, // 追加
-    fullHeal,      // 追加
+    respawnAtTown, 
+    fullHeal,      
     selectJob,
     selectGod,
     gainExp,
-    addItem, 
+    addItem,
+    buyItem, // 追加
+    sellItem, // 追加
     useItem, 
     levelUpLog,
     clearLevelUpLog
