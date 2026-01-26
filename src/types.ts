@@ -17,6 +17,7 @@ export type Direction = 'up' | 'down' | 'left' | 'right';
 export interface Tile {
   type: 'wall' | 'floor' | 'corridor' | 'stairs_down' | 'stairs_up' | 'door';
   visible: boolean;
+  explored?: boolean; // 追加
   x: number;
   y: number;
   roomId?: number;
@@ -105,4 +106,6 @@ export interface DungeonMap {
   height: number;
   map: Tile[][]; // 'tiles' ではなく 'map' に統一
   rooms: any[];
+  startPosition?: { x: number; y: number }; // 追加
+  spawnPoints?: { x: number; y: number }[]; // 追加
 }
