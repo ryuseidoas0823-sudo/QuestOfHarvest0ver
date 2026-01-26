@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { PlayerState, DungeonMap } from '../types';
+import { PlayerState } from '../types';
 import { EnemyInstance } from '../types/enemy';
 
 interface TurnState {
@@ -11,7 +11,7 @@ export const useTurnSystem = (
   _playerState: PlayerState,
   _dungeonState: any, // 循環参照回避のためany、あるいはDungeonState型
   _updateEntityPosition: (id: string, x: number, y: number) => void,
-  updatePlayerStatus: (updates: Partial<PlayerState>) => void,
+  _updatePlayerStatus: (updates: Partial<PlayerState>) => void,
   addLog: (msg: string) => void
 ) => {
   const [turnState, setTurnState] = useState<TurnState>({
