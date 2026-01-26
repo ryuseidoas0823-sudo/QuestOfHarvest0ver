@@ -7,89 +7,70 @@ import { useEventSystem } from './useEventSystem';
 import { useGamepad } from './useGamepad';
 import { Direction } from '../types';
 
-/**
- * ゲーム全体のロジックを統括するカスタムフック
- * App.tsxからロジックを分離し、各サブシステム（Dungeon, Turn, Event）を連携させる
- */
 export const useGameCore = () => {
-  // --- State Management ---
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
   const [isPaused, setIsPaused] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [showStatus, setShowStatus] = useState(false);
 
-  // --- Sub-Systems ---
   const player = usePlayer();
   const eventSystem = useEventSystem();
   
-  // Dungeon System
   const dungeon = useDungeon(
     player.playerState,
     (updates) => player.updatePlayerStatus(updates)
   );
 
-  // Turn System
   const turnSystem = useTurnSystem(
     player.playerState,
     dungeon.dungeonState,
     dungeon.updateEntityPosition,
     player.updatePlayerStatus,
     eventSystem.addLog,
-    dungeon.damageEnemy
+    dungeon.damageEnemy,
+    player.gainExp
   );
 
-  // Input System (Gamepad/Keyboard)
   const gamepad = useGamepad();
 
-  // --- Game Flow Control ---
+  // --- Handlers ---
 
-  // ゲーム開始（タイトル -> 名前入力）
   const handleStartGame = useCallback(() => {
     player.resetPlayer();
     setCurrentScreen('name_input');
   }, [player]);
 
-  // 名前決定 -> ジョブ選択
   const handleNameDecided = useCallback((name: string) => {
     player.updatePlayerStatus({ name });
     setCurrentScreen('job_select');
   }, [player]);
 
-  // ジョブ選択完了 -> 神選択
   const handleJobSelected = useCallback((jobId: any) => {
     player.selectJob(jobId);
     setCurrentScreen('god_select');
   }, [player]);
 
-  // 神選択完了 -> 街へ（チュートリアル）
   const handleGodSelected = useCallback((godId: any) => {
     player.selectGod(godId);
-    // 初回のみチュートリアルを表示するロジックを入れるならここ
-    // 今回は簡易的にチュートリアル画面へ
     setCurrentScreen('tutorial');
   }, [player]);
 
-  // チュートリアル終了 -> 街
   const handleTutorialComplete = useCallback(() => {
     setCurrentScreen('town');
   }, []);
 
-  // ダンジョン探索開始
   const handleEnterDungeon = useCallback(() => {
     dungeon.generateFloor(1);
     setCurrentScreen('dungeon');
     eventSystem.addLog('ダンジョンに入った！');
   }, [dungeon, eventSystem]);
 
-  // 街に戻る
   const handleReturnToTown = useCallback(() => {
     setCurrentScreen('town');
-    // ダンジョン状態のリセット等は必要に応じて
   }, []);
 
-  // --- Input Handling ---
+  // --- Action Logic ---
   
-  // プレイヤー移動処理
   const handleMove = useCallback((direction: Direction) => {
     if (currentScreen !== 'dungeon' || isPaused || eventSystem.eventState.isEventActive) return;
     if (turnSystem.turnState.isProcessing) return;
@@ -100,50 +81,70 @@ export const useGameCore = () => {
     }
   }, [currentScreen, isPaused, eventSystem.eventState.isEventActive, turnSystem, dungeon]);
 
-  // アクション（攻撃など）
   const handleAction = useCallback(() => {
     if (currentScreen !== 'dungeon' || isPaused) return;
     
-    // 目の前の敵を攻撃
-    // ※ 簡易実装：本来は攻撃範囲判定などが必要
-    const target = dungeon.getFrontEnemy();
-    if (target) {
-      turnSystem.executePlayerAttack(target);
-      turnSystem.advanceTurn();
-    } else {
-      // 空振り、または調査
-      eventSystem.addLog('そこには何もいない。');
-      turnSystem.advanceTurn();
-    }
-  }, [currentScreen, isPaused, dungeon, turnSystem, eventSystem]);
+    // 1. 目の前の敵を攻撃
+    const targetEnemy = dungeon.getFrontEnemy();
+    if (targetEnemy) {
+      turnSystem.executePlayerAttack(targetEnemy);
+      return;
+    } 
 
-  // キーボード/ゲームパッド入力の監視
+    // 2. 目の前の宝箱を開ける
+    const targetTile = dungeon.getFrontTile();
+    if (targetTile && targetTile.type === 'chest' && !targetTile.meta?.opened) {
+        const msg = dungeon.openChest(targetTile.x, targetTile.y);
+        if (msg) eventSystem.addLog(msg);
+        
+        // アイテム入手処理
+        if (targetTile.meta?.itemId) {
+            player.addItem(targetTile.meta.itemId);
+        }
+        turnSystem.advanceTurn();
+        return;
+    }
+
+    // 3. 何もなければメッセージ
+    eventSystem.addLog('そこには何もない。');
+    turnSystem.advanceTurn();
+
+  }, [currentScreen, isPaused, dungeon, turnSystem, eventSystem, player]);
+
+  // アイテム使用ハンドラ（インベントリ画面から呼ぶ）
+  const handleUseItem = useCallback((index: number) => {
+      const msg = player.useItem(index);
+      if (msg) {
+          eventSystem.addLog(msg);
+          // ターン消費するかはゲームバランス次第。今回は消費しない（あるいはメニュー閉じた後消費）
+      }
+  }, [player, eventSystem]);
+
   useEffect(() => {
     if (gamepad.isPressed('UP')) handleMove('up');
     if (gamepad.isPressed('DOWN')) handleMove('down');
     if (gamepad.isPressed('LEFT')) handleMove('left');
     if (gamepad.isPressed('RIGHT')) handleMove('right');
-    
-    // 単押し判定が必要なものは別途ロジックが必要だが、一旦簡易的に
     if (gamepad.isPressed('A')) handleAction();
-    
-    // メニュー開閉など
     if (gamepad.isPressed('START')) setIsPaused(prev => !prev);
     if (gamepad.isPressed('Y')) setShowInventory(prev => !prev);
-
   }, [gamepad.inputState, handleMove, handleAction]);
 
-
-  // --- Game Over / Clear Check ---
   useEffect(() => {
     if (player.playerState.hp <= 0 && currentScreen === 'dungeon') {
       setCurrentScreen('result');
     }
   }, [player.playerState.hp, currentScreen]);
 
+  useEffect(() => {
+    if (player.levelUpLog) {
+      eventSystem.addLog(player.levelUpLog);
+      player.clearLevelUpLog();
+    }
+  }, [player.levelUpLog, eventSystem, player]);
+
 
   return {
-    // States
     currentScreen,
     isPaused,
     setIsPaused,
@@ -151,14 +152,10 @@ export const useGameCore = () => {
     setShowInventory,
     showStatus,
     setShowStatus,
-
-    // Sub-System Hooks (exposed for UI)
     player,
     dungeon,
     turnSystem,
     eventSystem,
-
-    // Handlers
     handlers: {
       onStartGame: handleStartGame,
       onNameDecided: handleNameDecided,
@@ -169,6 +166,7 @@ export const useGameCore = () => {
       onReturnToTown: handleReturnToTown,
       onMove: handleMove,
       onAction: handleAction,
+      onUseItem: handleUseItem, // 追加
     }
   };
 };
