@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { PlayerState, DungeonMap, Direction, Tile } from '../types';
-import { generateDungeon } from '../dungeonGenerator'; // 仮定：generatorが存在する
+import { generateDungeon } from '../dungeonGenerator'; 
 import { EnemyInstance } from '../types/enemy';
 
 interface DungeonState {
@@ -23,29 +23,18 @@ export const useDungeon = (
 
   // フロア生成
   const generateFloor = useCallback((floorNum: number) => {
-    // dungeonGeneratorの実装に依存するが、ここでは擬似的に生成してセット
-    const width = 20;
-    const height = 15;
-    const newMap: Tile[][] = Array(height).fill(null).map((_, y) => 
-      Array(width).fill(null).map((_, x) => ({
-        type: (x === 0 || x === width - 1 || y === 0 || y === height - 1) ? 'wall' : 'floor',
-        visible: true, // デバッグ用に全可視化
-        x,
-        y
-      }))
-    );
+    // dungeonGeneratorを使用してダンジョンを生成
+    const newDungeon = generateDungeon(floorNum);
     
-    // 階段配置
-    newMap[5][5].type = 'stairs_down';
-
     setDungeonState({
-      dungeon: { floor: floorNum, width, height, map: newMap, rooms: [] },
+      dungeon: newDungeon,
       floor: floorNum,
-      map: newMap,
+      map: newDungeon.map,
       enemies: [] // 敵生成ロジックは別途必要
     });
 
-    // プレイヤー初期位置
+    // プレイヤー初期位置 (generateDungeon側で決めるのが理想だが、ここでは仮に安全な場所へ)
+    // ※ 本来は spawn point を探すべき
     updatePlayer({ x: 2, y: 2 });
   }, [updatePlayer]);
 
