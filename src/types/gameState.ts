@@ -1,16 +1,18 @@
-// 画面状態の型定義
 export type GameScreen = 
-  | 'title'         // タイトル画面
-  | 'job_select'    // 職業選択画面
-  | 'god_select'    // 神選択画面
-  | 'town'          // 街（拠点）
-  | 'dungeon'       // ダンジョン探索中
-  | 'result'        // リザルト（ゲームオーバー/クリア）
-  | 'tutorial';     // チュートリアル
+  | 'title' 
+  | 'name_input' // 追加
+  | 'job_select' 
+  | 'god_select' 
+  | 'tutorial'
+  | 'town' 
+  | 'dungeon' 
+  | 'battle' 
+  | 'result' 
+  | 'shop'
+  | 'status_upgrade'
+  | 'inventory';
 
-// ゲームの進行状況などを管理する型
 export interface GameState {
-  currentScreen: GameScreen;
-  isPaused: boolean;
-  floorDepth: number;
+  screen: GameScreen;
+  // 他に必要な状態があれば追加
 }
