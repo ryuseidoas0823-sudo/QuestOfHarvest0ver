@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { PlayerState, GameState } from '../types/gameState';
 import { calculateMaxPotions, calculateHealAmount } from '../utils/potion';
+import { ITEMS } from '../data/items'; // 追加
 
 // 初期ステータス定義
 const INITIAL_PLAYER_STATS = {
@@ -23,7 +24,7 @@ export const usePlayer = () => {
     level: 1,
     exp: 0,
     nextExp: 100,
-    gold: 0,
+    gold: 500, // 少し所持金を持たせる
     position: { x: 1, y: 1 },
     direction: 'down',
     ...INITIAL_PLAYER_STATS,
@@ -32,12 +33,17 @@ export const usePlayer = () => {
     quickPotion: {
       current: 3,
       max: 3
-    }
+    },
+    inventory: [
+        // テスト用に初期アイテムを持たせる
+        { item: ITEMS['potion_low'], quantity: 3 },
+        { item: ITEMS['ether_low'], quantity: 1 }
+    ],
+    equipment: {}
   });
 
   /**
-   * ポーションを使用するアクション
-   * ターン消費なしで即時回復
+   * ポーションを使用するアクション (Quick Potion)
    */
   const useQuickPotion = useCallback((
     gameState: GameState, 
@@ -46,20 +52,14 @@ export const usePlayer = () => {
   ) => {
     setGameState(prev => {
       const player = prev.player;
-
-      // チェック: 所持数があるか
       if (player.quickPotion.current <= 0) {
         addLog("クイックポーションが切れている！", 'warning');
         return prev;
       }
-
-      // チェック: HPが満タンか
       if (player.hp >= player.maxHp) {
         addLog("HPは満タンだ。", 'warning');
         return prev;
       }
-
-      // 回復計算
       const healAmount = calculateHealAmount(player);
       const newHp = Math.min(player.maxHp, player.hp + healAmount);
       const actualHeal = newHp - player.hp;
@@ -81,7 +81,7 @@ export const usePlayer = () => {
   }, []);
 
   /**
-   * ポーションを補充する（街などで使用）
+   * ポーションを補充する
    */
   const refillPotions = useCallback((
     setGameState: React.Dispatch<React.SetStateAction<GameState>>
