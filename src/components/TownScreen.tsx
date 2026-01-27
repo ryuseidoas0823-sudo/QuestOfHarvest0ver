@@ -1,82 +1,68 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { GameState } from '../types/gameState';
 
 interface TownScreenProps {
-  onEnterDungeon: () => void;
-  onOpenShop: () => void;
-  onOpenStatus: () => void;
-  onSave: () => void; // App.tsxでonHealAtInnが渡されているため、実質「宿屋」として機能
+  gameState: GameState;
+  onStartDungeon: () => void;
+  onSave: () => void;
+  onRefillPotions: () => void; // 追加
 }
 
-const TownScreen: React.FC<TownScreenProps> = ({ 
-  onEnterDungeon, 
-  onOpenShop, 
-  onOpenStatus, 
-  onSave 
-}) => {
+const TownScreen: React.FC<TownScreenProps> = ({ gameState, onStartDungeon, onSave, onRefillPotions }) => {
+  
+  // 街に戻ってきたらポーションを補充
+  useEffect(() => {
+    onRefillPotions();
+  }, [onRefillPotions]);
+
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-neutral-900 text-white font-sans relative overflow-hidden">
-      {/* 背景装飾（簡易） */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-neutral-800 via-black to-black opacity-50" />
-      
-      <div className="relative z-10 flex flex-col items-center gap-8 animate-fade-in w-full max-w-lg px-4">
+    <div className="relative w-full h-full bg-slate-900 flex flex-col items-center justify-center text-white">
+        {/* 背景画像があればここに */}
+        <div className="absolute inset-0 bg-[url('/town-bg.png')] bg-cover opacity-50" />
         
-        {/* タイトル */}
-        <div className="text-center">
-          <h2 className="text-4xl font-bold tracking-widest text-yellow-500 drop-shadow-md mb-2">
-            迷宮都市
-          </h2>
-          <p className="text-neutral-400 text-sm">
-            冒険の準備を整えよう
-          </p>
+        <div className="relative z-10 bg-slate-800/90 p-8 rounded-xl border-4 border-slate-600 shadow-2xl max-w-2xl w-full text-center">
+            <h2 className="text-3xl font-bold mb-2 text-amber-400">冒険者の拠点 オラリオ</h2>
+            <p className="text-slate-300 mb-8">次の冒険の準備を整えよう</p>
+
+            <div className="grid grid-cols-2 gap-4 mb-8">
+                <div className="bg-slate-700/50 p-4 rounded border border-slate-600">
+                    <h3 className="text-lg font-bold text-blue-300 mb-2">ステータス</h3>
+                    <div className="text-left font-mono text-sm space-y-1">
+                        <p>Name: {gameState.player.name}</p>
+                        <p>Level: {gameState.player.level}</p>
+                        <p>Gold: {gameState.player.gold} G</p>
+                    </div>
+                </div>
+                <div className="bg-slate-700/50 p-4 rounded border border-slate-600">
+                     <h3 className="text-lg font-bold text-green-300 mb-2">補給完了</h3>
+                     <p className="text-sm text-slate-300">
+                        クイックポーションが<br/>
+                        最大数({gameState.player.quickPotion?.max})まで補充されました。
+                     </p>
+                </div>
+            </div>
+
+            <div className="space-y-3">
+                <button 
+                    onClick={onStartDungeon}
+                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-lg transition-colors border-b-4 border-blue-800 active:border-b-0 active:translate-y-1"
+                >
+                    ダンジョンへ挑む
+                </button>
+                
+                <div className="grid grid-cols-2 gap-3">
+                    <button className="bg-slate-600 hover:bg-slate-500 text-white font-bold py-3 px-4 rounded-lg transition-colors border-b-4 border-slate-800">
+                        武具店 (未実装)
+                    </button>
+                    <button 
+                        onClick={onSave}
+                        className="bg-amber-700 hover:bg-amber-600 text-white font-bold py-3 px-4 rounded-lg transition-colors border-b-4 border-amber-900"
+                    >
+                        セーブして中断
+                    </button>
+                </div>
+            </div>
         </div>
-
-        {/* メニューボタン */}
-        <div className="flex flex-col gap-4 w-full">
-          
-          <button
-            onClick={onEnterDungeon}
-            className="w-full py-4 bg-gradient-to-r from-red-900 to-red-800 hover:from-red-800 hover:to-red-700 border border-red-700 rounded shadow-lg text-xl font-bold transition-transform transform hover:scale-105 flex items-center justify-center gap-2 group"
-          >
-            <span>⚔️</span>
-            <span className="group-hover:text-red-200">ダンジョンへ挑む</span>
-          </button>
-
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              onClick={onOpenShop}
-              className="py-3 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 rounded text-neutral-200 font-medium transition-colors flex flex-col items-center gap-1"
-            >
-              <span className="text-xl">💰</span>
-              <span>道具屋</span>
-            </button>
-
-            <button
-              onClick={onOpenStatus}
-              className="py-3 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 rounded text-neutral-200 font-medium transition-colors flex flex-col items-center gap-1"
-            >
-              <span className="text-xl">💪</span>
-              <span>ステータス</span>
-            </button>
-          </div>
-
-          <button
-            onClick={onSave}
-            className="w-full py-3 bg-blue-900/50 hover:bg-blue-800/50 border border-blue-800 rounded text-blue-200 font-medium transition-colors flex items-center justify-center gap-2"
-          >
-            <span>🛏️</span>
-            <span>宿屋で休む (全回復)</span>
-          </button>
-
-        </div>
-
-        {/* フッター情報 */}
-        <div className="mt-4 p-4 bg-black/50 rounded border border-neutral-800 w-full text-center">
-          <p className="text-xs text-neutral-500">
-            ※ 宿屋に泊まるとHP・SPが全回復します
-          </p>
-        </div>
-
-      </div>
     </div>
   );
 };
