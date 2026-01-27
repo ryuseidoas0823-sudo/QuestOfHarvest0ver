@@ -1,100 +1,118 @@
 import React from 'react';
-import { PlayerState, Tile } from '../types';
+import { GameState } from '../types/gameState';
+import { Heart, Shield, Zap, Activity, FlaskConical } from 'lucide-react';
 
 interface GameHUDProps {
-  playerState: PlayerState;
-  floor: number;
-  logs: string[];
-  miniMap: Tile[][];
+  gameState: GameState;
+  onUsePotion: () => void;
 }
 
-const GameHUD: React.FC<GameHUDProps> = ({ playerState, floor, logs, miniMap: _miniMap }) => {
-  // HP/SPの割合計算
-  const hpPercent = Math.max(0, Math.min(100, (playerState.hp / playerState.maxHp) * 100));
-  const spPercent = Math.max(0, Math.min(100, (playerState.sp / playerState.maxSp) * 100));
-  const expPercent = Math.max(0, Math.min(100, (playerState.exp / playerState.nextExp) * 100));
+const GameHUD: React.FC<GameHUDProps> = ({ gameState, onUsePotion }) => {
+  const { player } = gameState;
+
+  // HPバーの割合計算
+  const hpPercent = (player.hp / player.maxHp) * 100;
+  const mpPercent = (player.mp / player.maxMp) * 100;
+  // CTバーの割合計算 (100が満タン)
+  const ctPercent = Math.min(100, player.ct || 0);
 
   return (
-    <div className="w-full px-4 py-2 pointer-events-none flex justify-between items-start font-sans text-sm">
-      
-      {/* Left: Status Bars */}
-      <div className="flex flex-col gap-1 w-48 bg-black/60 p-2 rounded border border-neutral-600 backdrop-blur-sm">
-        {/* Name & Level */}
-        <div className="flex justify-between items-baseline mb-1">
-          <span className="font-bold text-yellow-500 text-base shadow-black drop-shadow-md">{playerState.name}</span>
-          <span className="text-xs text-neutral-300">Lv.{playerState.level}</span>
-        </div>
+    <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end pointer-events-none">
+      {/* 左側: ステータスバー */}
+      <div className="bg-slate-900/80 p-4 rounded-lg border-2 border-slate-700 pointer-events-auto backdrop-blur-sm">
+        <div className="flex items-center gap-4 mb-2">
+          <div>
+            <div className="text-xs text-slate-400 font-bold">LV</div>
+            <div className="text-xl text-yellow-400 font-bold leading-none">{player.level}</div>
+          </div>
+          <div className="flex-1">
+            <div className="text-sm font-bold text-white mb-1">{player.name}</div>
+            
+            {/* HP Bar */}
+            <div className="flex items-center gap-2 mb-1 w-48">
+              <Heart size={14} className="text-red-500" />
+              <div className="flex-1 h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-600">
+                <div 
+                  className="h-full bg-gradient-to-r from-red-600 to-red-500 transition-all duration-300"
+                  style={{ width: `${hpPercent}%` }}
+                />
+              </div>
+              <span className="text-xs text-white font-mono w-16 text-right">
+                {player.hp}/{player.maxHp}
+              </span>
+            </div>
 
-        {/* HP Bar */}
-        <div className="relative h-4 w-full bg-neutral-900 rounded border border-neutral-700 overflow-hidden">
-          <div 
-            className="absolute top-0 left-0 h-full bg-gradient-to-r from-red-600 to-red-500 transition-all duration-300"
-            style={{ width: `${hpPercent}%` }}
-          />
-          <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white drop-shadow-md">
-            HP {playerState.hp}/{playerState.maxHp}
+            {/* MP Bar */}
+            <div className="flex items-center gap-2 mb-1 w-48">
+              <Zap size={14} className="text-blue-500" />
+              <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-600">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-600 to-blue-400 transition-all duration-300"
+                  style={{ width: `${mpPercent}%` }}
+                />
+              </div>
+              <span className="text-xs text-slate-300 font-mono w-16 text-right">
+                {player.mp}/{player.maxMp}
+              </span>
+            </div>
+
+             {/* CT Bar (Active Turn) */}
+             <div className="flex items-center gap-2 w-48 mt-2">
+              <Activity size={14} className="text-green-500" />
+              <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden border border-slate-600">
+                <div 
+                  className="h-full bg-green-500 transition-all duration-100"
+                  style={{ width: `${ctPercent}%` }}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* SP Bar */}
-        <div className="relative h-3 w-full bg-neutral-900 rounded border border-neutral-700 overflow-hidden mt-1">
-          <div 
-            className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-600 to-blue-500 transition-all duration-300"
-            style={{ width: `${spPercent}%` }}
-          />
-          <div className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white drop-shadow-md">
-            SP {playerState.sp}/{playerState.maxSp}
-          </div>
-        </div>
-
-        {/* EXP Bar (Thin) */}
-        <div className="relative h-1.5 w-full bg-neutral-800 rounded-full border border-neutral-700 overflow-hidden mt-1">
-          <div 
-            className="absolute top-0 left-0 h-full bg-gradient-to-r from-yellow-500 to-yellow-300 transition-all duration-300"
-            style={{ width: `${expPercent}%` }}
-          />
-        </div>
-        
-        {/* Gold & Floor */}
-        <div className="flex justify-between mt-1 text-xs text-neutral-200">
-           <span className="flex items-center gap-1">
-             <span className="text-yellow-400">G</span> {playerState.gold}
-           </span>
-           <span className="flex items-center gap-1">
-             <span className="text-neutral-400">B</span> {floor}F
-           </span>
+        {/* クイックポーションエリア */}
+        <div className="mt-3 pt-2 border-t border-slate-700 flex items-center gap-3">
+            <button
+                onClick={onUsePotion}
+                className="group relative flex items-center gap-2 bg-red-900/40 hover:bg-red-900/60 border border-red-800/50 hover:border-red-500 rounded px-3 py-1.5 transition-all active:scale-95"
+                title="クイックポーションを使用 (Q)"
+            >
+                <div className="relative">
+                    <FlaskConical size={20} className="text-red-400 group-hover:text-red-300" />
+                    <div className="absolute -bottom-1 -right-1 bg-black text-white text-[10px] font-bold px-1 rounded border border-slate-600">
+                        Q
+                    </div>
+                </div>
+                <div className="flex flex-col items-start">
+                    <span className="text-[10px] text-red-300 font-bold uppercase tracking-wider">Quick Potion</span>
+                    <span className="text-sm font-mono text-white">
+                        {player.quickPotion?.current ?? 0} <span className="text-slate-500">/ {player.quickPotion?.max ?? 0}</span>
+                    </span>
+                </div>
+            </button>
         </div>
       </div>
 
-      {/* Center: Message Log (Latest 3) */}
-      <div className="flex-1 mx-4">
-        <div className="flex flex-col-reverse items-center gap-1 w-full opacity-90">
-          {logs.slice(-3).reverse().map((log, i) => (
+      {/* 右側: ログウィンドウ (既存コンポーネントがある場合はそちらを使用) */}
+      <div className="w-1/3 max-w-sm pointer-events-auto">
+        <div className="bg-black/60 backdrop-blur-sm p-2 rounded-lg border border-slate-700 h-32 overflow-y-auto text-sm font-mono flex flex-col-reverse shadow-lg">
+          {gameState.logs.map((log) => (
             <div 
-              key={i} 
-              className={`text-center px-3 py-1 rounded text-shadow-sm border border-transparent
-                ${i === 0 ? 'bg-black/70 text-white border-neutral-600 scale-100' : 'bg-black/40 text-gray-400 scale-90'}
-                transition-all duration-300
-              `}
+              key={log.id} 
+              className={`mb-1 break-words ${
+                log.type === 'danger' ? 'text-red-400 font-bold' :
+                log.type === 'warning' ? 'text-orange-300' :
+                log.type === 'success' ? 'text-green-400' : 'text-slate-300'
+              }`}
             >
-              {log}
+              <span className="opacity-50 mr-2 text-xs">
+                {/* タイムスタンプがあればここ */}
+                &gt;
+              </span>
+              {log.text}
             </div>
           ))}
         </div>
       </div>
-
-      {/* Right: Mini Map */}
-      <div className="w-24 h-24 bg-black/80 border-2 border-neutral-600 rounded p-1 opacity-80 relative overflow-hidden hidden sm:block">
-         <div className="w-full h-full grid grid-cols-10 grid-rows-10 gap-[1px]">
-            {/* 方角 */}
-            <div className="absolute inset-0 flex items-center justify-center text-neutral-600 font-bold text-2xl">
-              N
-            </div>
-            {/* プレイヤー位置 */}
-            <div className="absolute top-1/2 left-1/2 w-2 h-2 bg-blue-500 rounded-full -translate-x-1/2 -translate-y-1/2 shadow-[0_0_5px_#3b82f6]" />
-         </div>
-      </div>
-
     </div>
   );
 };
