@@ -1,6 +1,7 @@
 import React from 'react';
 import { GameState } from '../types/gameState';
 import { Heart, Shield, Zap, Activity, FlaskConical } from 'lucide-react';
+import { StatusIcon, getStatusColor } from '../utils/statusIcons';
 
 interface GameHUDProps {
   gameState: GameState;
@@ -19,8 +20,8 @@ const GameHUD: React.FC<GameHUDProps> = ({ gameState, onUsePotion }) => {
   return (
     <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end pointer-events-none">
       {/* 左側: ステータスバー */}
-      <div className="bg-slate-900/80 p-4 rounded-lg border-2 border-slate-700 pointer-events-auto backdrop-blur-sm">
-        <div className="flex items-center gap-4 mb-2">
+      <div className="bg-slate-900/80 p-4 rounded-lg border-2 border-slate-700 pointer-events-auto backdrop-blur-sm flex flex-col gap-2">
+        <div className="flex items-center gap-4 mb-1">
           <div>
             <div className="text-xs text-slate-400 font-bold">LV</div>
             <div className="text-xl text-yellow-400 font-bold leading-none">{player.level}</div>
@@ -69,8 +70,29 @@ const GameHUD: React.FC<GameHUDProps> = ({ gameState, onUsePotion }) => {
           </div>
         </div>
 
+        {/* 状態異常表示エリア */}
+        {player.statusEffects && player.statusEffects.length > 0 && (
+          <div className="flex gap-2 flex-wrap max-w-[280px]">
+            {player.statusEffects.map((effect, idx) => (
+              <div 
+                key={`${effect.id}-${idx}`} 
+                className={`flex items-center gap-1 px-2 py-1 rounded text-xs border ${getStatusColor(effect.type)}`}
+              >
+                <StatusIcon type={effect.type} size={12} />
+                <span className="text-white font-bold">{effect.name}</span>
+                {/* 999ターン以上は無限(∞)表示にするか、表示しない */}
+                {effect.duration < 99 && (
+                  <span className="text-slate-300 ml-1 font-mono">
+                    {effect.duration}T
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* クイックポーションエリア */}
-        <div className="mt-3 pt-2 border-t border-slate-700 flex items-center gap-3">
+        <div className="mt-2 pt-2 border-t border-slate-700 flex items-center gap-3">
             <button
                 onClick={onUsePotion}
                 className="group relative flex items-center gap-2 bg-red-900/40 hover:bg-red-900/60 border border-red-800/50 hover:border-red-500 rounded px-3 py-1.5 transition-all active:scale-95"
@@ -92,7 +114,7 @@ const GameHUD: React.FC<GameHUDProps> = ({ gameState, onUsePotion }) => {
         </div>
       </div>
 
-      {/* 右側: ログウィンドウ (既存コンポーネントがある場合はそちらを使用) */}
+      {/* 右側: ログウィンドウ */}
       <div className="w-1/3 max-w-sm pointer-events-auto">
         <div className="bg-black/60 backdrop-blur-sm p-2 rounded-lg border border-slate-700 h-32 overflow-y-auto text-sm font-mono flex flex-col-reverse shadow-lg">
           {gameState.logs.map((log) => (
@@ -105,7 +127,6 @@ const GameHUD: React.FC<GameHUDProps> = ({ gameState, onUsePotion }) => {
               }`}
             >
               <span className="opacity-50 mr-2 text-xs">
-                {/* タイムスタンプがあればここ */}
                 &gt;
               </span>
               {log.text}
