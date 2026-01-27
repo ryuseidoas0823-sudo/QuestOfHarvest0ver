@@ -1,156 +1,118 @@
-import { useCallback } from 'react';
-import { GameState, Player, Enemy } from '../types/gameState'; // パスは環境に合わせて
-import { StatusEffect, CooldownState } from '../types/combat';
+import { useState, useCallback } from 'react';
+import { GameState, PlayerState, LogEntry } from '../types/gameState';
+import { EnemyInstance } from '../types/enemy';
+import { StatusEffect } from '../types/combat';
+import { useGameCore } from './useGameCore';
 
-// ユーティリティ: 状態異常の処理（1ターン経過分）
-// 戻り値: { newStatusEffects, damageTaken, messages }
-const processStatusEffects = (
-  entityName: string,
-  effects: StatusEffect[]
-): { nextEffects: StatusEffect[], damage: number, logs: string[] } => {
-  let damage = 0;
-  const logs: string[] = [];
-  const nextEffects: StatusEffect[] = [];
-
-  effects.forEach(effect => {
-    // 継続ダメージ処理
-    if (effect.type === 'poison') {
-      const dmg = effect.value || 1;
-      damage += dmg;
-      logs.push(`${entityName}は毒で${dmg}のダメージを受けた！`);
-    } else if (effect.type === 'burn') {
-      const dmg = effect.value || 3;
-      damage += dmg;
-      logs.push(`${entityName}は燃焼で${dmg}のダメージを受けた！`);
-    } else if (effect.type === 'regen') {
-        // 回復はダメージをマイナスにする（呼び出し元で吸収）
-        const heal = effect.value || 1;
-        damage -= heal; 
-        logs.push(`${entityName}は再生効果で${heal}回復した。`);
-    }
-
-    // ターン減少
-    if (effect.duration > 1) {
-      nextEffects.push({ ...effect, duration: effect.duration - 1 });
-    } else {
-      logs.push(`${entityName}の${effect.name}効果が切れた。`);
-    }
-  });
-
-  return { nextEffects, damage, logs };
+// 状態異常によるダメージ計算などの定数
+const STATUS_DAMAGE = {
+  POISON: 0.05, // MaxHPの5%
+  BURN: 0.08,   // MaxHPの8%
+  REGEN: 0.05,  // MaxHPの5%回復
 };
-
-// ユーティリティ: クールダウン減少
-const processCooldowns = (cooldowns: CooldownState): CooldownState => {
-  const nextCD: CooldownState = {};
-  Object.keys(cooldowns).forEach(key => {
-    if (cooldowns[key] > 0) {
-      nextCD[key] = Math.max(0, cooldowns[key] - 1);
-    }
-  });
-  return nextCD;
-};
-
 
 export const useTurnSystem = (
+  gameState: GameState, 
   setGameState: React.Dispatch<React.SetStateAction<GameState>>,
-  addLog: (message: string, type?: any) => void
+  addLog: (text: string, type?: LogEntry['type']) => void
 ) => {
+  // 状態異常の処理（ターン開始時）
+  const processStatusEffects = useCallback((entity: PlayerState | EnemyInstance, isPlayer: boolean): { 
+    entity: PlayerState | EnemyInstance, 
+    messages: string[],
+    shouldSkipTurn: boolean 
+  } => {
+    let currentEntity = { ...entity };
+    const messages: string[] = [];
+    let shouldSkipTurn = false;
+    
+    // 状態異常がなければそのまま返す
+    if (!currentEntity.statusEffects || currentEntity.statusEffects.length === 0) {
+      return { entity: currentEntity, messages, shouldSkipTurn };
+    }
 
-  const processTurn = useCallback(() => {
-    setGameState(prev => {
-      // 1. プレイヤーの状態異常・CD処理
-      const pEffectResult = processStatusEffects(prev.player.name, prev.player.statusEffects || []);
-      const nextPlayerCD = processCooldowns(prev.player.cooldowns || {});
+    const remainingEffects: StatusEffect[] = [];
 
-      // プレイヤーHP変動 (ダメージ or 回復)
-      let newPlayerHp = prev.player.stats.hp - pEffectResult.damage;
-      newPlayerHp = Math.min(prev.player.stats.maxHp, Math.max(0, newPlayerHp));
-
-      // ログ出力
-      pEffectResult.logs.forEach(msg => addLog(msg));
-      
-      if (newPlayerHp <= 0) {
-        // ゲームオーバー処理
-        return {
-          ...prev,
-          player: {
-            ...prev.player,
-            stats: { ...prev.player.stats, hp: 0 },
-            statusEffects: pEffectResult.nextEffects,
-            cooldowns: nextPlayerCD
-          },
-          isGameOver: true,
-          messages: [...prev.messages, { text: 'あなたは力尽きた...', type: 'danger' }]
-        };
+    currentEntity.statusEffects.forEach(effect => {
+      // 効果処理
+      switch (effect.type) {
+        case 'poison':
+          const poisonDmg = Math.max(1, Math.floor(currentEntity.maxHp * STATUS_DAMAGE.POISON));
+          currentEntity.hp = Math.max(0, currentEntity.hp - poisonDmg);
+          messages.push(`${currentEntity.name}は毒で${poisonDmg}のダメージを受けた！`);
+          break;
+          
+        case 'burn':
+          const burnDmg = Math.max(1, Math.floor(currentEntity.maxHp * STATUS_DAMAGE.BURN));
+          currentEntity.hp = Math.max(0, currentEntity.hp - burnDmg);
+          messages.push(`${currentEntity.name}は燃焼で${burnDmg}のダメージを受けた！`);
+          break;
+          
+        case 'regen':
+          if (currentEntity.hp < currentEntity.maxHp) {
+            const heal = Math.max(1, Math.floor(currentEntity.maxHp * STATUS_DAMAGE.REGEN));
+            currentEntity.hp = Math.min(currentEntity.maxHp, currentEntity.hp + heal);
+            messages.push(`${currentEntity.name}はHPが${heal}回復した。`);
+          }
+          break;
+          
+        case 'stun':
+          shouldSkipTurn = true;
+          messages.push(`${currentEntity.name}はスタンしていて動けない！`);
+          break;
       }
 
-      // 2. 敵のAI行動 & 状態異常処理
-      let newEnemies = prev.enemies.map(enemy => {
-        // 敵の状態異常処理
-        const eEffectResult = processStatusEffects(enemy.name, enemy.statusEffects || []);
-        
-        let newEnemyHp = enemy.hp - eEffectResult.damage;
-        newEnemyHp = Math.min(enemy.maxHp, Math.max(0, newEnemyHp));
+      // ターン経過処理（999は永続/トグル扱いとして減らさない）
+      if (effect.duration < 999) {
+        effect.duration -= 1;
+      }
 
-        eEffectResult.logs.forEach(msg => addLog(msg)); // 戦闘ログが流れるので要調整
+      // 継続する効果のみ残す
+      if (effect.duration > 0) {
+        remainingEffects.push(effect);
+      } else {
+        messages.push(`${currentEntity.name}の${effect.name}の効果が切れた。`);
+      }
+    });
 
-        // 敵の行動（簡易AI: プレイヤーに近づく）
-        // ※ 本来はここで攻撃処理などが入る
-        // ※ Stun状態なら行動スキップ
-        const isStunned = eEffectResult.nextEffects.some(e => e.type === 'stun');
-        let newPos = enemy.position;
+    currentEntity.statusEffects = remainingEffects;
+    
+    return { entity: currentEntity, messages, shouldSkipTurn };
+  }, []);
 
-        if (!isStunned && newEnemyHp > 0) {
-            // 移動ロジック (useDungeon/useGameCoreにあるものを簡易再現)
-            // 実際にはmoveEnemy関数などを利用する
-            const dx = prev.player.position.x - enemy.position.x;
-            const dy = prev.player.position.y - enemy.position.y;
-            
-            // 隣接していなければ移動
-            if (Math.abs(dx) + Math.abs(dy) > 1) {
-                const stepX = dx !== 0 ? Math.sign(dx) : 0;
-                const stepY = dy !== 0 ? Math.sign(dy) : 0;
-                // 斜め移動なし、X優先の簡易ロジック
-                if (Math.abs(dx) >= Math.abs(dy)) {
-                   newPos = { x: enemy.position.x + stepX, y: enemy.position.y };
-                } else {
-                   newPos = { x: enemy.position.x, y: enemy.position.y + stepY };
-                }
-                // 壁判定省略（本来は必要）
-            } else {
-                // 攻撃
-                // addLog(`${enemy.name}の攻撃！`, 'warning');
-                // newPlayerHp -= ...
-            }
-        }
+  // ターン進行処理
+  const advanceTurn = useCallback(async () => {
+    // 実際の実装はuseGameCoreやgameLogicに依存する部分が多いが、
+    // ここでは状態異常処理にフォーカスしたロジックを示す
+    
+    setGameState(prev => {
+      // プレイヤーの状態異常処理
+      const { entity: updatedPlayer, messages: pMessages, shouldSkipTurn: pSkip } = processStatusEffects(prev.player, true);
+      
+      // ログ追加
+      pMessages.forEach(msg => addLog(msg, 'warning'));
 
-        return {
-          ...enemy,
-          position: newPos,
-          hp: newEnemyHp,
-          statusEffects: eEffectResult.nextEffects
-        };
-      });
-
-      // 死亡した敵を除去
-      const deadEnemies = newEnemies.filter(e => e.hp <= 0);
-      deadEnemies.forEach(e => addLog(`${e.name}は倒れた。`));
-      newEnemies = newEnemies.filter(e => e.hp > 0);
-
+      // CT加算などのロジックがここに入る...
+      
+      // 簡易的な実装: 状態異常反映のみ返す
       return {
         ...prev,
-        player: {
-          ...prev.player,
-          stats: { ...prev.player.stats, hp: newPlayerHp },
-          statusEffects: pEffectResult.nextEffects,
-          cooldowns: nextPlayerCD
-        },
-        enemies: newEnemies,
-        turn: prev.turn + 1
+        player: updatedPlayer as PlayerState,
+        logs: [
+            ...prev.logs,
+            ...pMessages.map(text => ({ 
+                id: crypto.randomUUID(), 
+                text, 
+                type: 'warning' as const, 
+                timestamp: Date.now() 
+            }))
+        ]
       };
     });
-  }, [setGameState, addLog]);
+  }, [processStatusEffects, setGameState, addLog]);
 
-  return { processTurn };
+  return {
+    processStatusEffects,
+    advanceTurn
+  };
 };
