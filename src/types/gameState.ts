@@ -1,6 +1,7 @@
 import { DungeonMap, Position } from '../types';
 import { Enemy } from './enemy';
 import { InventoryItem, EquipmentSlot } from './item';
+import { PlayerJobState } from './job'; // 追加
 
 export interface PlayerStats {
   hp: number;
@@ -15,9 +16,8 @@ export interface PlayerStats {
   luc: number;
 }
 
-// 装備スロットマップ
 export interface PlayerEquipment {
-  mainHand?: string; // ItemID
+  mainHand?: string;
   offHand?: string;
   body?: string;
   accessory?: string;
@@ -38,7 +38,11 @@ export interface PlayerState extends PlayerStats {
     max: number;
   };
   inventory: InventoryItem[];
-  equipment: PlayerEquipment; // 構造を変更
+  equipment: PlayerEquipment;
+  
+  // ジョブシステム用
+  jobState: PlayerJobState; 
+  skillPoints: number; // マスタリーやスキルに振るポイント
 }
 
 export interface LogMessage {
