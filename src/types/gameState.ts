@@ -1,60 +1,96 @@
-import { JobState } from './job';
-import { PlayerStats } from './stats'; // 既存の型定義ファイルの場所に合わせて調整してください
-import { Position } from './input'; // 同上
+import { JobId } from '../types';
 import { Item } from './item';
 import { QuestState } from './quest';
-import { StatusEffect, CooldownState } from './combat'; // 追加
+import { EventState } from './event';
+import { StatusEffect, CooldownState } from './combat';
 
-export interface Player {
-  name: string;
-  jobState: JobState;
-  stats: PlayerStats;
-  position: Position;
-  inventory: Item[];
-  equipment: {
-    mainHand?: Item;
-    offHand?: Item;
-    armor?: Item;
-    accessory?: Item;
-  };
-  gold: number;
-  exp: number;
-  // --- 追加 ---
-  skills: Record<string, number>; // SkillID -> Level
-  cooldowns: CooldownState;       // クールダウン管理
-  statusEffects: StatusEffect[];  // バフ・デバフ
-  // ------------
-  quests: QuestState;
+export interface Position {
+  x: number;
+  y: number;
+  floor: number;
 }
 
-export interface Enemy {
-  id: string;
-  name: string;
-  symbol: string;
-  color: string;
-  position: Position;
+export interface PlayerStats {
   hp: number;
   maxHp: number;
+  mp: number;
+  maxMp: number;
+  
+  // Basic Stats
+  str: number; // Strength - Physical Damage
+  vit: number; // Vitality - HP, Defense
+  dex: number; // Dexterity - Hit Rate, Critical
+  agi: number; // Agility - Evasion, Turn Order
+  int: number; // Intelligence - Magic Damage
+  wis: number; // Wisdom - MP, Magic Defense
+
+  // Secondary Stats (calculated)
   attack: number;
   defense: number;
+  magicAttack: number;
+  magicDefense: number;
+  speed: number;
+}
+
+export interface PlayerState extends PlayerStats {
+  name: string;
+  job: JobId;
+  level: number;
   exp: number;
-  aiType: 'chase' | 'random' | 'stationary';
-  // --- 追加 ---
-  statusEffects: StatusEffect[];
-  // ------------
+  nextExp: number;
+  gold: number;
+  position: Position;
+  direction: 'up' | 'down' | 'left' | 'right';
+  
+  // Equipment
+  equipment: {
+    mainHand: Item | null;
+    offHand: Item | null;
+    armor: Item | null;
+    accessory: Item | null;
+  };
+  
+  // Inventory
+  inventory: Item[];
+  maxInventorySize: number;
+
+  // Combat States
+  ct: number; // Charge Time for turn order
+  statusEffects: StatusEffect[]; // 更新: 新しい型定義を使用
+  cooldowns: CooldownState;
+  
+  // God System
+  godId: string | null;
+  piety: number;
+
+  // Progression
+  mastery: {
+    [key in JobId]?: number; // Mastery Level for each job
+  };
+  
+  quickPotion: {
+    itemId: string | null;
+    current: number;
+    max: number;
+  } | null;
+}
+
+export interface LogEntry {
+  id: string;
+  text: string;
+  type: 'info' | 'success' | 'warning' | 'danger';
+  timestamp: number;
 }
 
 export interface GameState {
-  player: Player;
-  enemies: Enemy[];
-  dungeon: {
-    floor: number;
-    map: number[][]; // 0: wall, 1: floor
-    rooms: any[];
-    stairs: Position;
-  };
+  player: PlayerState;
+  dungeon: any; // DungeonState type would be imported if needed, keeping simple to avoid cycles
+  enemies: any[]; // EnemyInstance[]
+  quests: QuestState;
+  events: EventState;
+  logs: LogEntry[];
   turn: number;
-  messages: { text: string; type: 'info' | 'success' | 'warning' | 'danger' }[];
-  isGameOver: boolean;
-  isGameClear: boolean;
+  state: 'title' | 'town' | 'dungeon' | 'battle' | 'event' | 'gameover' | 'god_select' | 'job_select' | 'name_input' | 'result';
+  isPlayerTurn: boolean;
+  selectedTarget: string | null; // ID of selected target
 }
