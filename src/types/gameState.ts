@@ -1,5 +1,6 @@
 import { DungeonMap, Position } from '../types';
 import { Enemy } from './enemy';
+import { InventoryItem } from './item'; // 追加
 
 export interface PlayerStats {
   hp: number;
@@ -24,10 +25,15 @@ export interface PlayerState extends PlayerStats {
   direction: 'up' | 'down' | 'left' | 'right';
   stats: PlayerStats;
   ct?: number;
-  // 追加: クイックポーション管理
   quickPotion: {
     current: number;
     max: number;
+  };
+  inventory: InventoryItem[]; // 追加: 所持品リスト
+  equipment: { // 将来的な拡張用
+    weapon?: string;
+    armor?: string;
+    accessory?: string;
   };
 }
 
