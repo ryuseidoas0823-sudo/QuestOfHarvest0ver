@@ -7,16 +7,14 @@ import TownScreen from './components/TownScreen';
 import GameHUD from './components/GameHUD';
 import ResultScreen from './components/ResultScreen';
 import Tutorial from './components/Tutorial';
-import EventModal from './components/EventModal';
-import DialogueWindow from './components/DialogueWindow';
 import PauseMenu from './components/PauseMenu';
 import StatusUpgradeMenu from './components/StatusUpgradeMenu';
 import ShopMenu from './components/ShopMenu';
-import InventoryMenu from './components/InventoryMenu'; // 追加
+import InventoryMenu from './components/InventoryMenu';
 import { Renderer } from './renderer';
 import { useGameCore } from './hooks/useGameCore';
-import { useItemSystem } from './hooks/useItemSystem'; // 追加
-import { Backpack } from 'lucide-react'; // アイコン追加
+import { useItemSystem } from './hooks/useItemSystem';
+import { Backpack } from 'lucide-react';
 
 type AppState = 'title' | 'nameInput' | 'jobSelect' | 'godSelect' | 'town' | 'dungeon' | 'result';
 
@@ -30,8 +28,8 @@ function App() {
     refillPotions 
   } = useGameCore();
 
-  // アイテムシステムフックの使用
-  const { useItem } = useItemSystem(setGameState, addLog);
+  // useItemSystem
+  const { useItem, unequipItem } = useItemSystem(setGameState, addLog);
 
   const [appState, setAppState] = useState<AppState>('title');
   const [playerName, setPlayerName] = useState('');
@@ -39,40 +37,31 @@ function App() {
   const [showPauseMenu, setShowPauseMenu] = useState(false);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showShopMenu, setShowShopMenu] = useState(false);
-  const [showInventory, setShowInventory] = useState(false); // 追加: インベントリ表示状態
+  const [showInventory, setShowInventory] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<Renderer | null>(null);
 
-  // 初期化
   useEffect(() => {
     if (canvasRef.current && !rendererRef.current) {
       rendererRef.current = new Renderer(canvasRef.current);
     }
   }, []);
 
-  // 描画ループ
   useEffect(() => {
     let animationId: number;
-    
     const render = () => {
       if (rendererRef.current && appState === 'dungeon') {
         rendererRef.current.render(gameState);
       }
       animationId = requestAnimationFrame(render);
     };
-    
     render();
-    
-    return () => {
-      cancelAnimationFrame(animationId);
-    };
+    return () => cancelAnimationFrame(animationId);
   }, [gameState, appState]);
 
-  // ゲームオーバー/クリア監視
   useEffect(() => {
     if (gameState.isGameOver || gameState.isGameClear) {
-      // 少し待ってからリザルト画面へ（演出用）
       const timer = setTimeout(() => {
         setAppState('result');
       }, 1000);
@@ -80,15 +69,12 @@ function App() {
     }
   }, [gameState.isGameOver, gameState.isGameClear]);
 
-  // キーボードショートカット (インベントリなど)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (appState === 'dungeon' && !gameState.isGameOver && !showPauseMenu) {
-        // Iキー: インベントリ
         if (e.key === 'i' || e.key === 'I') {
           setShowInventory(prev => !prev);
         }
-        // ESCキー: ポーズメニュー
         if (e.key === 'Escape') {
             setShowPauseMenu(true);
         }
@@ -98,8 +84,6 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [appState, gameState.isGameOver, showPauseMenu]);
 
-
-  // 画面遷移ハンドラー
   const handleStartGame = () => {
     setAppState('nameInput');
   };
@@ -110,15 +94,13 @@ function App() {
   };
 
   const handleJobSelected = (jobId: string) => {
-    // ここでジョブ情報を保持する処理が入るが、今回は簡易的に次へ
     setAppState('godSelect');
   };
 
   const handleGodSelected = (godId: string) => {
-    // ゲーム初期化して街へ
     startGame(playerName);
     setAppState('town');
-    setShowTutorial(true); // 初回チュートリアル
+    setShowTutorial(true);
   };
 
   const handleDungeonStart = () => {
@@ -129,7 +111,6 @@ function App() {
     setAppState('town');
     setShowPauseMenu(false);
     setShowInventory(false);
-    // 街に戻ったらポーション補充等はTownScreen側で自動実行される
   };
   
   const handleTitleReturn = () => {
@@ -139,23 +120,11 @@ function App() {
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden select-none font-sans">
-      {/* Title Screen */}
-      {appState === 'title' && (
-        <TitleScreen onStart={handleStartGame} />
-      )}
+      {appState === 'title' && <TitleScreen onStart={handleStartGame} />}
+      {appState === 'nameInput' && <NameInputScreen onConfirm={handleNameDecided} onBack={() => setAppState('title')} />}
+      {appState === 'jobSelect' && <JobSelectScreen onSelect={handleJobSelected} onBack={() => setAppState('nameInput')} />}
+      {appState === 'godSelect' && <GodSelectScreen onSelect={handleGodSelected} onBack={() => setAppState('jobSelect')} />}
 
-      {/* Setup Screens */}
-      {appState === 'nameInput' && (
-        <NameInputScreen onConfirm={handleNameDecided} onBack={() => setAppState('title')} />
-      )}
-      {appState === 'jobSelect' && (
-        <JobSelectScreen onSelect={handleJobSelected} onBack={() => setAppState('nameInput')} />
-      )}
-      {appState === 'godSelect' && (
-        <GodSelectScreen onSelect={handleGodSelected} onBack={() => setAppState('jobSelect')} />
-      )}
-
-      {/* Town Screen */}
       {appState === 'town' && (
         <TownScreen 
           gameState={gameState} 
@@ -165,7 +134,6 @@ function App() {
         />
       )}
 
-      {/* Dungeon Phase */}
       {appState === 'dungeon' && (
         <>
           <canvas 
@@ -176,10 +144,8 @@ function App() {
             style={{ imageRendering: 'pixelated' }}
           />
           
-          {/* Game HUD */}
           <GameHUD gameState={gameState} onUsePotion={() => useQuickPotion(gameState, setGameState, addLog)} />
           
-          {/* インベントリボタン (右下) */}
           <div className="absolute bottom-20 right-4 z-10 pointer-events-auto">
              <button 
                onClick={() => setShowInventory(true)}
@@ -191,12 +157,12 @@ function App() {
              </button>
           </div>
 
-          {/* モーダル群 */}
           {showInventory && (
             <InventoryMenu 
               gameState={gameState} 
               onClose={() => setShowInventory(false)} 
-              onUseItem={useItem} 
+              onUseItem={useItem}
+              onUnequip={unequipItem}
             />
           )}
 
@@ -207,33 +173,14 @@ function App() {
               onTitle={handleTitleReturn}
             />
           )}
-
-          {/* イベントモーダル (宝箱など) */}
-          {/* TODO: EventSystem統合時に条件分岐を追加 */}
-          
-          {/* 会話ウィンドウ */}
-          {/* TODO: DialogueSystem統合時に追加 */}
-
         </>
       )}
 
-      {/* Result Screen */}
-      {appState === 'result' && (
-        <ResultScreen 
-          gameState={gameState} 
-          onReturnTown={handleReturnToTown}
-        />
-      )}
-
-      {/* Tutorial Overlay */}
-      {showTutorial && (
-        <Tutorial onClose={() => setShowTutorial(false)} />
-      )}
+      {appState === 'result' && <ResultScreen gameState={gameState} onReturnTown={handleReturnToTown} />}
+      {showTutorial && <Tutorial onClose={() => setShowTutorial(false)} />}
       
-      {/* ステータス画面やショップ画面など (Townから呼び出し想定だが仮配置) */}
       {showStatusMenu && <StatusUpgradeMenu gameState={gameState} onClose={() => setShowStatusMenu(false)} />}
       {showShopMenu && <ShopMenu gameState={gameState} onClose={() => setShowShopMenu(false)} />}
-
     </div>
   );
 }
