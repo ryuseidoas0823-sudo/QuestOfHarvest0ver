@@ -22,8 +22,13 @@ export interface PlayerState extends PlayerStats {
   gold: number;
   position: Position;
   direction: 'up' | 'down' | 'left' | 'right';
-  stats: PlayerStats; // statsオブジェクトとしてネストも維持（互換性のため）
-  ct?: number; // Charge Time (Active Turn System)
+  stats: PlayerStats;
+  ct?: number;
+  // 追加: クイックポーション管理
+  quickPotion: {
+    current: number;
+    max: number;
+  };
 }
 
 export interface LogMessage {
