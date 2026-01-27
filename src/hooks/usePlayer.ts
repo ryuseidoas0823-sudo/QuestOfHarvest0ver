@@ -1,50 +1,36 @@
 import { useState, useCallback } from 'react';
 import { PlayerState, GameState } from '../types/gameState';
 import { calculateMaxPotions, calculateHealAmount } from '../utils/potion';
-import { ITEMS } from '../data/items'; // 追加
+import { ITEMS } from '../data/items';
 
-// 初期ステータス定義
 const INITIAL_PLAYER_STATS = {
-  hp: 100,
-  maxHp: 100,
-  mp: 30,
-  maxMp: 30,
-  str: 10,
-  vit: 10,
-  dex: 10,
-  agi: 10,
-  mag: 10,
-  luc: 10
+  hp: 100, maxHp: 100, mp: 30, maxMp: 30,
+  str: 10, vit: 10, dex: 10, agi: 10, mag: 10, luc: 10
 };
 
 export const usePlayer = () => {
-  // 初期状態の生成
   const createInitialPlayer = (name: string): PlayerState => ({
     name,
     level: 1,
     exp: 0,
     nextExp: 100,
-    gold: 500, // 少し所持金を持たせる
+    gold: 500,
     position: { x: 1, y: 1 },
     direction: 'down',
     ...INITIAL_PLAYER_STATS,
     stats: { ...INITIAL_PLAYER_STATS },
     ct: 0,
-    quickPotion: {
-      current: 3,
-      max: 3
-    },
+    quickPotion: { current: 3, max: 3 },
+    // 初期装備: なし（インベントリに持たせて装備体験をさせる）
+    equipment: {}, 
     inventory: [
-        // テスト用に初期アイテムを持たせる
         { item: ITEMS['potion_low'], quantity: 3 },
-        { item: ITEMS['ether_low'], quantity: 1 }
-    ],
-    equipment: {}
+        { item: ITEMS['ether_low'], quantity: 1 },
+        { item: ITEMS['dagger_novice'], quantity: 1 }, // 追加: 短剣
+        { item: ITEMS['armor_leather'], quantity: 1 }  // 追加: 革鎧
+    ]
   });
 
-  /**
-   * ポーションを使用するアクション (Quick Potion)
-   */
   const useQuickPotion = useCallback((
     gameState: GameState, 
     setGameState: React.Dispatch<React.SetStateAction<GameState>>,
@@ -71,18 +57,12 @@ export const usePlayer = () => {
         player: {
           ...player,
           hp: newHp,
-          quickPotion: {
-            ...player.quickPotion,
-            current: player.quickPotion.current - 1
-          }
+          quickPotion: { ...player.quickPotion, current: player.quickPotion.current - 1 }
         }
       };
     });
   }, []);
 
-  /**
-   * ポーションを補充する
-   */
   const refillPotions = useCallback((
     setGameState: React.Dispatch<React.SetStateAction<GameState>>
   ) => {
@@ -92,18 +72,11 @@ export const usePlayer = () => {
         ...prev,
         player: {
           ...prev.player,
-          quickPotion: {
-            current: max,
-            max: max
-          }
+          quickPotion: { current: max, max: max }
         }
       };
     });
   }, []);
 
-  return {
-    createInitialPlayer,
-    useQuickPotion,
-    refillPotions
-  };
+  return { createInitialPlayer, useQuickPotion, refillPotions };
 };
