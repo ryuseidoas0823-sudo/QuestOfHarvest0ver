@@ -16,23 +16,28 @@ export type EnemyRace =
   | 'god';      // 神性: ボス級
 
 /**
- * 属性タイプ（攻撃属性・耐性判定用）
+ * 属性タイプ
  */
 export type ElementType = 'physical' | 'fire' | 'ice' | 'thunder' | 'poison' | 'holy' | 'dark';
 
-/**
- * 耐性定義
- * Key: 属性, Value: ダメージカット率 (0.0 ~ 1.0)
- * 例: { fire: 0.5 } -> 火属性ダメージを50%カット
- */
 export type EnemyResistances = Partial<Record<ElementType, number>>;
+export type EnemyWeaknesses = Partial<Record<ElementType, number>>;
 
 /**
- * 弱点定義
- * Key: 属性, Value: ダメージ倍率 (> 1.0)
- * 例: { ice: 1.5 } -> 氷属性ダメージが1.5倍
+ * 敵のスキル定義
  */
-export type EnemyWeaknesses = Partial<Record<ElementType, number>>;
+export interface EnemySkill {
+  id: string;
+  name: string;
+  type: 'attack' | 'buff' | 'debuff' | 'heal' | 'summon';
+  range: number;      // 射程
+  areaRadius?: number;// 効果範囲 (0=単体)
+  damageMult?: number;// 攻撃倍率 (1.0 = 通常攻撃相当)
+  statusEffect?: string; // 付与する状態異常ID
+  cooldown: number;   // 再使用ターン数
+  prob: number;       // 使用確率 (0.0 - 1.0)
+  message: string;    // 使用時のログメッセージ
+}
 
 /**
  * 敵キャラクターのインターフェース
@@ -40,24 +45,25 @@ export type EnemyWeaknesses = Partial<Record<ElementType, number>>;
 export interface Enemy {
   id: string;
   name: string;
-  symbol: string; // マップ上の表示文字
-  color: string;  // 表示色
+  symbol: string;
+  color: string;
   position: Position;
   
-  // 戦闘ステータス
   hp: number;
   maxHp: number;
   attack: number;
   defense: number;
   exp: number;
   
-  // AI・行動パターン
   aiType: 'chase' | 'random' | 'stationary' | 'ranged' | 'healer' | 'boss_minotaur' | 'boss_goliath';
   
-  // 特性データ
   race: EnemyRace;
   resistances?: EnemyResistances;
   weaknesses?: EnemyWeaknesses;
+  
+  // スキル関連
+  skills?: EnemySkill[];
+  cooldowns?: Record<string, number>; // SkillId -> Remaining Turns
   
   statusEffects: StatusEffect[];
 }
