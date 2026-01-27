@@ -1,82 +1,35 @@
-import { DungeonMap, Tile } from './types';
+import { DungeonMap, Room, Position, Chest } from './types';
 
-// ダンジョンの設定
-const MAP_WIDTH = 40;
-const MAP_HEIGHT = 40;
+// 定数
+const MAP_WIDTH = 50;
+const MAP_HEIGHT = 50;
 const MIN_ROOM_SIZE = 4;
 const MAX_ROOM_SIZE = 10;
 const MAX_ROOMS = 10;
 
-interface Rect {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  center: { x: number; y: number };
-}
+export const generateDungeon = (floor: number): DungeonMap => {
+  // 1. マップ初期化 (全て壁)
+  const tiles: number[][] = Array(MAP_HEIGHT).fill(0).map(() => Array(MAP_WIDTH).fill(0));
+  const rooms: Room[] = [];
+  const chests: Chest[] = [];
 
-// 部屋生成ヘルパー
-const createRoom = (rect: Rect, map: Tile[][]) => {
-  for (let y = rect.y; y < rect.y + rect.h; y++) {
-    for (let x = rect.x; x < rect.x + rect.w; x++) {
-      if (y > 0 && y < MAP_HEIGHT - 1 && x > 0 && x < MAP_WIDTH - 1) {
-        map[y][x] = { type: 'floor', x, y, visible: false, explored: false };
-      }
-    }
-  }
-};
-
-// 通路生成ヘルパー（水平）
-const createH_Tunnel = (x1: number, x2: number, y: number, map: Tile[][]) => {
-  for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x++) {
-    if (x > 0 && x < MAP_WIDTH - 1 && y > 0 && y < MAP_HEIGHT - 1) {
-      map[y][x] = { type: 'floor', x, y, visible: false, explored: false };
-    }
-  }
-};
-
-// 通路生成ヘルパー（垂直）
-const createV_Tunnel = (y1: number, y2: number, x: number, map: Tile[][]) => {
-  for (let y = Math.min(y1, y2); y <= Math.max(y1, y2); y++) {
-    if (y > 0 && y < MAP_HEIGHT - 1 && x > 0 && x < MAP_WIDTH - 1) {
-      map[y][x] = { type: 'floor', x, y, visible: false, explored: false };
-    }
-  }
-};
-
-export const generateDungeon = (_floorLevel: number): DungeonMap => {
-  const map: Tile[][] = [];
-  for (let y = 0; y < MAP_HEIGHT; y++) {
-    const row: Tile[] = [];
-    for (let x = 0; x < MAP_WIDTH; x++) {
-      row.push({ type: 'wall', x, y, visible: false, explored: false });
-    }
-    map.push(row);
-  }
-
-  const rooms: Rect[] = [];
-  let playerStart = { x: 1, y: 1 };
-  let validSpawnPoints: { x: number; y: number }[] = [];
-
-  // 2. 部屋を生成して配置
+  // 2. 部屋生成
   for (let i = 0; i < MAX_ROOMS; i++) {
     const w = Math.floor(Math.random() * (MAX_ROOM_SIZE - MIN_ROOM_SIZE + 1)) + MIN_ROOM_SIZE;
     const h = Math.floor(Math.random() * (MAX_ROOM_SIZE - MIN_ROOM_SIZE + 1)) + MIN_ROOM_SIZE;
     const x = Math.floor(Math.random() * (MAP_WIDTH - w - 2)) + 1;
     const y = Math.floor(Math.random() * (MAP_HEIGHT - h - 2)) + 1;
 
-    const newRoom: Rect = {
-      x, y, w, h,
-      center: { x: Math.floor(x + w / 2), y: Math.floor(y + h / 2) }
-    };
+    const newRoom: Room = { x, y, w, h };
 
+    // 他の部屋と重ならないかチェック
     let failed = false;
     for (const otherRoom of rooms) {
       if (
-        newRoom.x <= otherRoom.x + otherRoom.w &&
-        newRoom.x + newRoom.w >= otherRoom.x &&
-        newRoom.y <= otherRoom.y + otherRoom.h &&
-        newRoom.y + newRoom.h >= otherRoom.y
+        newRoom.x <= otherRoom.x + otherRoom.w + 1 &&
+        newRoom.x + newRoom.w + 1 >= otherRoom.x &&
+        newRoom.y <= otherRoom.y + otherRoom.h + 1 &&
+        newRoom.y + newRoom.h + 1 >= otherRoom.y
       ) {
         failed = true;
         break;
@@ -84,73 +37,82 @@ export const generateDungeon = (_floorLevel: number): DungeonMap => {
     }
 
     if (!failed) {
-      createRoom(newRoom, map);
+      createRoom(newRoom, tiles);
       
-      const { center } = newRoom;
+      // 前の部屋があれば通路で繋ぐ
+      if (rooms.length > 0) {
+        const prevRoom = rooms[rooms.length - 1];
+        const newCenter = getCenter(newRoom);
+        const prevCenter = getCenter(prevRoom);
 
-      if (rooms.length === 0) {
-        playerStart = center;
-      } else {
-        const prevCenter = rooms[rooms.length - 1].center;
-        if (Math.random() > 0.5) {
-          createH_Tunnel(prevCenter.x, center.x, prevCenter.y, map);
-          createV_Tunnel(prevCenter.y, center.y, center.x, map);
+        if (Math.random() < 0.5) {
+          createHCorridor(prevCenter.x, newCenter.x, prevCenter.y, tiles);
+          createVCorridor(prevCenter.y, newCenter.y, newCenter.x, tiles);
         } else {
-          createV_Tunnel(prevCenter.y, center.y, prevCenter.x, map);
-          createH_Tunnel(prevCenter.x, center.x, center.y, map);
+          createVCorridor(prevCenter.y, newCenter.y, prevCenter.x, tiles);
+          createHCorridor(prevCenter.x, newCenter.x, newCenter.y, tiles);
         }
-      }
-
-      // スポーン候補
-      if (rooms.length > 0) { 
-          // 敵スポーン用
-          for(let k=0; k<2; k++){
-              const sx = Math.floor(Math.random() * (newRoom.w - 2)) + newRoom.x + 1;
-              const sy = Math.floor(Math.random() * (newRoom.h - 2)) + newRoom.y + 1;
-              validSpawnPoints.push({ x: sx, y: sy });
-          }
-      }
-
-      // 宝箱配置 (20%の確率で部屋に配置)
-      if (Math.random() < 0.2 && rooms.length > 0) {
-          const cx = Math.floor(Math.random() * (newRoom.w - 2)) + newRoom.x + 1;
-          const cy = Math.floor(Math.random() * (newRoom.h - 2)) + newRoom.y + 1;
-          
-          // 既存のオブジェクトと被らないか簡易チェック (今回は上書き)
-          map[cy][cx] = {
-              type: 'chest',
-              x: cx, 
-              y: cy,
-              visible: false,
-              explored: false,
-              meta: { itemId: Math.random() > 0.7 ? 'ether' : 'potion', opened: false }
-          };
       }
 
       rooms.push(newRoom);
     }
   }
 
-  // 3. 階段の配置（最後の部屋の中心）
-  const lastRoom = rooms[rooms.length - 1];
-  if (lastRoom) {
-    map[lastRoom.center.y][lastRoom.center.x] = { 
-      type: 'stairs_down', 
-      x: lastRoom.center.x, 
-      y: lastRoom.center.y, 
-      visible: false, 
-      explored: false 
-    };
-    validSpawnPoints = validSpawnPoints.filter(p => p.x !== lastRoom.center.x || p.y !== lastRoom.center.y);
-  }
+  // 3. 宝箱配置 (部屋の中にランダム配置)
+  // 30%の確率で各部屋に宝箱を配置（スタート部屋除く）
+  rooms.forEach((room, index) => {
+    if (index === 0) return; // スタート部屋には置かない
+
+    if (Math.random() < 0.4) { // 40%
+        // 部屋内のランダムな位置
+        const cx = room.x + Math.floor(Math.random() * room.w);
+        const cy = room.y + Math.floor(Math.random() * room.h);
+        
+        chests.push({
+            id: `chest-${floor}-${index}`,
+            position: { x: cx, y: cy },
+            isOpened: false,
+            type: Math.random() < 0.1 ? 'gold' : (Math.random() < 0.3 ? 'silver' : 'wood')
+        });
+    }
+  });
+
+  // スタート地点（最初の部屋の中心）
+  const startPos = getCenter(rooms[0]);
 
   return {
-    floor: _floorLevel,
-    map,
     width: MAP_WIDTH,
     height: MAP_HEIGHT,
-    rooms: rooms,
-    startPosition: playerStart,
-    spawnPoints: validSpawnPoints
+    tiles,
+    rooms,
+    startPos,
+    chests
+  };
+};
+
+const createRoom = (room: Room, tiles: number[][]) => {
+  for (let y = room.y; y < room.y + room.h; y++) {
+    for (let x = room.x; x < room.x + room.w; x++) {
+      tiles[y][x] = 1; // 床
+    }
+  }
+};
+
+const createHCorridor = (x1: number, x2: number, y: number, tiles: number[][]) => {
+  for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x++) {
+    tiles[y][x] = 1; // 床 (通路も床扱いにして移動しやすくする、あるいは2で区別も可)
+  }
+};
+
+const createVCorridor = (y1: number, y2: number, x: number, tiles: number[][]) => {
+  for (let y = Math.min(y1, y2); y <= Math.max(y1, y2); y++) {
+    tiles[y][x] = 1;
+  }
+};
+
+const getCenter = (room: Room): Position => {
+  return {
+    x: Math.floor(room.x + room.w / 2),
+    y: Math.floor(room.y + room.h / 2)
   };
 };
