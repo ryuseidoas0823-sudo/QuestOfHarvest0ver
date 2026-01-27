@@ -1,64 +1,39 @@
 import { Skill } from '../types/skill';
+import { JobId } from '../types/job';
 
-export const skills: Skill[] = [
-  {
-    id: 'heavy_slash',
-    name: '強撃',
-    description: '渾身の力で武器を振り下ろす強烈な一撃。',
-    type: 'attack',
-    target: 'single',
-    power: 2.5,
-    cost: 0,
-    cooldown: 5,
-    range: 1.5,
-    assetKey: 'skill_sword'
+// スキルの定義（今回は型枠組みのみ）
+export const SKILLS: Record<string, Skill> = {
+  // 戦士スキル
+  'smash': {
+    id: 'smash',
+    name: '強打',
+    description: '渾身の力で敵を叩く。',
+    mpCost: 3,
+    cooldown: 0,
+    effect: { type: 'damage', value: 1.5 }, // 1.5倍ダメージ
+    icon: '💥'
   },
-  {
-    id: 'round_slash',
-    name: '回転斬り',
-    description: '周囲の敵をまとめて薙ぎ払う範囲攻撃。',
-    type: 'attack',
-    target: 'area',
-    power: 1.2,
-    cost: 0,
-    cooldown: 8,
-    range: 1.5,
-    assetKey: 'skill_round'
-  },
-  {
-    id: 'fireball',
-    name: 'ファイアボルト',
-    description: '遠くの敵を焼き払う火球を放つ。',
-    type: 'attack',
-    target: 'single',
-    power: 1.8,
-    cost: 5,
-    cooldown: 4,
-    range: 4,
-    assetKey: 'skill_fire'
-  },
-  {
-    id: 'heal',
-    name: 'ヒール',
-    description: '傷を癒やす魔法。HPを回復する。',
-    type: 'heal',
-    target: 'self',
-    power: 50,
-    cost: 10,
-    cooldown: 15,
-    range: 0,
-    assetKey: 'skill_heal'
-  },
-  {
-    id: 'snipe',
-    name: '狙い撃ち',
-    description: '急所を狙った正確な射撃。',
-    type: 'attack',
-    target: 'single',
-    power: 2.2,
-    cost: 0,
-    cooldown: 4,
-    range: 5,
-    assetKey: 'skill_bow'
+  // 盗賊スキル
+  'poison_edge': {
+    id: 'poison_edge',
+    name: '毒刃',
+    description: '武器に毒を塗り、敵を毒状態にする。',
+    mpCost: 4,
+    cooldown: 2,
+    effect: { type: 'status', status: 'poison' },
+    icon: '☠️'
   }
-];
+};
+
+// ジョブごとのスキルツリー定義（マスタリーLvに応じて習得可能）
+export const JOB_SKILL_TREE: Record<JobId, { level: number; skillId: string }[]> = {
+  soldier: [
+    { level: 5, skillId: 'smash' }
+  ],
+  rogue: [
+    { level: 5, skillId: 'poison_edge' }
+  ],
+  arcanist: [],
+  ranger: [],
+  monk: []
+};
