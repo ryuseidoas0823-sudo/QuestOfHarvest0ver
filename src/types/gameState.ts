@@ -1,63 +1,60 @@
-import { DungeonMap, Position } from '../types';
-import { Enemy } from './enemy';
-import { InventoryItem, EquipmentSlot } from './item';
-import { PlayerJobState } from './job'; // 追加
+import { JobState } from './job';
+import { PlayerStats } from './stats'; // 既存の型定義ファイルの場所に合わせて調整してください
+import { Position } from './input'; // 同上
+import { Item } from './item';
+import { QuestState } from './quest';
+import { StatusEffect, CooldownState } from './combat'; // 追加
 
-export interface PlayerStats {
+export interface Player {
+  name: string;
+  jobState: JobState;
+  stats: PlayerStats;
+  position: Position;
+  inventory: Item[];
+  equipment: {
+    mainHand?: Item;
+    offHand?: Item;
+    armor?: Item;
+    accessory?: Item;
+  };
+  gold: number;
+  exp: number;
+  // --- 追加 ---
+  skills: Record<string, number>; // SkillID -> Level
+  cooldowns: CooldownState;       // クールダウン管理
+  statusEffects: StatusEffect[];  // バフ・デバフ
+  // ------------
+  quests: QuestState;
+}
+
+export interface Enemy {
+  id: string;
+  name: string;
+  symbol: string;
+  color: string;
+  position: Position;
   hp: number;
   maxHp: number;
-  mp: number;
-  maxMp: number;
-  str: number;
-  vit: number;
-  dex: number;
-  agi: number;
-  mag: number;
-  luc: number;
-}
-
-export interface PlayerEquipment {
-  mainHand?: string;
-  offHand?: string;
-  body?: string;
-  accessory?: string;
-}
-
-export interface PlayerState extends PlayerStats {
-  name: string;
-  level: number;
+  attack: number;
+  defense: number;
   exp: number;
-  nextExp: number;
-  gold: number;
-  position: Position;
-  direction: 'up' | 'down' | 'left' | 'right';
-  stats: PlayerStats;
-  ct?: number;
-  quickPotion: {
-    current: number;
-    max: number;
-  };
-  inventory: InventoryItem[];
-  equipment: PlayerEquipment;
-  
-  // ジョブシステム用
-  jobState: PlayerJobState; 
-  skillPoints: number; // マスタリーやスキルに振るポイント
-}
-
-export interface LogMessage {
-  id: string;
-  text: string;
-  type: 'info' | 'success' | 'warning' | 'danger';
+  aiType: 'chase' | 'random' | 'stationary';
+  // --- 追加 ---
+  statusEffects: StatusEffect[];
+  // ------------
 }
 
 export interface GameState {
-  player: PlayerState;
-  dungeon: DungeonMap;
+  player: Player;
   enemies: Enemy[];
+  dungeon: {
+    floor: number;
+    map: number[][]; // 0: wall, 1: floor
+    rooms: any[];
+    stairs: Position;
+  };
   turn: number;
-  logs: LogMessage[];
-  floor: number;
+  messages: { text: string; type: 'info' | 'success' | 'warning' | 'danger' }[];
   isGameOver: boolean;
   isGameClear: boolean;
 }
