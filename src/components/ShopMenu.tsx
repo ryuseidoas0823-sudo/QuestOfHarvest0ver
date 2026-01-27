@@ -1,131 +1,147 @@
-import React, { useState } from 'react';
-import { items as itemData } from '../data/items';
-import { shopItems } from '../data/shopItems';
-import { PlayerState } from '../types';
+import React from 'react';
+import { GameState } from '../types/gameState';
+import { useShop } from '../hooks/useShop';
+import { Coins, ShoppingBag, ArrowLeft, ShieldCheck, Sword, Zap } from 'lucide-react';
+import { Item } from '../types/item';
 
 interface ShopMenuProps {
-  playerState: PlayerState;
+  gameState: GameState;
+  setGameState: React.Dispatch<React.SetStateAction<GameState>>;
   onClose: () => void;
-  onBuy: (itemId: string) => boolean;
-  onSell: (index: number) => void;
+  addLog: (text: string, type?: 'info' | 'success' | 'warning' | 'danger') => void;
 }
 
-const ShopMenu: React.FC<ShopMenuProps> = ({ playerState, onClose, onBuy, onSell }) => {
-  const [mode, setMode] = useState<'buy' | 'sell'>('buy');
-  const [message, setMessage] = useState('いらっしゃい！何にするんだい？');
+const ShopMenu: React.FC<ShopMenuProps> = ({ gameState, setGameState, onClose, addLog }) => {
+  const { activeTab, setActiveTab, buyItem, sellItem, shopInventory } = useShop(gameState, setGameState, addLog);
+  const { player } = gameState;
 
-  const handleBuy = (itemId: string) => {
-    const success = onBuy(itemId);
-    if (success) {
-      setMessage('まいどあり！');
-    } else {
-      setMessage('金が足りないみたいだな。');
-    }
-  };
+  const renderItemCard = (item: Item, isBuying: boolean) => {
+    const price = isBuying ? item.value : Math.floor((item.value || 0) / 2);
+    const canAfford = player.gold >= (price || 0);
 
-  const handleSell = (index: number) => {
-    onSell(index);
-    setMessage('買い取らせてもらうよ。');
+    return (
+      <div 
+        key={item.id} 
+        className="bg-slate-800 border border-slate-700 p-3 rounded-lg flex flex-col gap-2 hover:border-slate-500 transition-colors group"
+      >
+        <div className="flex justify-between items-start">
+          <div className="flex items-center gap-2">
+            <div className={`p-2 rounded bg-slate-900 border border-slate-700 
+              ${item.rarity === 'rare' ? 'border-yellow-500/50 text-yellow-500' : 
+                item.rarity === 'uncommon' ? 'border-blue-500/50 text-blue-500' : 'text-slate-400'}`}
+            >
+              {item.type === 'weapon' ? <Sword size={16} /> :
+               item.type === 'armor' ? <ShieldCheck size={16} /> :
+               item.type === 'accessory' ? <Zap size={16} /> :
+               <ShoppingBag size={16} />}
+            </div>
+            <div>
+              <div className={`font-bold text-sm ${
+                item.rarity === 'rare' ? 'text-yellow-400' : 
+                item.rarity === 'uncommon' ? 'text-blue-400' : 'text-white'
+              }`}>
+                {item.name}
+              </div>
+              <div className="text-xs text-slate-400">{item.type}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="text-xs text-slate-400 flex-1 min-h-[2.5em]">
+          {item.description}
+        </div>
+
+        {/* 簡易ステータス表示 */}
+        <div className="flex gap-2 text-[10px] text-slate-300 mb-1">
+          {item.stats?.attack > 0 && <span className="bg-red-900/40 px-1 rounded">ATK +{item.stats.attack}</span>}
+          {item.stats?.defense > 0 && <span className="bg-blue-900/40 px-1 rounded">DEF +{item.stats.defense}</span>}
+          {item.stats?.magicAttack > 0 && <span className="bg-purple-900/40 px-1 rounded">MAT +{item.stats.magicAttack}</span>}
+        </div>
+
+        <div className="mt-auto pt-2 border-t border-slate-700 flex justify-between items-center">
+          <div className="flex items-center gap-1 text-yellow-500 font-mono font-bold">
+            <Coins size={14} />
+            {price} G
+          </div>
+          <button
+            onClick={() => isBuying ? buyItem(item) : sellItem(item)}
+            disabled={isBuying && !canAfford}
+            className={`px-3 py-1 rounded text-xs font-bold transition-all
+              ${isBuying 
+                ? (canAfford ? 'bg-yellow-700 hover:bg-yellow-600 text-white' : 'bg-slate-700 text-slate-500 cursor-not-allowed')
+                : 'bg-blue-800 hover:bg-blue-700 text-white'
+              }`}
+          >
+            {isBuying ? '購入' : '売却'}
+          </button>
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div className="flex flex-col w-full h-full max-w-2xl bg-neutral-900 border-2 border-yellow-700 rounded-lg shadow-2xl p-6 text-white font-sans">
+    <div className="absolute inset-0 bg-slate-950 flex flex-col z-20">
       {/* Header */}
-      <div className="flex justify-between items-center border-b border-neutral-700 pb-4 mb-4">
-        <h2 className="text-2xl font-bold text-yellow-500">道具屋</h2>
-        <div className="flex gap-4">
-          <div className="text-xl">所持金: <span className="text-yellow-400">{playerState.gold} G</span></div>
-          <button onClick={onClose} className="px-3 py-1 bg-neutral-700 hover:bg-neutral-600 rounded text-sm">閉じる</button>
+      <div className="p-4 border-b border-slate-800 bg-slate-900 flex justify-between items-center shadow-md">
+        <div className="flex items-center gap-4">
+          <h2 className="text-xl font-bold text-yellow-500 flex items-center gap-2">
+            <ShoppingBag /> General Store
+          </h2>
+          <div className="flex bg-slate-800 rounded-lg p-1 gap-1">
+            <button
+              onClick={() => setActiveTab('buy')}
+              className={`px-4 py-1.5 rounded text-sm font-bold transition-colors ${
+                activeTab === 'buy' ? 'bg-yellow-600 text-white' : 'text-slate-400 hover:bg-slate-700'
+              }`}
+            >
+              購入 (Buy)
+            </button>
+            <button
+              onClick={() => setActiveTab('sell')}
+              className={`px-4 py-1.5 rounded text-sm font-bold transition-colors ${
+                activeTab === 'sell' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-700'
+              }`}
+            >
+              売却 (Sell)
+            </button>
+          </div>
+        </div>
+        <div className="flex items-center gap-6">
+          <div className="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700 flex items-center gap-2">
+            <span className="text-slate-400 text-xs uppercase tracking-wider">Your Gold</span>
+            <span className="text-yellow-400 font-mono font-bold text-lg flex items-center gap-1">
+              <Coins size={18} /> {player.gold}
+            </span>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft size={24} />
+          </button>
         </div>
       </div>
 
-      {/* Message Area */}
-      <div className="bg-black/50 p-3 rounded mb-4 text-center border border-neutral-700 min-h-[3rem] flex items-center justify-center">
-        {message}
-      </div>
-
-      {/* Tabs */}
-      <div className="flex mb-2">
-        <button
-          onClick={() => { setMode('buy'); setMessage('何を買うんだい？'); }}
-          className={`flex-1 py-2 text-center font-bold rounded-t-lg transition-colors
-            ${mode === 'buy' ? 'bg-neutral-800 text-yellow-500 border-t border-x border-yellow-700' : 'bg-neutral-900 text-neutral-500 border-b border-yellow-700'}
-          `}
-        >
-          購入する
-        </button>
-        <button
-          onClick={() => { setMode('sell'); setMessage('何を売るんだい？'); }}
-          className={`flex-1 py-2 text-center font-bold rounded-t-lg transition-colors
-            ${mode === 'sell' ? 'bg-neutral-800 text-yellow-500 border-t border-x border-yellow-700' : 'bg-neutral-900 text-neutral-500 border-b border-yellow-700'}
-          `}
-        >
-          売却する
-        </button>
-      </div>
-
-      {/* List Area */}
-      <div className="flex-1 overflow-y-auto bg-neutral-800/50 p-2 rounded border border-neutral-700">
-        
-        {mode === 'buy' && (
-          <div className="flex flex-col gap-2">
-            {shopItems.map((itemId) => {
-              const item = itemData[itemId];
-              if (!item) return null;
-              const canAfford = playerState.gold >= item.price;
-              
-              return (
-                <div key={itemId} className="flex justify-between items-center p-3 bg-neutral-900 rounded border border-neutral-700 hover:border-yellow-600 transition-colors group">
-                  <div className="flex flex-col">
-                    <span className="font-bold text-lg group-hover:text-yellow-200">{item.name}</span>
-                    <span className="text-xs text-neutral-400">{item.description}</span>
-                  </div>
-                  <button
-                    onClick={() => handleBuy(itemId)}
-                    disabled={!canAfford}
-                    className={`px-4 py-2 rounded font-bold min-w-[100px]
-                      ${canAfford 
-                        ? 'bg-yellow-700 hover:bg-yellow-600 text-white shadow-md' 
-                        : 'bg-neutral-800 text-neutral-500 cursor-not-allowed'}
-                    `}
-                  >
-                    {item.price} G
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {mode === 'sell' && (
-          <div className="flex flex-col gap-2">
-            {playerState.inventory.length === 0 ? (
-              <div className="text-center text-neutral-500 mt-8">売るものがないようだ。</div>
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
+          {activeTab === 'buy' ? (
+            shopInventory.map((item) => renderItemCard(item, true))
+          ) : (
+            player.inventory.length === 0 ? (
+              <div className="col-span-full text-center text-slate-500 py-20 italic">
+                売却できるアイテムを持っていません
+              </div>
             ) : (
-              playerState.inventory.map((itemId, index) => {
-                const item = itemData[itemId];
-                if (!item) return null;
-                const sellPrice = Math.floor(item.price / 2);
+              player.inventory.map((item) => renderItemCard(item, false))
+            )
+          )}
+        </div>
+      </div>
 
-                return (
-                  <div key={`${itemId}-${index}`} className="flex justify-between items-center p-3 bg-neutral-900 rounded border border-neutral-700 hover:border-blue-600 transition-colors group">
-                     <div className="flex flex-col">
-                        <span className="font-bold text-lg group-hover:text-blue-200">{item.name}</span>
-                        <span className="text-xs text-neutral-400">{item.description}</span>
-                     </div>
-                     <button
-                        onClick={() => handleSell(index)}
-                        className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-blue-100 rounded font-bold min-w-[100px] shadow-md border border-blue-700"
-                     >
-                        売 {sellPrice} G
-                     </button>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        )}
-
+      {/* Footer Hint */}
+      <div className="bg-slate-900 p-2 border-t border-slate-800 text-center text-xs text-slate-500">
+        {activeTab === 'buy' ? 'アイテムを選択して購入します。持ち物がいっぱいだと購入できません。' : '売却価格は購入価格の50%です。売却したアイテムは元に戻せません。'}
       </div>
     </div>
   );
