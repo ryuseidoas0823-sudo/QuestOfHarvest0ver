@@ -1,6 +1,6 @@
 import { DungeonMap, Position } from '../types';
 import { Enemy } from './enemy';
-import { InventoryItem } from './item'; // 追加
+import { InventoryItem, EquipmentSlot } from './item';
 
 export interface PlayerStats {
   hp: number;
@@ -13,6 +13,14 @@ export interface PlayerStats {
   agi: number;
   mag: number;
   luc: number;
+}
+
+// 装備スロットマップ
+export interface PlayerEquipment {
+  mainHand?: string; // ItemID
+  offHand?: string;
+  body?: string;
+  accessory?: string;
 }
 
 export interface PlayerState extends PlayerStats {
@@ -29,12 +37,8 @@ export interface PlayerState extends PlayerStats {
     current: number;
     max: number;
   };
-  inventory: InventoryItem[]; // 追加: 所持品リスト
-  equipment: { // 将来的な拡張用
-    weapon?: string;
-    armor?: string;
-    accessory?: string;
-  };
+  inventory: InventoryItem[];
+  equipment: PlayerEquipment; // 構造を変更
 }
 
 export interface LogMessage {
