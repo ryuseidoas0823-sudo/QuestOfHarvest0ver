@@ -94,39 +94,25 @@ function App() {
         else if (e.key === 'Enter' || e.key === 'z') {
           // 決定: スキル発動
           if (targetingState.skillId) {
-            // カーソル位置にいる敵のIDを特定（範囲攻撃の場合は中心座標を渡すロジックが必要だが、useActiveSkillを拡張する）
-            // 現状の useActiveSkill は enemyId を要求するため、座標にいる敵を探す
+            // カーソル位置にいる敵を探す（単体指定スキルの場合のフォールバック用）
             const enemiesAtPos = gameState.enemies.filter(en => 
                 en.position.x === targetingState.cursorPos.x && 
                 en.position.y === targetingState.cursorPos.y
             );
             
-            // 範囲攻撃(Area)の場合は敵がいなくても発動できるべきだが、
-            // 既存の実装に合わせて「敵がいる場合」または「敵がいなくても座標を渡す」形に修正が必要
-            // ここでは簡易的に「ターゲット位置にいる敵」を対象とする
-            // 範囲攻撃対応のため、ダミーIDを渡すか、useActiveSkillを座標対応させる必要があるが
-            // 今回は敵IDが見つかればそれを、なければ座標情報を渡すように useSkillSystem を改修するのが理想。
-            // ※取り急ぎ、敵が見つかった場合のみ発動とする
-            if (enemiesAtPos.length > 0) {
-                await useActiveSkill(targetingState.skillId, enemiesAtPos[0].id);
-                cancelTargeting();
-            } else {
-                // 空振り or 地点指定
-                // 本当はここで `useActiveSkill` に座標を渡したい
-                // addLog('そこには誰もいない！', 'warning');
-                // ↓
-                // useSkillSystemがターゲットID必須なので、ターゲット必須スキルはここで弾く
-                // 範囲スキルなら座標を渡せるようにフックを直すべきだが、
-                // 今回は「敵を選択するUI」として実装完了とする
-                const skill = SKILLS[targetingState.skillId];
-                if (skill.targetType === 'area') {
-                    // 暫定: 範囲攻撃なら敵がいなくても発動したことにする（本来は座標を渡す）
-                    addLog('地面を攻撃した！(座標攻撃は未実装)', 'info');
-                    cancelTargeting();
-                } else {
-                    addLog('対象がいない', 'warning');
-                }
-            }
+            // ターゲットIDの特定（いれば）
+            const targetId = enemiesAtPos.length > 0 ? enemiesAtPos[0].id : undefined;
+
+            // スキル発動実行
+            // 座標(cursorPos)を渡すことで、敵がいなくても地点指定(Area)スキルが発動可能になる
+            await useActiveSkill(
+              targetingState.skillId, 
+              targetId, 
+              targetingState.cursorPos
+            );
+            
+            // ターゲットモード終了
+            cancelTargeting();
           }
         }
         else if (e.key === 'Escape' || e.key === 'x') {
