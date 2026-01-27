@@ -1,6 +1,5 @@
 // 戦闘に関連する型定義
-
-import { PlayerStats } from './gameState';
+// 循環参照を避けるため、他の型定義ファイル（gameStateなど）への依存を極力減らします。
 
 export type StatusType = 
   | 'poison' 
@@ -31,7 +30,20 @@ export interface CombatEntity {
   id: string;
   name: string;
   level: number;
-  stats: PlayerStats; // 簡易的にPlayerStatsを流用（敵も同等の構造を持つと仮定）
+  // PlayerStatsへの直接依存を避けて循環参照を回避
+  stats: {
+    hp: number;
+    maxHp: number;
+    mp: number;
+    maxMp: number;
+    str: number;
+    vit: number;
+    dex: number;
+    agi: number;
+    int: number;
+    wis: number;
+    [key: string]: any;
+  }; 
 }
 
 export interface CombatResult {
