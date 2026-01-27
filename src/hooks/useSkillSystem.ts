@@ -1,22 +1,62 @@
 import { useCallback } from 'react';
 import { GameState, Position } from '../types';
 import { SKILLS, JOB_SKILL_TREE } from '../data/skills';
-import { calculateDamage } from '../utils/battle'; // 既存の戦闘計算を利用
-import { Skill, SkillEffect } from '../types/skill';
+import { calculateDamage } from '../utils/battle'; 
+import { Skill, SkillEffect, PlayerSkillState } from '../types/skill';
 
 export const useSkillSystem = (
   setGameState: React.Dispatch<React.SetStateAction<GameState>>,
   addLog: (message: string, type?: 'info' | 'success' | 'warning' | 'danger') => void
 ) => {
 
-  // マスタリーレベル上昇
+  // Modifier適用ロジック
+  // ベーススキルに対し、習得済みのModifierの効果を適用して新しいSkillオブジェクトを返す
+  const applyModifiers = useCallback((baseSkill: Skill, learnedSkills: PlayerSkillState): { skill: Skill, logMessages: string[] } => {
+    let modifiedSkill = { ...baseSkill };
+    let baseEffect = { ...(baseSkill.baseEffect || {}) };
+    let logMessages: string[] = [];
+
+    // このスキルの親IDを持つModifierスキルを探す
+    // NOTE: 効率化のため、本来は関連マップを持つべきだが、ここでは全スキル走査(数が少ないため許容)
+    // または JOB_SKILL_TREE から探す手もある
+    Object.keys(learnedSkills).forEach(learnedId => {
+        const level = learnedSkills[learnedId];
+        if (level <= 0) return;
+
+        const modDef = SKILLS[learnedId];
+        if (modDef && modDef.type === 'modifier' && modDef.parentSkillId === baseSkill.id) {
+            
+            // --- Modifierごとの効果定義 (Switch case for implementation) ---
+            switch (modDef.id) {
+                case 'impact': // Power Strike -> 範囲攻撃化
+                    modifiedSkill.targetType = 'area';
+                    modifiedSkill.areaRadius = (modifiedSkill.areaRadius || 0) + 1;
+                    baseEffect.value = (baseEffect.value || 1.0) * 0.9; // 範囲化する代わりに倍率少し低下
+                    logMessages.push('衝撃波が拡散する！(Impact)');
+                    break;
+
+                case 'ignite': // Fireball -> 範囲拡大 + 燃焼
+                    modifiedSkill.areaRadius = (modifiedSkill.areaRadius || 0) + 1;
+                    baseEffect.status = 'burn'; // 燃焼付与
+                    baseEffect.value = (baseEffect.value || 1.0) * 1.2; // 威力アップ
+                    modifiedSkill.mpCost = (modifiedSkill.mpCost || 0) + 4; // コスト増
+                    logMessages.push('炎が激しく燃え上がる！(Ignite)');
+                    break;
+
+                // 今後追加されるModifier...
+            }
+        }
+    });
+
+    modifiedSkill.baseEffect = baseEffect;
+    return { skill: modifiedSkill, logMessages };
+  }, []);
+
+
   const increaseMastery = useCallback((jobId: string) => {
     setGameState(prev => {
       const currentLevel = prev.player.jobState.masteryLevels[jobId] || 0;
-      // 最大レベル制限などはここでチェック
-      if (currentLevel >= 50) return prev; // 仮の上限
-
-      // SP消費ロジックがあればここに追加
+      if (currentLevel >= 50) return prev; 
 
       return {
         ...prev,
@@ -34,14 +74,10 @@ export const useSkillSystem = (
     });
   }, [setGameState]);
 
-  // スキル習得
   const learnSkill = useCallback((skillId: string) => {
     setGameState(prev => {
       const skill = SKILLS[skillId];
       if (!skill) return prev;
-
-      // 習得条件チェック（マスタリーレベルなど）
-      // ...（省略）
 
       const currentLevel = (prev.player as any).skills?.[skillId] || 0;
       if (currentLevel >= skill.maxLevel) return prev;
@@ -59,61 +95,36 @@ export const useSkillSystem = (
     });
   }, [setGameState]);
 
-  // アクティブスキル使用（範囲攻撃・地点指定対応版）
+  // アクティブスキル使用
   const useActiveSkill = useCallback(async (skillId: string, targetId?: string, targetPos?: Position) => {
     setGameState(prev => {
-      const skill = SKILLS[skillId];
-      if (!skill) return prev;
+      const originalSkill = SKILLS[skillId];
+      if (!originalSkill) return prev;
 
       const player = prev.player;
+      const learnedSkills = (player as any).skills || {};
+
+      // 1. Modifierの適用
+      const { skill: modifiedSkill, logMessages: modLogs } = applyModifiers(originalSkill, learnedSkills);
       
       // MPチェック
-      if (skill.mpCost && player.stats.mp < skill.mpCost) {
+      if (modifiedSkill.mpCost && player.stats.mp < modifiedSkill.mpCost) {
         addLog('MPが足りない！', 'warning');
         return prev;
       }
 
-      // クールダウンチェック (簡易実装)
-      // ...
-
-      // --- Modifierスキルの適用チェック ---
-      // 習得済みのスキルの中から、このスキルを親に持つModifierを探す
-      // 例: 'power_strike' 使用時に 'impact' (Modifier) を持っているか
-      let modifiedSkill = { ...skill };
-      const learnedSkills = (player as any).skills || {};
-      
-      Object.keys(learnedSkills).forEach(learnedId => {
-        const modSkill = SKILLS[learnedId];
-        if (modSkill.type === 'modifier' && modSkill.parentSkillId === skillId && learnedSkills[learnedId] > 0) {
-           // Modifierの効果を適用（簡易的なハードコード例）
-           // 本来はModifierデータに効果定義を持たせて動的に計算するのが望ましい
-           if (modSkill.id === 'impact') {
-               // インパクト: 単体攻撃を範囲攻撃化
-               modifiedSkill.targetType = 'area';
-               modifiedSkill.areaRadius = (modifiedSkill.areaRadius || 0) + 1;
-               addLog('インパクト効果発動！', 'info');
-           }
-        }
-      });
-
       // --- ターゲットと影響範囲の決定 ---
       let centerPos: Position | null = null;
       
-      // 1. 座標指定があればそれを優先 (地点指定スキル)
       if (targetPos) {
         centerPos = targetPos;
-      } 
-      // 2. ターゲットIDがあればその敵の座標を使用 (ターゲット指定スキル)
-      else if (targetId) {
+      } else if (targetId) {
         const targetEnemy = prev.enemies.find(e => e.id === targetId);
         if (targetEnemy) centerPos = targetEnemy.position;
-      }
-      // 3. 自分自身 (バフなど)
-      else if (modifiedSkill.targetType === 'self') {
+      } else if (modifiedSkill.targetType === 'self') {
         centerPos = player.position;
       }
 
-      // ターゲット不成立
       if (!centerPos && modifiedSkill.targetType !== 'none') {
         addLog('対象が見つかりません。', 'warning');
         return prev;
@@ -123,90 +134,88 @@ export const useSkillSystem = (
       let targets: typeof prev.enemies = [];
       
       if (modifiedSkill.targetType === 'self') {
-        // 自分への効果（回復・バフ）
-        // ここでは敵リストに入れない
+        // 自分自身への処理は後述
       } else {
         const radius = modifiedSkill.areaRadius || 0;
 
         if (radius > 0 && centerPos) {
-          // 範囲攻撃: 中心座標から radius 以内の敵を全て対象にする
+          // 範囲攻撃
           targets = prev.enemies.filter(enemy => {
              const dist = Math.abs(enemy.position.x - centerPos!.x) + Math.abs(enemy.position.y - centerPos!.y);
              return dist <= radius;
           });
         } else if (targetId) {
-          // 単体攻撃
+          // 単体指定
           const t = prev.enemies.find(e => e.id === targetId);
           if (t) targets = [t];
         } else if (targetPos && radius === 0) {
-            // 範囲0の地点指定攻撃（そのマスの敵のみ）
-            targets = prev.enemies.filter(enemy => 
-                enemy.position.x === targetPos.x && enemy.position.y === targetPos.y
-            );
+           // 地点指定 (1マス)
+           targets = prev.enemies.filter(enemy => 
+             enemy.position.x === targetPos.x && enemy.position.y === targetPos.y
+           );
         }
       }
 
-      // --- ダメージ計算と状態更新 ---
+      // --- 実行処理 (状態更新) ---
       let newEnemies = [...prev.enemies];
-      let newPlayer = { ...player, stats: { ...player.stats, mp: player.stats.mp - (modifiedSkill.mpCost || 0) } };
-      let logMessages: string[] = [`${modifiedSkill.name}を発動！`];
+      let newPlayer = { 
+          ...player, 
+          stats: { ...player.stats, mp: player.stats.mp - (modifiedSkill.mpCost || 0) } 
+      };
+      
+      const skillName = modifiedSkill.name + (modLogs.length > 0 ? '+' : '');
+      const actionLogs: string[] = [`${skillName}を発動！`, ...modLogs];
 
-      // 敵へのダメージ処理
-      targets.forEach(target => {
-          // ダメージ計算 (battle.tsのロジックを流用または独自計算)
-          // ここでは簡易計算: 攻撃力 * スキル倍率
-          // クリティカル判定などは calculateDamage に任せるのが理想だが、
-          // スキル倍率を渡すために簡易実装する
-          
-          const baseDamage = player.stats.attack; // 基礎攻撃力
-          const skillMultiplier = modifiedSkill.baseEffect?.value || 1.0;
-          
-          // 乱数と防御力（簡易）
-          const defense = 0; // 敵の防御力データが必要
-          let damage = Math.floor((baseDamage * skillMultiplier) - defense);
-          damage = Math.max(1, damage + Math.floor(Math.random() * 5 - 2));
+      // 敵への効果
+      if (targets.length > 0) {
+          targets.forEach(target => {
+              const baseDamage = player.stats.attack;
+              const skillMultiplier = modifiedSkill.baseEffect?.value || 1.0;
+              const defense = 0; // 簡易防御
 
-          // 状態異常付与
-          if (modifiedSkill.baseEffect?.status) {
-              // TODO: 状態異常ロジック
-              logMessages.push(`${target.name}に${modifiedSkill.baseEffect.status}を与えた！`);
-          }
+              let damage = Math.floor((baseDamage * skillMultiplier) - defense);
+              damage = Math.max(1, damage + Math.floor(Math.random() * 5 - 2));
 
-          // 敵HP更新
-          newEnemies = newEnemies.map(e => {
-              if (e.id === target.id) {
-                  return {
-                      ...e,
-                      hp: Math.max(0, e.hp - damage)
-                  };
+              // 状態異常ログ
+              if (modifiedSkill.baseEffect?.status) {
+                  actionLogs.push(`${target.name}は${modifiedSkill.baseEffect.status}状態になった！`);
+                  // TODO: 実際のステータス異常付与処理は Enemy型に statusEffects 配列などを追加して管理する
               }
-              return e;
+
+              newEnemies = newEnemies.map(e => {
+                  if (e.id === target.id) {
+                      return { ...e, hp: Math.max(0, e.hp - damage) };
+                  }
+                  return e;
+              });
+
+              actionLogs.push(`${target.name}に${damage}のダメージ！`);
           });
+      } else if (modifiedSkill.targetType !== 'self') {
+          actionLogs.push('効果範囲に敵がいなかった。');
+      }
 
-          logMessages.push(`${target.name}に${damage}のダメージ！`);
-          
-          // ダメージ表示エフェクト用のログ（今回はテキストログのみ）
-      });
-      
-      // 敵死亡判定
-      const deadEnemies = newEnemies.filter(e => e.hp <= 0);
-      newEnemies = newEnemies.filter(e => e.hp > 0);
-      
-      deadEnemies.forEach(e => {
-          logMessages.push(`${e.name}を倒した！`);
-          // 経験値取得などの処理
-          // newPlayer.exp += e.exp...
-      });
-
-      // 自分への効果（回復など）
+      // 自分への効果 (回復・バフ)
       if (modifiedSkill.baseEffect?.type === 'heal_hp') {
           const healAmount = modifiedSkill.baseEffect.value || 0;
           newPlayer.stats.hp = Math.min(newPlayer.stats.maxHp, newPlayer.stats.hp + healAmount);
-          logMessages.push(`HPが${healAmount}回復した。`);
+          actionLogs.push(`HPが${healAmount}回復した。`);
+      }
+      if (modifiedSkill.baseEffect?.type === 'buff') {
+          // TODO: バフ管理の実装
+          actionLogs.push(`${modifiedSkill.baseEffect.status}の効果を得た！`);
       }
 
+      // 敵死亡処理
+      const deadEnemies = newEnemies.filter(e => e.hp <= 0);
+      newEnemies = newEnemies.filter(e => e.hp > 0);
+      deadEnemies.forEach(e => {
+          actionLogs.push(`${e.name}を倒した！`);
+          // 経験値処理など
+      });
+
       // ログ出力
-      logMessages.forEach(msg => addLog(msg));
+      actionLogs.forEach(msg => addLog(msg));
 
       return {
         ...prev,
@@ -214,7 +223,7 @@ export const useSkillSystem = (
         enemies: newEnemies
       };
     });
-  }, [setGameState, addLog]);
+  }, [setGameState, addLog, applyModifiers]);
 
   return {
     increaseMastery,
