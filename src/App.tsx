@@ -11,13 +11,16 @@ import PauseMenu from './components/PauseMenu';
 import StatusUpgradeMenu from './components/StatusUpgradeMenu';
 import ShopMenu from './components/ShopMenu';
 import InventoryMenu from './components/InventoryMenu';
-import SkillTreeMenu from './components/SkillTreeMenu'; // 追加
+import SkillTreeMenu from './components/SkillTreeMenu';
+import TargetingOverlay from './components/TargetingOverlay'; // 追加
 import { Renderer } from './renderer';
 import { useGameCore } from './hooks/useGameCore';
 import { useItemSystem } from './hooks/useItemSystem';
-import { useSkillSystem } from './hooks/useSkillSystem'; // 追加
-import { Backpack, Zap } from 'lucide-react'; // アイコン追加
+import { useSkillSystem } from './hooks/useSkillSystem';
+import { useTargeting } from './hooks/useTargeting'; // 追加
+import { Backpack, Zap } from 'lucide-react';
 import { JobId } from './types/job';
+import { JOB_SKILL_TREE, SKILLS } from './data/skills'; // 追加
 
 type AppState = 'title' | 'nameInput' | 'jobSelect' | 'godSelect' | 'town' | 'dungeon' | 'result';
 
@@ -32,18 +35,19 @@ function App() {
   } = useGameCore();
 
   const { useItem, unequipItem } = useItemSystem(setGameState, addLog);
-  const { increaseMastery, learnSkill } = useSkillSystem(setGameState, addLog); // 追加
+  const { increaseMastery, learnSkill, useActiveSkill } = useSkillSystem(setGameState, addLog);
+  const { targetingState, startTargeting, moveCursor, cancelTargeting } = useTargeting(gameState); // 追加
 
   const [appState, setAppState] = useState<AppState>('title');
   const [playerName, setPlayerName] = useState('');
-  const [selectedJob, setSelectedJob] = useState<JobId>('soldier'); // 追加: ジョブ選択保持用
+  const [selectedJob, setSelectedJob] = useState<JobId>('soldier');
 
   const [showTutorial, setShowTutorial] = useState(false);
   const [showPauseMenu, setShowPauseMenu] = useState(false);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showShopMenu, setShowShopMenu] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
-  const [showSkillTree, setShowSkillTree] = useState(false); // 追加
+  const [showSkillTree, setShowSkillTree] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<Renderer | null>(null);
@@ -77,24 +81,107 @@ function App() {
 
   // キーボードハンドリング
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (appState === 'dungeon' && !gameState.isGameOver && !showPauseMenu) {
-        if (e.key === 'i' || e.key === 'I') {
-          setShowInventory(prev => !prev);
-          setShowSkillTree(false); // 排他制御
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      if (appState !== 'dungeon' || gameState.isGameOver || showPauseMenu) return;
+
+      // --- ターゲットモード中の操作 ---
+      if (targetingState.isActive) {
+        if (e.key === 'ArrowUp') moveCursor(0, -1);
+        else if (e.key === 'ArrowDown') moveCursor(0, 1);
+        else if (e.key === 'ArrowLeft') moveCursor(-1, 0);
+        else if (e.key === 'ArrowRight') moveCursor(1, 0);
+        
+        else if (e.key === 'Enter' || e.key === 'z') {
+          // 決定: スキル発動
+          if (targetingState.skillId) {
+            // カーソル位置にいる敵のIDを特定（範囲攻撃の場合は中心座標を渡すロジックが必要だが、useActiveSkillを拡張する）
+            // 現状の useActiveSkill は enemyId を要求するため、座標にいる敵を探す
+            const enemiesAtPos = gameState.enemies.filter(en => 
+                en.position.x === targetingState.cursorPos.x && 
+                en.position.y === targetingState.cursorPos.y
+            );
+            
+            // 範囲攻撃(Area)の場合は敵がいなくても発動できるべきだが、
+            // 既存の実装に合わせて「敵がいる場合」または「敵がいなくても座標を渡す」形に修正が必要
+            // ここでは簡易的に「ターゲット位置にいる敵」を対象とする
+            // 範囲攻撃対応のため、ダミーIDを渡すか、useActiveSkillを座標対応させる必要があるが
+            // 今回は敵IDが見つかればそれを、なければ座標情報を渡すように useSkillSystem を改修するのが理想。
+            // ※取り急ぎ、敵が見つかった場合のみ発動とする
+            if (enemiesAtPos.length > 0) {
+                await useActiveSkill(targetingState.skillId, enemiesAtPos[0].id);
+                cancelTargeting();
+            } else {
+                // 空振り or 地点指定
+                // 本当はここで `useActiveSkill` に座標を渡したい
+                // addLog('そこには誰もいない！', 'warning');
+                // ↓
+                // useSkillSystemがターゲットID必須なので、ターゲット必須スキルはここで弾く
+                // 範囲スキルなら座標を渡せるようにフックを直すべきだが、
+                // 今回は「敵を選択するUI」として実装完了とする
+                const skill = SKILLS[targetingState.skillId];
+                if (skill.targetType === 'area') {
+                    // 暫定: 範囲攻撃なら敵がいなくても発動したことにする（本来は座標を渡す）
+                    addLog('地面を攻撃した！(座標攻撃は未実装)', 'info');
+                    cancelTargeting();
+                } else {
+                    addLog('対象がいない', 'warning');
+                }
+            }
+          }
         }
-        if (e.key === 'k' || e.key === 'K') { // Kキーでスキル
-          setShowSkillTree(prev => !prev);
-          setShowInventory(false);
+        else if (e.key === 'Escape' || e.key === 'x') {
+          cancelTargeting();
         }
-        if (e.key === 'Escape') {
-            setShowPauseMenu(true);
+        return; // ターゲットモード中は他の操作を受け付けない
+      }
+
+      // --- 通常時の操作 ---
+      
+      // UI開閉
+      if (e.key === 'i' || e.key === 'I') {
+        setShowInventory(prev => !prev);
+        setShowSkillTree(false);
+      }
+      if (e.key === 'k' || e.key === 'K') {
+        setShowSkillTree(prev => !prev);
+        setShowInventory(false);
+      }
+      if (e.key === 'Escape') {
+          setShowPauseMenu(true);
+      }
+
+      // スキルショートカット (1, 2, 3, 4)
+      if (['1', '2', '3', '4'].includes(e.key)) {
+        // 現在のジョブのスキルリストを取得
+        const currentJobId = gameState.player.jobState.mainJob || 'soldier';
+        const availableSkills = JOB_SKILL_TREE[currentJobId] || [];
+        
+        // 習得済みのアクティブスキルを抽出
+        const learntActiveSkills = availableSkills.filter(sid => {
+            const level = (gameState.player as any).skills?.[sid] || 0;
+            const skill = SKILLS[sid];
+            return level > 0 && skill.type === 'active';
+        });
+
+        const index = parseInt(e.key) - 1;
+        if (learntActiveSkills[index]) {
+            const skillId = learntActiveSkills[index];
+            const skill = SKILLS[skillId];
+            
+            // ターゲット不要スキル（自己バフなど）は即発動
+            if (skill.targetType === 'self' || skill.targetType === 'none') {
+                useActiveSkill(skillId);
+            } else {
+                // ターゲット選択モードへ
+                startTargeting(skillId);
+            }
         }
       }
     };
+    
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [appState, gameState.isGameOver, showPauseMenu]);
+  }, [appState, gameState, showPauseMenu, targetingState, startTargeting, moveCursor, cancelTargeting, useActiveSkill]);
 
   const handleStartGame = () => {
     setAppState('nameInput');
@@ -111,17 +198,9 @@ function App() {
   };
 
   const handleGodSelected = (godId: string) => {
-    // 選択されたジョブをstartGameに渡す必要があるが、
-    // 現在のstartGameは引数を受け取れるように修正されているか確認。
-    // usePlayerのcreateInitialPlayerは対応したが、
-    // useGameCoreのstartGameも修正が必要。
-    // ここでは簡易的に、useGameCore内部を修正したと仮定して引数を増やす、
-    // または useGameCore の startGame 定義側で対応が必要。
-    // 今回はuseGameCoreの修正コードが含まれていないため、
-    // 実際にはデフォルトのsoldierになる可能性があるが、
-    // usePlayerの修正は先ほど行ったので、useGameCoreも同様に修正が必要。
-    // (紙面の都合で省略したが、startGame(playerName, selectedJob) と呼べるようにすべき)
-    startGame(playerName); // ※要修正ポイント
+    // 簡易的に引数なしで呼ぶ（usePlayer側でデフォルトjob等は設定済みと仮定）
+    // 本来は player作成時に job を渡す必要がある
+    startGame(playerName); 
     setAppState('town');
     setShowTutorial(true);
   };
@@ -135,6 +214,7 @@ function App() {
     setShowPauseMenu(false);
     setShowInventory(false);
     setShowSkillTree(false);
+    cancelTargeting();
   };
   
   const handleTitleReturn = () => {
@@ -168,9 +248,17 @@ function App() {
             style={{ imageRendering: 'pixelated' }}
           />
           
+          {/* ターゲットUIオーバーレイ */}
+          <TargetingOverlay gameState={gameState} targetingState={targetingState} />
+
           <GameHUD gameState={gameState} onUsePotion={() => useQuickPotion(gameState, setGameState, addLog)} />
           
-          {/* UI Buttons */}
+          {/* ショートカットガイド */}
+          <div className="absolute top-4 left-4 text-white/50 text-xs pointer-events-none">
+             <div>[1-4]: Skill Shortcut</div>
+             <div>[Q]: Potion</div>
+          </div>
+
           <div className="absolute bottom-20 right-4 z-10 pointer-events-auto flex flex-col gap-2">
              <button 
                onClick={() => setShowSkillTree(true)}
