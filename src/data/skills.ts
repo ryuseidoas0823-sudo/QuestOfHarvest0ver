@@ -29,7 +29,7 @@ export const SKILLS: Record<string, Skill> = {
     tier: 10, // Tier 3
     parentSkillId: 'power_strike',
     icon: '🌊',
-    targetType: 'none', // Modifier自体は発動しない
+    targetType: 'none', 
   },
   'round_slash': {
     id: 'round_slash',
@@ -41,7 +41,7 @@ export const SKILLS: Record<string, Skill> = {
     mpCost: 8,
     cooldown: 2,
     icon: '🌪️',
-    targetType: 'area', // 自分中心の範囲
+    targetType: 'area', 
     range: 0,
     areaRadius: 1,
     baseEffect: { type: 'damage', value: 0.8 }
@@ -123,7 +123,7 @@ export const SKILLS: Record<string, Skill> = {
     baseEffect: { type: 'buff', status: 'killing_zone' }
   },
 
-  // --- 狩人 (Ranger) Skills (遠距離テスト用) ---
+  // --- 狩人 (Ranger) Skills ---
   'power_shot': {
     id: 'power_shot',
     name: 'パワーショット',
@@ -133,7 +133,7 @@ export const SKILLS: Record<string, Skill> = {
     tier: 1,
     mpCost: 5,
     icon: '🏹',
-    targetType: 'enemy', // 遠距離単体
+    targetType: 'enemy', 
     range: 5,
     baseEffect: { type: 'damage', value: 1.3 }
   },
@@ -146,13 +146,13 @@ export const SKILLS: Record<string, Skill> = {
     tier: 15,
     mpCost: 15,
     icon: '🌧️',
-    targetType: 'area', // 遠距離範囲
+    targetType: 'area', 
     range: 4,
-    areaRadius: 1, // 中心+周囲1マス
+    areaRadius: 1, 
     baseEffect: { type: 'damage', value: 0.8 }
   },
 
-  // --- 魔導士 (Arcanist) Skills (遠距離テスト用) ---
+  // --- 魔導士 (Arcanist) Skills ---
   'fireball': {
     id: 'fireball',
     name: 'ファイアボール',
@@ -166,14 +166,36 @@ export const SKILLS: Record<string, Skill> = {
     range: 4,
     areaRadius: 1,
     baseEffect: { type: 'damage', value: 1.2 }
+  },
+  'ignite': {
+    id: 'ignite',
+    name: 'イグナイト',
+    description: 'ファイアボールの爆発範囲を拡大し、さらに敵を燃焼させる。',
+    type: 'modifier',
+    maxLevel: 10,
+    tier: 10, // Tier 3
+    parentSkillId: 'fireball',
+    icon: '🎇',
+    targetType: 'none'
+  },
+  'magic_barrier': {
+    id: 'magic_barrier',
+    name: 'マジックバリア',
+    description: 'マナを消費してダメージを軽減する障壁を展開。',
+    type: 'active',
+    maxLevel: 12,
+    tier: 15,
+    mpCost: 20,
+    icon: '🔮',
+    targetType: 'self',
+    baseEffect: { type: 'buff', status: 'barrier' }
   }
 };
 
-// ジョブごとのスキル配置定義
 export const JOB_SKILL_TREE: Record<JobId, string[]> = {
   soldier: ['power_strike', 'impact', 'round_slash', 'berserk_mode', 'guardian_stance'],
   rogue: ['dual_wield_mastery', 'venom_edge', 'adrenaline_rush', 'killing_zone'],
-  arcanist: ['fireball'], // 追加
-  ranger: ['power_shot', 'arrow_rain'], // 追加
+  arcanist: ['fireball', 'ignite', 'magic_barrier'],
+  ranger: ['power_shot', 'arrow_rain'],
   monk: []
 };
