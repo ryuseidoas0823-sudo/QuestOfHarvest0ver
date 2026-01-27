@@ -1,69 +1,51 @@
-import { Position } from './input';
-import { StatusEffect } from './combat';
+import { StatusEffect, CooldownState } from './combat';
 
-/**
- * 敵の種族定義
- */
-export type EnemyRace = 
-  | 'slime'     // 粘体: 物理耐性、魔法弱点
-  | 'undead'    // 死霊: 毒無効、聖弱点、再生
-  | 'humanoid'  // 亜人: バランス型、集団戦術
-  | 'beast'     // 魔獣: 高速、高火力
-  | 'construct' // 無機物: 状態異常無効、高防御
-  | 'plant'     // 植物: 火弱点、状態異常攻撃
-  | 'demon'     // 悪魔: 魔法攻撃、耐性多め
-  | 'dragon'    // 竜: ブレス、高ステータス
-  | 'god';      // 神性: ボス級
+export type EnemyType = 'normal' | 'elite' | 'boss';
+export type EnemyRace = 'beast' | 'humanoid' | 'undead' | 'construct' | 'plant' | 'demon' | 'dragon';
+export type EnemyAI = 'chase' | 'ranged' | 'stationary' | 'random' | 'boss_minotaur' | 'boss_goliath';
 
-/**
- * 属性タイプ
- */
-export type ElementType = 'physical' | 'fire' | 'ice' | 'thunder' | 'poison' | 'holy' | 'dark';
-
-export type EnemyResistances = Partial<Record<ElementType, number>>;
-export type EnemyWeaknesses = Partial<Record<ElementType, number>>;
-
-/**
- * 敵のスキル定義
- */
-export interface EnemySkill {
-  id: string;
-  name: string;
-  type: 'attack' | 'buff' | 'debuff' | 'heal' | 'summon';
-  range: number;      // 射程
-  areaRadius?: number;// 効果範囲 (0=単体)
-  damageMult?: number;// 攻撃倍率 (1.0 = 通常攻撃相当)
-  statusEffect?: string; // 付与する状態異常ID
-  cooldown: number;   // 再使用ターン数
-  prob: number;       // 使用確率 (0.0 - 1.0)
-  message: string;    // 使用時のログメッセージ
-}
-
-/**
- * 敵キャラクターのインターフェース
- */
-export interface Enemy {
-  id: string;
-  name: string;
-  symbol: string;
-  color: string;
-  position: Position;
-  
+export interface EnemyStats {
   hp: number;
   maxHp: number;
+  mp: number;
+  maxMp: number;
   attack: number;
   defense: number;
+  magicAttack: number;
+  magicDefense: number;
+  speed: number;
   exp: number;
-  
-  aiType: 'chase' | 'random' | 'stationary' | 'ranged' | 'healer' | 'boss_minotaur' | 'boss_goliath';
-  
+  gold: number;
+}
+
+export interface EnemyDefinition {
+  id: string;
+  name: string;
+  type: EnemyType;
   race: EnemyRace;
-  resistances?: EnemyResistances;
-  weaknesses?: EnemyWeaknesses;
-  
-  // スキル関連
-  skills?: EnemySkill[];
-  cooldowns?: Record<string, number>; // SkillId -> Remaining Turns
-  
-  statusEffects: StatusEffect[];
+  symbol: string; // ASCII symbol or sprite ID
+  color: string;
+  stats: EnemyStats;
+  ai: EnemyAI;
+  skills: string[]; // Skill IDs
+  dropTable: {
+    itemId: string;
+    rate: number; // 0.0 - 1.0
+  }[];
+  resistances?: {
+    [key: string]: number; // damage multiplier (e.g. 0.5 for 50% resistance)
+  };
+  weaknesses?: {
+    [key: string]: number; // damage multiplier (e.g. 1.5 for 50% weakness)
+  };
+}
+
+export interface EnemyInstance extends EnemyDefinition {
+  uniqueId: string;
+  x: number;
+  y: number;
+  ct: number; // Charge Time
+  statusEffects: StatusEffect[]; // 更新: 新しい型定義を使用
+  cooldowns: CooldownState;
+  isAggro: boolean; // Has noticed player
 }
