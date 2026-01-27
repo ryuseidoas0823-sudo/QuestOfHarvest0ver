@@ -1,191 +1,137 @@
 import { useState, useCallback } from 'react';
-import { PlayerState, DungeonMap, Direction, Tile } from '../types';
-import { generateDungeon } from '../dungeonGenerator'; 
-import { EnemyInstance } from '../types/enemy';
-import { enemies as enemyData } from '../data/enemies';
-import { items as itemData } from '../data/items';
+import { DungeonData, GameState, Enemy } from '../types/gameState';
+import { Position } from '../types/input';
+import { generateDungeon } from '../dungeonGenerator';
+import { ENEMY_DEFINITIONS, EnemyDefinition } from '../data/enemies';
 
-interface DungeonState {
-  dungeon: DungeonMap | null;
-  floor: number;
-  map: Tile[][];
-  enemies: EnemyInstance[];
-}
+// 敵IDの生成用
+const generateId = () => Math.random().toString(36).substr(2, 9);
+
+// 階層ごとの出現敵テーブル (ボス以外)
+const FLOOR_ENEMIES: Record<string, string[]> = {
+  '1-4': ['slime', 'goblin', 'wolf'],
+  '6-9': ['skeleton', 'zombie', 'ghost'],
+  '11-14': ['poison_flower', 'lizardman', 'harpy'],
+  '16-19': ['minotaur', 'dark_knight', 'arch_demon'],
+  // Default
+  'default': ['slime']
+};
+
+// 階層ごとのボス定義
+const BOSS_ENEMIES: Record<number, string> = {
+  5: 'baby_dragon',
+  10: 'goliath',
+  15: 'amphisbaena',
+  20: 'asterios' // ラスボス想定
+};
 
 export const useDungeon = (
-  playerState: PlayerState, 
-  updatePlayer: (updates: Partial<PlayerState>) => void
+  setGameState: React.Dispatch<React.SetStateAction<GameState>>,
+  addLog: (message: string, type?: any) => void
 ) => {
-  const [dungeonState, setDungeonState] = useState<DungeonState>({
-    dungeon: null,
-    floor: 0,
-    map: [],
-    enemies: []
-  });
 
-  const spawnEnemies = (spawnPoints: {x: number, y: number}[], floor: number): EnemyInstance[] => {
-    const enemies: EnemyInstance[] = [];
-    const availableEnemies = Object.values(enemyData);
-    
-    spawnPoints.forEach((point, index) => {
-      if (Math.random() < 0.5 && availableEnemies.length > 0) {
-        const template = availableEnemies[Math.floor(Math.random() * availableEnemies.length)];
-        enemies.push({
-          id: `enemy-${floor}-${index}`,
-          defId: template.id,
-          name: template.name,
-          type: template.type,
-          dropItems: template.dropItems,
-          exp: template.exp,
-          attack: template.attack,
-          defense: template.defense,
-          x: point.x,
-          y: point.y,
-          hp: template.maxHp,
-          maxHp: template.maxHp,
-          status: 'idle'
-        });
-      }
-    });
-    return enemies;
-  };
+  // 敵のスポーンロジック
+  const spawnEnemies = useCallback((floor: number, rooms: any[], playerPos: Position): Enemy[] => {
+    const enemies: Enemy[] = [];
 
-  const generateFloor = useCallback((floorNum: number) => {
-    const newDungeon = generateDungeon(floorNum);
-    const newEnemies = spawnEnemies(newDungeon.spawnPoints || [], floorNum);
-
-    setDungeonState({
-      dungeon: newDungeon,
-      floor: floorNum,
-      map: newDungeon.map,
-      enemies: newEnemies
-    });
-
-    if (newDungeon.startPosition) {
-      updatePlayer({ x: newDungeon.startPosition.x, y: newDungeon.startPosition.y });
-    } else {
-      updatePlayer({ x: 2, y: 2 });
-    }
-  }, [updatePlayer]);
-
-  const getFrontEnemy = useCallback((): EnemyInstance | null => {
-    if (!dungeonState.enemies) return null;
-    const { x, y } = playerState;
-    return dungeonState.enemies.find(e => 
-      (Math.abs(e.x - x) === 1 && e.y === y) || 
-      (Math.abs(e.y - y) === 1 && e.x === x)
-    ) || null;
-  }, [dungeonState.enemies, playerState]);
-
-  // 目の前のタイル情報を取得（宝箱など）
-  const getFrontTile = useCallback((): Tile | null => {
-      const { x, y } = playerState;
-      // プレイヤーの向きを保存していないので、一旦「移動先」ではなく「現在地」を見るか、
-      // 簡易的に「攻撃ボタン」＝「アクションボタン」として、周囲のインタラクト可能なものを探す
-      // ここでは、隣接する宝箱を優先して探すロジックにする
+    // --- ボスフロアの処理 ---
+    if (BOSS_ENEMIES[floor]) {
+      const bossId = BOSS_ENEMIES[floor];
+      const bossDef = ENEMY_DEFINITIONS[bossId];
       
-      const neighbors = [
-          { dx: 0, dy: -1 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 1, dy: 0 }
-      ];
+      if (bossDef) {
+        // ボスは部屋（アリーナ）の中央に配置
+        // generateBossArenaでは rooms[0] がアリーナ
+        const arena = rooms[0];
+        const bossPos = {
+          x: Math.floor(arena.x + arena.w / 2),
+          y: Math.floor(arena.y + arena.h / 2)
+        };
 
-      for (const {dx, dy} of neighbors) {
-          const nx = x + dx;
-          const ny = y + dy;
-          if (dungeonState.map[ny] && dungeonState.map[ny][nx]) {
-              const tile = dungeonState.map[ny][nx];
-              if (tile.type === 'chest' && !tile.meta?.opened) {
-                  return tile;
-              }
-          }
+        enemies.push({
+          id: generateId(),
+          ...bossDef,
+          position: bossPos,
+          statusEffects: []
+        });
+        
+        // 取り巻き（Minions）を少し出す場合
+        // const minionCount = 2;
+        // ...
       }
-      return null;
-  }, [dungeonState.map, playerState]);
-
-  // 宝箱を開ける
-  const openChest = useCallback((x: number, y: number): string | null => {
-      let resultMessage = null;
-      setDungeonState(prev => {
-          const newMap = [...prev.map];
-          const tile = { ...newMap[y][x], meta: { ...newMap[y][x].meta, opened: true } };
-          newMap[y] = [...newMap[y]];
-          newMap[y][x] = tile as Tile;
-          
-          const itemId = tile.meta?.itemId;
-          if (itemId) {
-              const item = itemData[itemId];
-              resultMessage = item ? `${item.name}を手に入れた！` : '何も入っていなかった...';
-          }
-
-          return { ...prev, map: newMap };
-      });
-      return resultMessage;
-  }, []);
-
-  const movePlayer = useCallback((direction: Direction): boolean => {
-    const { x, y } = playerState;
-    let nextX = x;
-    let nextY = y;
-
-    if (direction === 'up') nextY--;
-    if (direction === 'down') nextY++;
-    if (direction === 'left') nextX--;
-    if (direction === 'right') nextX++;
-
-    const map = dungeonState.map;
-    if (!map || nextY < 0 || nextY >= map.length || nextX < 0 || nextX >= map[0].length) {
-      return false;
+      return enemies;
     }
 
-    const targetTile = map[nextY][nextX];
-    if (targetTile.type === 'wall') {
-      return false;
-    }
-    // 宝箱は踏めるようにするか、障害物にするか。
-    // 今回は「障害物」として、アクションボタンで開ける方式にする
-    if (targetTile.type === 'chest') {
-        return false; 
-    }
+    // --- 通常フロアの処理 ---
+    
+    // 現在の階層に適した敵リストを取得
+    let availableEnemies = FLOOR_ENEMIES['default'];
+    if (floor <= 4) availableEnemies = FLOOR_ENEMIES['1-4'];
+    else if (floor <= 9) availableEnemies = FLOOR_ENEMIES['6-9'];
+    else if (floor <= 14) availableEnemies = FLOOR_ENEMIES['11-14'];
+    else availableEnemies = FLOOR_ENEMIES['16-19'];
 
-    const enemyAtTarget = dungeonState.enemies.find(e => e.x === nextX && e.y === nextY);
-    if (enemyAtTarget) {
-      return false;
-    }
+    // 各部屋に敵を配置
+    rooms.forEach((room, index) => {
+      // 最初の部屋（プレイヤーがいる）は敵を少なくするか無しにする
+      if (index === 0) return;
 
-    updatePlayer({ x: nextX, y: nextY });
-    return true;
-  }, [playerState, dungeonState, updatePlayer]);
+      // 部屋の大きさに応じて敵の数を決定 (1〜3体)
+      const enemyCount = Math.floor(Math.random() * 3) + 1;
 
-  const updateEntityPosition = useCallback((entityId: string, x: number, y: number) => {
-    setDungeonState(prev => ({
-      ...prev,
-      enemies: prev.enemies.map(e => e.id === entityId ? { ...e, x, y } : e)
-    }));
-  }, []);
+      for (let i = 0; i < enemyCount; i++) {
+        const enemyKey = availableEnemies[Math.floor(Math.random() * availableEnemies.length)];
+        const enemyDef = ENEMY_DEFINITIONS[enemyKey];
 
-  const damageEnemy = useCallback((enemyId: string, damage: number) => {
-    setDungeonState(prev => {
-      const updatedEnemies = prev.enemies.map(e => {
-        if (e.id === enemyId) {
-          return { ...e, hp: Math.max(0, e.hp - damage), status: 'damage' as const };
+        if (enemyDef) {
+          // 部屋内のランダムな位置
+          const ex = Math.floor(Math.random() * (room.w - 2)) + room.x + 1;
+          const ey = Math.floor(Math.random() * (room.h - 2)) + room.y + 1;
+
+          enemies.push({
+            id: generateId(),
+            ...enemyDef,
+            position: { x: ex, y: ey },
+            statusEffects: []
+          });
         }
-        return e;
-      }).filter(e => e.hp > 0); 
-
-      return {
-        ...prev,
-        enemies: updatedEnemies
-      };
+      }
     });
+
+    return enemies;
   }, []);
+
+  // ダンジョン生成と初期化
+  const initializeDungeon = useCallback((floor: number) => {
+    // マップ生成
+    const dungeonData = generateDungeon(floor);
+    
+    // 敵スポーン
+    const enemies = spawnEnemies(floor, dungeonData.rooms, dungeonData.playerStart);
+
+    // GameState更新
+    setGameState(prev => ({
+      ...prev,
+      dungeon: {
+        floor: floor,
+        map: dungeonData.map,
+        rooms: dungeonData.rooms,
+        stairs: dungeonData.stairs
+      },
+      player: {
+        ...prev.player,
+        position: dungeonData.playerStart
+      },
+      enemies: enemies,
+      messages: [
+        ...prev.messages, 
+        { text: `${floor}階層に到達した。`, type: 'info' },
+        ...(BOSS_ENEMIES[floor] ? [{ text: '強力な気配を感じる...', type: 'danger' }] : [])
+      ]
+    }));
+  }, [setGameState, spawnEnemies]);
 
   return {
-    dungeonState,
-    generateFloor,
-    movePlayer,
-    getFrontEnemy,
-    getFrontTile, // 追加
-    openChest,    // 追加
-    updateEntityPosition,
-    damageEnemy
+    initializeDungeon
   };
 };
