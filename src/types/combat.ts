@@ -1,98 +1,156 @@
-import { CombatEntity, CombatResult } from '../types/combat';
-import { calculateTotalStats } from './stats'; // 追加
-import { PlayerState } from '../types/gameState';
-import { ITEMS } from '../data/items';
+import { useCallback } from 'react';
+import { GameState, Player, Enemy } from '../types/gameState'; // パスは環境に合わせて
+import { StatusEffect, CooldownState } from '../types/combat';
 
-const randomRange = (min: number, max: number): number => {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+// ユーティリティ: 状態異常の処理（1ターン経過分）
+// 戻り値: { newStatusEffects, damageTaken, messages }
+const processStatusEffects = (
+  entityName: string,
+  effects: StatusEffect[]
+): { nextEffects: StatusEffect[], damage: number, logs: string[] } => {
+  let damage = 0;
+  const logs: string[] = [];
+  const nextEffects: StatusEffect[] = [];
+
+  effects.forEach(effect => {
+    // 継続ダメージ処理
+    if (effect.type === 'poison') {
+      const dmg = effect.value || 1;
+      damage += dmg;
+      logs.push(`${entityName}は毒で${dmg}のダメージを受けた！`);
+    } else if (effect.type === 'burn') {
+      const dmg = effect.value || 3;
+      damage += dmg;
+      logs.push(`${entityName}は燃焼で${dmg}のダメージを受けた！`);
+    } else if (effect.type === 'regen') {
+        // 回復はダメージをマイナスにする（呼び出し元で吸収）
+        const heal = effect.value || 1;
+        damage -= heal; 
+        logs.push(`${entityName}は再生効果で${heal}回復した。`);
+    }
+
+    // ターン減少
+    if (effect.duration > 1) {
+      nextEffects.push({ ...effect, duration: effect.duration - 1 });
+    } else {
+      logs.push(`${entityName}の${effect.name}効果が切れた。`);
+    }
+  });
+
+  return { nextEffects, damage, logs };
 };
 
-// ...既存のcheckHit, checkCritical... (省略可能だが、呼び出し元でtotalStatsを使うため変更不要)
-// 実際には CombatEntity を生成する段階で calculateTotalStats を通す必要がある。
-
-/**
- * CombatEntity生成ヘルパーをここに定義するか、hooks側で行うか。
- * 統一性のためにhooks/useTurnSystem.tsを修正するのがベスト。
- */
-
-const checkHit = (attacker: CombatEntity, defender: CombatEntity): boolean => {
-  let hitChance = 95;
-  const hitModifier = (attacker.stats.dex - defender.stats.agi) * 0.5;
-  hitChance += hitModifier;
-  hitChance = Math.max(50, Math.min(100, hitChance));
-  return Math.random() * 100 < hitChance;
+// ユーティリティ: クールダウン減少
+const processCooldowns = (cooldowns: CooldownState): CooldownState => {
+  const nextCD: CooldownState = {};
+  Object.keys(cooldowns).forEach(key => {
+    if (cooldowns[key] > 0) {
+      nextCD[key] = Math.max(0, cooldowns[key] - 1);
+    }
+  });
+  return nextCD;
 };
 
-const checkCritical = (attacker: CombatEntity, defender: CombatEntity): boolean => {
-  let critChance = 5;
-  critChance += attacker.stats.dex * 0.1;
-  critChance += (attacker.stats.luc - defender.stats.luc) * 0.05;
-  return Math.random() * 100 < critChance;
-};
 
-export const calculatePhysicalAttack = (attacker: CombatEntity, defender: CombatEntity): CombatResult => {
-  if (!checkHit(attacker, defender)) {
-    return {
-      hit: false,
-      critical: false,
-      damage: 0,
-      damageType: 'physical',
-      message: `${attacker.name}の攻撃は外れた！`
-    };
-  }
+export const useTurnSystem = (
+  setGameState: React.Dispatch<React.SetStateAction<GameState>>,
+  addLog: (message: string, type?: any) => void
+) => {
 
-  const isCritical = checkCritical(attacker, defender);
+  const processTurn = useCallback(() => {
+    setGameState(prev => {
+      // 1. プレイヤーの状態異常・CD処理
+      const pEffectResult = processStatusEffects(prev.player.name, prev.player.statusEffects || []);
+      const nextPlayerCD = processCooldowns(prev.player.cooldowns || {});
 
-  // ステータス反映ロジック
-  // 装備の攻撃力を加算したいが、CombatEntity.statsにはstrしかない
-  // 本来CombatEntityに attackPower プロパティを持たせるべきだが、
-  // 簡易的に STR * 2 (素手) + 装備補正(Entity生成時にSTRに乗せるのは違う)
-  // -> CombatEntityに `attackPower` を追加するのが正しい設計
-  // しかし型定義変更の影響範囲が大きいので、
-  // ここでは「STR自体が装備補正込みになっている」前提で計算する。
-  // (calculateTotalStats で stats.str に装備補正が加算されている)
-  
-  // さらに「武器攻撃力」自体をどう扱うか？
-  // 簡易版: STR * 2 で計算している既存ロジックを維持しつつ、
-  // 装備の攻撃力分をダメージに直接加算するアプローチにするには
-  // attacker に武器攻撃力情報が必要。
-  
-  // 今回は「STR * 2」をベースにしつつ、レベル補正等を加える既存ロジックなので、
-  // 装備でSTRを盛れば強くなる。
-  // 加えて、もし attacker が PlayerState 由来なら武器威力を加算したい。
-  // -> hooks/useTurnSystem.ts で PlayerState -> CombatEntity 変換時に
-  //    stats.str を盛るだけでなく、仮想的な attackPower を渡せるとベスト。
-  
-  const attackPower = attacker.stats.str * 2;
-  
-  let baseDamage = Math.max(
-    Math.ceil(attackPower * 0.1),
-    attackPower - (defender.stats.vit * 1.5)
-  );
+      // プレイヤーHP変動 (ダメージ or 回復)
+      let newPlayerHp = prev.player.stats.hp - pEffectResult.damage;
+      newPlayerHp = Math.min(prev.player.stats.maxHp, Math.max(0, newPlayerHp));
 
-  const levelDiff = attacker.level - defender.level;
-  const levelModifier = Math.max(0.5, Math.min(2.0, 1 + (levelDiff * 0.05)));
-  
-  let finalDamage = Math.floor(baseDamage * levelModifier);
+      // ログ出力
+      pEffectResult.logs.forEach(msg => addLog(msg));
+      
+      if (newPlayerHp <= 0) {
+        // ゲームオーバー処理
+        return {
+          ...prev,
+          player: {
+            ...prev.player,
+            stats: { ...prev.player.stats, hp: 0 },
+            statusEffects: pEffectResult.nextEffects,
+            cooldowns: nextPlayerCD
+          },
+          isGameOver: true,
+          messages: [...prev.messages, { text: 'あなたは力尽きた...', type: 'danger' }]
+        };
+      }
 
-  finalDamage = Math.floor(finalDamage * (randomRange(90, 110) / 100));
+      // 2. 敵のAI行動 & 状態異常処理
+      let newEnemies = prev.enemies.map(enemy => {
+        // 敵の状態異常処理
+        const eEffectResult = processStatusEffects(enemy.name, enemy.statusEffects || []);
+        
+        let newEnemyHp = enemy.hp - eEffectResult.damage;
+        newEnemyHp = Math.min(enemy.maxHp, Math.max(0, newEnemyHp));
 
-  if (isCritical) {
-    finalDamage = Math.floor(finalDamage * 1.5);
-  }
+        eEffectResult.logs.forEach(msg => addLog(msg)); // 戦闘ログが流れるので要調整
 
-  finalDamage = Math.max(1, finalDamage);
+        // 敵の行動（簡易AI: プレイヤーに近づく）
+        // ※ 本来はここで攻撃処理などが入る
+        // ※ Stun状態なら行動スキップ
+        const isStunned = eEffectResult.nextEffects.some(e => e.type === 'stun');
+        let newPos = enemy.position;
 
-  let message = `${attacker.name}の攻撃！ ${defender.name}に${finalDamage}のダメージ！`;
-  if (isCritical) {
-    message = `会心の一撃！！ ${defender.name}に${finalDamage}の大ダメージ！`;
-  }
+        if (!isStunned && newEnemyHp > 0) {
+            // 移動ロジック (useDungeon/useGameCoreにあるものを簡易再現)
+            // 実際にはmoveEnemy関数などを利用する
+            const dx = prev.player.position.x - enemy.position.x;
+            const dy = prev.player.position.y - enemy.position.y;
+            
+            // 隣接していなければ移動
+            if (Math.abs(dx) + Math.abs(dy) > 1) {
+                const stepX = dx !== 0 ? Math.sign(dx) : 0;
+                const stepY = dy !== 0 ? Math.sign(dy) : 0;
+                // 斜め移動なし、X優先の簡易ロジック
+                if (Math.abs(dx) >= Math.abs(dy)) {
+                   newPos = { x: enemy.position.x + stepX, y: enemy.position.y };
+                } else {
+                   newPos = { x: enemy.position.x, y: enemy.position.y + stepY };
+                }
+                // 壁判定省略（本来は必要）
+            } else {
+                // 攻撃
+                // addLog(`${enemy.name}の攻撃！`, 'warning');
+                // newPlayerHp -= ...
+            }
+        }
 
-  return {
-    hit: true,
-    critical: isCritical,
-    damage: finalDamage,
-    damageType: 'physical',
-    message
-  };
+        return {
+          ...enemy,
+          position: newPos,
+          hp: newEnemyHp,
+          statusEffects: eEffectResult.nextEffects
+        };
+      });
+
+      // 死亡した敵を除去
+      const deadEnemies = newEnemies.filter(e => e.hp <= 0);
+      deadEnemies.forEach(e => addLog(`${e.name}は倒れた。`));
+      newEnemies = newEnemies.filter(e => e.hp > 0);
+
+      return {
+        ...prev,
+        player: {
+          ...prev.player,
+          stats: { ...prev.player.stats, hp: newPlayerHp },
+          statusEffects: pEffectResult.nextEffects,
+          cooldowns: nextPlayerCD
+        },
+        enemies: newEnemies,
+        turn: prev.turn + 1
+      };
+    });
+  }, [setGameState, addLog]);
+
+  return { processTurn };
 };
