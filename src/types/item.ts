@@ -40,19 +40,17 @@ export interface ItemRequirements {
   };
 }
 
-// 拡張されたステータス定義
 export interface ItemStats {
-  // 基礎ステータス (Flat: 固定値加算)
+  // 基礎ステータス (Flat)
   hp?: number;
   mp?: number;
   attack?: number;
   defense?: number;
   magicAttack?: number;
   magicDefense?: number;
-  speed?: number; // CT速度
+  speed?: number;
 
-  // 基礎ステータス (Percent: 割合加算)
-  // 計算式: (Base + Flat) * (1 + Percent/100)
+  // 基礎ステータス (Percent)
   hpMaxPercent?: number;
   mpMaxPercent?: number;
   attackPercent?: number;
@@ -60,7 +58,7 @@ export interface ItemStats {
   magicAttackPercent?: number;
   magicDefensePercent?: number;
   
-  // 能力値 (Attributes)
+  // 能力値
   str?: number;
   vit?: number;
   dex?: number;
@@ -70,11 +68,11 @@ export interface ItemStats {
   allStats?: number;
 
   // 戦闘パラメータ
-  critRate?: number; // %
-  critDamage?: number; // % (Base 150% + this)
-  hitRate?: number; // %
-  evasion?: number; // %
-  blockRate?: number; // %
+  critRate?: number;
+  critDamage?: number;
+  hitRate?: number;
+  evasion?: number;
+  blockRate?: number;
   
   // 属性攻撃
   fireDamage?: number;
@@ -84,29 +82,28 @@ export interface ItemStats {
   darkDamage?: number;
 
   // 状態異常付与
-  poisonChance?: number; // %
-  bleedChance?: number; // %
-  stunChance?: number; // %
+  poisonChance?: number;
+  bleedChance?: number;
+  stunChance?: number;
 
   // 耐性
-  poisonResist?: number; // %
-  burnResist?: number; // %
-  stunResist?: number; // %
-  fireResist?: number; // %
-  iceResist?: number; // %
-  lightningResist?: number; // %
+  poisonResist?: number;
+  burnResist?: number;
+  stunResist?: number;
+  fireResist?: number;
+  iceResist?: number;
+  lightningResist?: number;
   
   // 特殊
-  damageReflection?: number; // %
-  expRate?: number; // %
-  goldRate?: number; // %
-  dropRate?: number; // %
+  damageReflection?: number;
+  expRate?: number;
+  goldRate?: number;
+  dropRate?: number;
   moveSpeed?: number;
-  mpCostReduction?: number; // %
-  cooldownReduction?: number; // %
+  mpCostReduction?: number;
+  cooldownReduction?: number;
 }
 
-// エンチャントの定義
 export type EnchantTableType = 'offense' | 'defense' | 'utility';
 
 export interface EnchantDef {
@@ -114,10 +111,10 @@ export interface EnchantDef {
   name: string;
   table: EnchantTableType;
   description: string;
-  statsKey: keyof ItemStats; // 適用するステータス
+  statsKey: keyof ItemStats;
   minVal: number;
   maxVal: number;
-  isPercentage?: boolean; // 表示用フラグ（実際の計算はstatsKeyのプロパティで行う）
+  isPercentage?: boolean;
 }
 
 export interface EnchantInstance {
@@ -145,8 +142,12 @@ export interface Item {
   
   icon?: string;
 
+  // 拡張: 装備システム用
   uniqueId?: string;
   tier?: number;
   enchants?: EnchantInstance[];
-  isUnique?: boolean;
+  
+  // 新規追加
+  isUnique?: boolean; // ユニーク装備フラグ
+  setId?: string;     // セット装備ID
 }
