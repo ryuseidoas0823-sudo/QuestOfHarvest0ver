@@ -1,129 +1,54 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db, appId, auth } from './firebase';
+import { GameState } from '../types/gameState';
 
-const SAVE_KEY = 'quest_of_harvest_save_v1';
+const STORAGE_KEY = 'quest_of_harvest_v1_save';
 
-// セーブデータの型定義
-export interface SaveData {
-  playerJobId: string;
-  playerStats: {
-    level: number;
-    maxHp: number;
-    hp: number;
-    maxMp: number;
-    mp: number;
-    exp: number;
-    attack: number;
-    defense: number;
-    str: number;
-    vit: number;
-    dex: number;
-    agi: number;
-    int: number;
-    luc: number;
-  };
-  gold: number;
-  chapter: number;
-  activeQuestIds: string[];
-  completedQuestIds: string[];
-  inventory: string[];
-  unlockedCompanions: string[];
-  savedAt: number;
-}
-
-// ローカルロード
-export const loadGame = (): SaveData | null => {
+/**
+ * ゲームデータをローカルストレージに保存
+ */
+export const saveGame = (gameState: GameState): boolean => {
   try {
-    const rawData = localStorage.getItem(SAVE_KEY);
-    if (!rawData) return null;
-
-    const jsonStr = atob(rawData);
-    const data = JSON.parse(jsonStr) as SaveData;
-    
-    // 互換性チェック
-    if (data.playerStats && typeof data.playerStats.mp === 'undefined') {
-        data.playerStats.maxMp = 50;
-        data.playerStats.mp = 50;
-    }
-
-    return data;
-  } catch (e) {
-    console.error('Failed to load local save data:', e);
-    return null;
-  }
-};
-
-// ローカルセーブ
-export const saveGame = (data: SaveData): boolean => {
-  try {
-    const jsonStr = JSON.stringify({
-      ...data,
-      savedAt: Date.now()
-    });
-    
-    const encodedData = btoa(jsonStr);
-    localStorage.setItem(SAVE_KEY, encodedData);
-    
-    // ユーザーがログインしていればクラウドにも保存を試みる（サイレント）
-    if (auth?.currentUser) {
-      saveToCloud(data).catch(err => console.warn("Background cloud save failed", err));
-    }
-
+    // 循環参照の回避や、データ量削減が必要な場合はここで加工する
+    // 現状の構成ならJSON化で問題ないと想定
+    const serialized = JSON.stringify(gameState);
+    localStorage.setItem(STORAGE_KEY, serialized);
+    console.log(`Game saved. Size: ${(serialized.length / 1024).toFixed(2)} KB`);
     return true;
-  } catch (e) {
-    console.error('Failed to save game locally:', e);
+  } catch (error) {
+    console.error('Failed to save game:', error);
     return false;
   }
 };
 
-export const clearSaveData = () => {
-  localStorage.removeItem(SAVE_KEY);
+/**
+ * ゲームデータをロード
+ */
+export const loadGame = (): GameState | null => {
+  try {
+    const serialized = localStorage.getItem(STORAGE_KEY);
+    if (!serialized) return null;
+
+    const gameState = JSON.parse(serialized) as GameState;
+    
+    // バージョン差異の吸収やDate型の復元などが必要ならここで行う
+    // 例: ログのタイムスタンプ整合性チェックなど
+    
+    return gameState;
+  } catch (error) {
+    console.error('Failed to load game:', error);
+    return null;
+  }
 };
 
+/**
+ * セーブデータの存在確認
+ */
 export const hasSaveData = (): boolean => {
-  return !!localStorage.getItem(SAVE_KEY);
+  return !!localStorage.getItem(STORAGE_KEY);
 };
 
-// --- Cloud Storage Functions ---
-
-// クラウドセーブ
-export const saveToCloud = async (data: SaveData): Promise<boolean> => {
-  if (!db || !auth?.currentUser) return false;
-
-  try {
-    const userId = auth.currentUser.uid;
-    // Rule 1: Strict Paths
-    const userDocRef = doc(db, 'artifacts', appId, 'users', userId, 'data', 'savefile');
-    
-    await setDoc(userDocRef, {
-      ...data,
-      cloudSavedAt: Date.now()
-    });
-    console.log('Cloud save successful');
-    return true;
-  } catch (e) {
-    console.error('Cloud save failed:', e);
-    return false;
-  }
-};
-
-// クラウドロード
-export const loadFromCloud = async (): Promise<SaveData | null> => {
-  if (!db || !auth?.currentUser) return null;
-
-  try {
-    const userId = auth.currentUser.uid;
-    const userDocRef = doc(db, 'artifacts', appId, 'users', userId, 'data', 'savefile');
-    const snapshot = await getDoc(userDocRef);
-
-    if (snapshot.exists()) {
-      const data = snapshot.data() as SaveData;
-      console.log('Cloud load successful');
-      return data;
-    }
-    return null;
-  } catch (e) {
-    console.error('Cloud load failed:', e);
-    return null;
-  }
+/**
+ * セーブデータの削除（デバッグ用やデータリセット用）
+ */
+export const deleteSaveData = (): void => {
+  localStorage.removeItem(STORAGE_KEY);
 };
