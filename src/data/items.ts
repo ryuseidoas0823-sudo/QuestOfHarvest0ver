@@ -94,6 +94,17 @@ export const WEAPONS: Item[] = [
     requirements: { stats: { str: 15 } },
     stats: { attack: 18, speed: -4, critRate: 10 },
   },
+  {
+    id: 'minotaur_axe',
+    name: 'ミノタウロスの大斧',
+    type: 'weapon',
+    subType: '2h_axe',
+    rarity: 'rare',
+    description: '猛牛の如き破壊力を持つ巨大な斧。',
+    value: 1800,
+    requirements: { stats: { str: 30 }, job: ['soldier'] },
+    stats: { attack: 38, speed: -5, critRate: 10 },
+  },
   // Bows (Ranger)
   {
     id: 'short_bow',
@@ -107,6 +118,17 @@ export const WEAPONS: Item[] = [
     stats: { attack: 8, speed: 1 },
   },
   {
+    id: 'composite_bow',
+    name: 'コンポジットボウ',
+    type: 'weapon',
+    subType: 'bow',
+    rarity: 'uncommon',
+    description: '複合素材で射程と威力を強化した弓。',
+    value: 650,
+    requirements: { stats: { dex: 12 } },
+    stats: { attack: 16, speed: 1, hitRate: 5 },
+  },
+  {
     id: 'elf_longbow',
     name: 'エルフの長弓',
     type: 'weapon',
@@ -116,6 +138,17 @@ export const WEAPONS: Item[] = [
     value: 1500,
     requirements: { stats: { dex: 25 }, job: ['ranger'] },
     stats: { attack: 24, hitRate: 20 },
+  },
+  {
+    id: 'magic_crossbow',
+    name: '魔弾のクロスボウ',
+    type: 'weapon',
+    subType: 'crossbow',
+    rarity: 'epic',
+    description: '魔法仕掛けの自動装填弩。',
+    value: 2800,
+    requirements: { stats: { dex: 30 } },
+    stats: { attack: 32, speed: 2, hitRate: 10, magicAttack: 10 },
   },
   // Staves / Books (Arcanist)
   {
@@ -139,6 +172,52 @@ export const WEAPONS: Item[] = [
     value: 800,
     requirements: { stats: { int: 15 } },
     stats: { attack: 2, magicAttack: 18, mp: 30, wis: 5 },
+  },
+  {
+    id: 'elemental_rod',
+    name: 'エレメンタルロッド',
+    type: 'weapon',
+    subType: 'staff',
+    rarity: 'rare',
+    description: '属性魔法の威力を高める杖。',
+    value: 1600,
+    requirements: { stats: { int: 25 }, job: ['arcanist'] },
+    stats: { attack: 6, magicAttack: 28, mp: 20, int: 5 },
+  },
+  
+  // --- Tier 5 / Unique Weapons ---
+  {
+    id: 'divine_weapon_base',
+    name: '[契約神]の神器',
+    type: 'weapon',
+    subType: 'dagger', // デフォルトはダガーだが、ロジックで変化させる想定
+    rarity: 'godly',
+    description: '神の恩恵が極まった証。持ち主の成長に合わせて強くなる。',
+    value: 50000,
+    requirements: { level: 50 }, // 信仰度MAX相当
+    stats: { attack: 50, magicAttack: 50, speed: 5, critRate: 10, allStats: 10 } as any,
+  },
+  {
+    id: 'mjolnir_replica',
+    name: 'ミョルニル (レプリカ)',
+    type: 'weapon',
+    subType: 'hammer',
+    rarity: 'legendary',
+    description: '雷属性を帯びた神話級のハンマー（の精巧な模造品）。',
+    value: 15000,
+    requirements: { stats: { str: 60 } },
+    stats: { attack: 65, speed: -5, critRate: 15, str: 10 },
+  },
+  {
+    id: 'world_tree_staff',
+    name: '世界樹の杖',
+    type: 'weapon',
+    subType: 'staff',
+    rarity: 'legendary',
+    description: '膨大なマナを内包し、魔法詠唱を助ける杖。',
+    value: 15000,
+    requirements: { stats: { int: 60 } },
+    stats: { attack: 10, magicAttack: 70, mp: 100, int: 15, wis: 10 },
   },
 ];
 
@@ -188,6 +267,28 @@ export const ARMORS: Item[] = [
     requirements: { stats: { str: 15, vit: 10 }, job: ['soldier'] },
     stats: { defense: 18, magicDefense: 2, speed: -5, hp: 30 },
   },
+  {
+    id: 'ranger_suit',
+    name: 'レンジャースーツ',
+    type: 'armor',
+    subType: 'light',
+    rarity: 'rare',
+    description: '迷彩効果のある高機能な軽装。',
+    value: 1200,
+    requirements: { stats: { dex: 20 }, job: ['ranger', 'rogue'] },
+    stats: { defense: 12, magicDefense: 8, evasion: 10, agi: 5 },
+  },
+  {
+    id: 'saints_dress',
+    name: '聖女のドレス',
+    type: 'armor',
+    subType: 'robe',
+    rarity: 'rare',
+    description: '高い魔法耐性を持つ聖なる衣装。',
+    value: 1400,
+    requirements: { stats: { int: 20, wis: 15 } },
+    stats: { defense: 8, magicDefense: 25, mp: 50, wis: 8 },
+  },
 ];
 
 // --- アクセサリー (Accessories) ---
@@ -233,6 +334,27 @@ export const ACCESSORIES: Item[] = [
     value: 1200,
     stats: { agi: 5, speed: 5, evasion: 5 },
   },
+  {
+    id: 'pendant_antidote',
+    name: '毒除けのペンダント',
+    type: 'accessory',
+    subType: 'amulet',
+    rarity: 'uncommon',
+    description: '毒を防ぐお守り。',
+    value: 800,
+    // 耐性ロジックは別途実装が必要（statusEffects耐性など）
+    stats: { defense: 1 },
+  },
+  {
+    id: 'salamander_wool',
+    name: 'サラマンダーウール',
+    type: 'accessory',
+    subType: 'other',
+    rarity: 'rare',
+    description: '火属性のダメージを軽減する希少な毛織物。',
+    value: 2000,
+    stats: { magicDefense: 5 },
+  },
 ];
 
 // --- 消費アイテム (Consumables) ---
@@ -261,6 +383,28 @@ export const CONSUMABLES: Item[] = [
     effect: { type: 'heal_hp', value: 150 }
   },
   {
+    id: 'potion_high',
+    name: 'ハイポーション',
+    type: 'consumable',
+    rarity: 'rare',
+    description: 'HPを300回復する高品質な薬。',
+    value: 450,
+    stackable: true,
+    maxStack: 99,
+    effect: { type: 'heal_hp', value: 300 }
+  },
+  {
+    id: 'elixir',
+    name: 'エリクサー',
+    type: 'consumable',
+    rarity: 'epic',
+    description: 'HPとMPを完全回復する奇跡の霊薬。',
+    value: 5000,
+    stackable: true,
+    maxStack: 5,
+    effect: { type: 'heal_hp', value: 9999 } // MP回復も複合効果として実装推奨
+  },
+  {
     id: 'mana_potion_small',
     name: 'マナポーション (小)',
     type: 'consumable',
@@ -283,6 +427,28 @@ export const CONSUMABLES: Item[] = [
     effect: { type: 'cure_poison', value: 1 }
   },
   {
+    id: 'stimulant',
+    name: '気付け薬',
+    type: 'consumable',
+    rarity: 'common',
+    description: 'スタンや眠気を取り除く薬。',
+    value: 50,
+    stackable: true,
+    maxStack: 99,
+    effect: { type: 'cure_stun', value: 1 }
+  },
+  {
+    id: 'holy_water',
+    name: '聖水',
+    type: 'consumable',
+    rarity: 'uncommon',
+    description: '一時的に弱い魔物を遠ざける（未実装）。',
+    value: 100,
+    stackable: true,
+    maxStack: 20,
+    effect: { type: 'buff_int', value: 0, duration: 0 } // 仮
+  },
+  {
     id: 'return_stone',
     name: '帰還の石',
     type: 'consumable',
@@ -292,6 +458,29 @@ export const CONSUMABLES: Item[] = [
     stackable: true,
     maxStack: 10,
     effect: { type: 'return_town', value: 1 }
+  },
+  // Foods
+  {
+    id: 'jagamaru_kun',
+    name: 'ジャガ丸くん',
+    type: 'consumable',
+    rarity: 'common',
+    description: '冒険者に人気のスナック。小腹を満たす。',
+    value: 30,
+    stackable: true,
+    maxStack: 20,
+    effect: { type: 'heal_hp', value: 20 }
+  },
+  {
+    id: 'rations',
+    name: '携帯食料',
+    type: 'consumable',
+    rarity: 'common',
+    description: '長期探索用の保存食。',
+    value: 50,
+    stackable: true,
+    maxStack: 20,
+    effect: { type: 'heal_hp', value: 30 }
   },
   {
     id: 'minotaur_steak',
@@ -309,6 +498,7 @@ export const CONSUMABLES: Item[] = [
 // --- 素材・換金 (Materials) ---
 
 export const MATERIALS: Item[] = [
+  // Magic Stones
   {
     id: 'magic_stone_s',
     name: '魔石 (小)',
@@ -330,12 +520,94 @@ export const MATERIALS: Item[] = [
     maxStack: 999,
   },
   {
+    id: 'magic_stone_l',
+    name: '魔石 (大)',
+    type: 'material',
+    rarity: 'rare',
+    description: '高純度の魔石。',
+    value: 500,
+    stackable: true,
+    maxStack: 999,
+  },
+  {
+    id: 'magic_stone_xl',
+    name: '魔石 (特大)',
+    type: 'material',
+    rarity: 'epic',
+    description: '強大なモンスターから得られる魔石。',
+    value: 2000,
+    stackable: true,
+    maxStack: 999,
+  },
+  {
+    id: 'magic_stone_rainbow',
+    name: '虹色の魔石',
+    type: 'material',
+    rarity: 'legendary',
+    description: 'ボス級の怪物から稀に得られる伝説の素材。',
+    value: 10000,
+    stackable: true,
+    maxStack: 99,
+  },
+  // Monster Drops
+  {
     id: 'kobold_claw',
     name: 'コボルトの爪',
     type: 'material',
     rarity: 'common',
     description: '武器の強化に使えそうな鋭い爪。',
     value: 15,
+    stackable: true,
+    maxStack: 99,
+  },
+  {
+    id: 'goblin_fang',
+    name: 'ゴブリンの牙',
+    type: 'material',
+    rarity: 'common',
+    description: '矢尻などに加工できる牙。',
+    value: 15,
+    stackable: true,
+    maxStack: 99,
+  },
+  {
+    id: 'almiraj_fur',
+    name: 'アルミラージの毛皮',
+    type: 'material',
+    rarity: 'uncommon',
+    description: '手触りの良い毛皮。軽装の素材になる。',
+    value: 50,
+    stackable: true,
+    maxStack: 99,
+  },
+  {
+    id: 'golem_fragment',
+    name: 'ゴーレムの破片',
+    type: 'material',
+    rarity: 'uncommon',
+    description: '魔力を帯びた硬い石片。重装の素材。',
+    value: 80,
+    stackable: true,
+    maxStack: 99,
+  },
+  {
+    id: 'wyvern_wing',
+    name: 'ワイバーンの翼膜',
+    type: 'material',
+    rarity: 'rare',
+    description: '耐熱・耐水性に優れた飛竜の翼。',
+    value: 300,
+    stackable: true,
+    maxStack: 99,
+  },
+  // Gatherables
+  {
+    id: 'dungeon_flower',
+    name: 'ダンジョン花',
+    type: 'material',
+    rarity: 'common',
+    description: 'ダンジョンに咲く発光性の花。薬の材料。',
+    value: 10,
     stackable: true,
     maxStack: 99,
   },
@@ -349,6 +621,66 @@ export const MATERIALS: Item[] = [
     stackable: true,
     maxStack: 99,
   },
+  {
+    id: 'adamantite_ore',
+    name: 'アダマンタイト鉱石',
+    type: 'material',
+    rarity: 'epic',
+    description: '地上で最も硬いとされる伝説の鉱石。',
+    value: 3000,
+    stackable: true,
+    maxStack: 99,
+  },
+];
+
+// --- 重要アイテム (Key Items) ---
+
+export const KEY_ITEMS: Item[] = [
+  {
+    id: 'guild_card',
+    name: 'ギルドカード',
+    type: 'key',
+    rarity: 'common',
+    description: '冒険者の身分証明書。ステータスが記録される。',
+    value: 0,
+    stackable: false,
+  },
+  {
+    id: 'familiar_emblem',
+    name: 'ファミリアエンブレム',
+    type: 'key',
+    rarity: 'uncommon',
+    description: '所属するファミリアの紋章。神の恩恵の象徴。',
+    value: 0,
+    stackable: false,
+  },
+  {
+    id: 'dungeon_map',
+    name: '階層地図',
+    type: 'key',
+    rarity: 'rare',
+    description: 'ダンジョンの構造を記録する魔法の地図。',
+    value: 0,
+    stackable: false,
+  },
+  {
+    id: 'ancient_scroll',
+    name: '謎のスクロール',
+    type: 'key',
+    rarity: 'rare',
+    description: '古代語で書かれた書物。解読が必要。',
+    value: 500, // クエスト用だが売ることもできる？
+    stackable: false,
+  },
+  {
+    id: 'boss_trophy',
+    name: 'ボスの首',
+    type: 'key',
+    rarity: 'epic',
+    description: '階層主を討伐した証明。ギルドに提出するもの。',
+    value: 0,
+    stackable: true,
+  },
 ];
 
 // 全アイテムリスト
@@ -357,7 +689,8 @@ export const ALL_ITEMS: Item[] = [
   ...ARMORS,
   ...ACCESSORIES,
   ...CONSUMABLES,
-  ...MATERIALS
+  ...MATERIALS,
+  ...KEY_ITEMS
 ];
 
 // ID検索用ヘルパー
