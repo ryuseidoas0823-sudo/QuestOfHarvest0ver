@@ -1,52 +1,86 @@
-export type ItemType = 'consumable' | 'weapon' | 'armor' | 'accessory' | 'key';
-export type ItemEffectType = 'heal_hp' | 'heal_mp' | 'buff_str' | 'buff_vit' | 'buff_dex' | 'buff_agi' | 'cure_status';
-export type ItemRarity = 'common' | 'rare' | 'epic' | 'legendary';
+import { JobId } from './job';
 
-// 装備スロット定義
-export type EquipmentSlot = 'mainHand' | 'offHand' | 'body' | 'accessory';
+export type ItemType = 'weapon' | 'armor' | 'accessory' | 'consumable' | 'material' | 'key';
 
-// 武器種定義
-export type WeaponType = 'dagger' | 'sword' | 'axe' | 'staff' | 'bow' | 'unarmed';
+export type ItemRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'godly';
 
-// 装備ステータス詳細
-export interface EquipmentStats {
-  slot: EquipmentSlot;
-  // 武器用
-  attackPower?: number; // 物理攻撃力
-  magicPower?: number; // 魔法攻撃力
-  weaponType?: WeaponType;
-  // 防具用
-  defense?: number; // 物理防御
-  magicDefense?: number; // 魔法防御
-  // 共通補正
+// 武器・防具のサブタイプ詳細
+export type WeaponType = 'dagger' | 'sword' | '2h_sword' | 'axe' | 'mace' | 'hammer' | '2h_axe' | 'bow' | 'longbow' | 'crossbow' | 'staff' | 'book';
+export type ArmorType = 'light' | 'heavy' | 'robe' | 'shield';
+export type AccessoryType = 'ring' | 'amulet' | 'boots' | 'other';
+export type ItemSubType = WeaponType | ArmorType | AccessoryType | 'none';
+
+// アイテムの効果定義
+export type EffectType = 
+  | 'heal_hp' 
+  | 'heal_mp' 
+  | 'cure_poison' 
+  | 'cure_stun' 
+  | 'buff_str' 
+  | 'buff_vit' 
+  | 'buff_dex' 
+  | 'buff_agi' 
+  | 'buff_int' 
+  | 'return_town';
+
+export interface ItemEffect {
+  type: EffectType;
+  value: number; // 回復量やバフの上昇量
+  duration?: number; // バフの持続ターン（0なら即時）
+}
+
+// 装備要件
+export interface ItemRequirements {
+  level?: number;
+  job?: JobId[]; // 装備可能なジョブ（未指定なら全職可能）
+  stats?: {
+    str?: number;
+    vit?: number;
+    dex?: number;
+    agi?: number;
+    int?: number;
+    wis?: number;
+  };
+}
+
+// アイテムのステータス補正
+export interface ItemStats {
+  hp?: number;
+  mp?: number;
+  attack?: number;
+  defense?: number;
+  magicAttack?: number;
+  magicDefense?: number;
+  speed?: number; // 行動順補正
+  
+  // 追加ステータス
   str?: number;
   vit?: number;
   dex?: number;
   agi?: number;
-  mag?: number;
-  luc?: number;
-}
-
-export interface ItemEffect {
-  type: ItemEffectType;
-  value: number;
-  duration?: number; // ターン数（即時効果の場合はundefined）
+  int?: number;
+  wis?: number;
+  critRate?: number; // %
+  hitRate?: number; // %
+  evasion?: number; // %
 }
 
 export interface Item {
   id: string;
   name: string;
   type: ItemType;
-  description: string;
-  price: number;
+  subType?: ItemSubType;
   rarity: ItemRarity;
-  icon?: string;
-  effects?: ItemEffect[]; // 消費アイテム等の効果
-  isConsumable: boolean;
-  equipmentStats?: EquipmentStats; // 装備アイテムとしての性能
-}
-
-export interface InventoryItem {
-  item: Item;
-  quantity: number;
+  description: string;
+  value: number; // 売買価格
+  
+  stats?: ItemStats;
+  requirements?: ItemRequirements;
+  effect?: ItemEffect; // 使用時の効果
+  
+  stackable?: boolean; // スタック可能か（素材・消費アイテム用）
+  maxStack?: number;
+  quantity?: number; // 現在の所持数（インベントリ用）
+  
+  icon?: string; // 画像パスまたはアイコンID（将来用）
 }
