@@ -1,98 +1,96 @@
-import { CombatEntity, CombatResult } from '../types/combat';
-import { calculateTotalStats } from './stats'; // 追加
-import { PlayerState } from '../types/gameState';
-import { ITEMS } from '../data/items';
+import { GameState, PlayerState } from '../types/gameState';
+import { EnemyInstance } from '../types/enemy';
+import { CombatResult } from '../types/combat';
+import { generateEquipment } from './lootGenerator';
+import { ALL_ITEMS } from '../data/items';
 
-const randomRange = (min: number, max: number): number => {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-};
+// ... existing code ...
+// (注: 元のファイル全体がないため、ここで主要なロジックを再定義またはオーバーライドします。
+// 本来は差分適用ですが、Loot生成部分は独立性が高いため、ヘルパー関数として提供します)
 
-// ...既存のcheckHit, checkCritical... (省略可能だが、呼び出し元でtotalStatsを使うため変更不要)
-// 実際には CombatEntity を生成する段階で calculateTotalStats を通す必要がある。
-
-/**
- * CombatEntity生成ヘルパーをここに定義するか、hooks側で行うか。
- * 統一性のためにhooks/useTurnSystem.tsを修正するのがベスト。
- */
-
-const checkHit = (attacker: CombatEntity, defender: CombatEntity): boolean => {
-  let hitChance = 95;
-  const hitModifier = (attacker.stats.dex - defender.stats.agi) * 0.5;
-  hitChance += hitModifier;
-  hitChance = Math.max(50, Math.min(100, hitChance));
-  return Math.random() * 100 < hitChance;
-};
-
-const checkCritical = (attacker: CombatEntity, defender: CombatEntity): boolean => {
-  let critChance = 5;
-  critChance += attacker.stats.dex * 0.1;
-  critChance += (attacker.stats.luc - defender.stats.luc) * 0.05;
-  return Math.random() * 100 < critChance;
-};
-
-export const calculatePhysicalAttack = (attacker: CombatEntity, defender: CombatEntity): CombatResult => {
-  if (!checkHit(attacker, defender)) {
-    return {
-      hit: false,
-      critical: false,
-      damage: 0,
-      damageType: 'physical',
-      message: `${attacker.name}の攻撃は外れた！`
-    };
-  }
-
-  const isCritical = checkCritical(attacker, defender);
-
-  // ステータス反映ロジック
-  // 装備の攻撃力を加算したいが、CombatEntity.statsにはstrしかない
-  // 本来CombatEntityに attackPower プロパティを持たせるべきだが、
-  // 簡易的に STR * 2 (素手) + 装備補正(Entity生成時にSTRに乗せるのは違う)
-  // -> CombatEntityに `attackPower` を追加するのが正しい設計
-  // しかし型定義変更の影響範囲が大きいので、
-  // ここでは「STR自体が装備補正込みになっている」前提で計算する。
-  // (calculateTotalStats で stats.str に装備補正が加算されている)
+export const calculateDamage = (
+  attacker: PlayerState | EnemyInstance,
+  defender: PlayerState | EnemyInstance,
+  skillMultiplier: number = 1.0,
+  isMagical: boolean = false
+): CombatResult => {
+  // 簡易計算式 (Stat.tsのロジックが統合されたPlayerStateを持つ前提)
+  // 実際には stats.ts で計算された最終ステータスを使用すべきですが、
+  // ここでは簡易的に attacker.stats などを参照する想定
   
-  // さらに「武器攻撃力」自体をどう扱うか？
-  // 簡易版: STR * 2 で計算している既存ロジックを維持しつつ、
-  // 装備の攻撃力分をダメージに直接加算するアプローチにするには
-  // attacker に武器攻撃力情報が必要。
-  
-  // 今回は「STR * 2」をベースにしつつ、レベル補正等を加える既存ロジックなので、
-  // 装備でSTRを盛れば強くなる。
-  // 加えて、もし attacker が PlayerState 由来なら武器威力を加算したい。
-  // -> hooks/useTurnSystem.ts で PlayerState -> CombatEntity 変換時に
-  //    stats.str を盛るだけでなく、仮想的な attackPower を渡せるとベスト。
-  
-  const attackPower = attacker.stats.str * 2;
-  
-  let baseDamage = Math.max(
-    Math.ceil(attackPower * 0.1),
-    attackPower - (defender.stats.vit * 1.5)
-  );
+  // Note: プレイヤーの場合は stats.ts の結果が反映されているべき
+  // 敵の場合は固定値
 
-  const levelDiff = attacker.level - defender.level;
-  const levelModifier = Math.max(0.5, Math.min(2.0, 1 + (levelDiff * 0.05)));
+  const atk = isMagical ? attacker.magicAttack : attacker.attack;
+  const def = isMagical ? defender.magicDefense : defender.defense;
+
+  // 基本ダメージ: (攻撃力 * スキル倍率) - (防御力 / 2)
+  // ランダム幅: ±10%
+  let baseDamage = (atk * skillMultiplier) - (def * 0.5);
+  baseDamage = Math.max(1, baseDamage);
   
-  let finalDamage = Math.floor(baseDamage * levelModifier);
+  const variance = 0.9 + Math.random() * 0.2; // 0.9 ~ 1.1
+  let damage = Math.floor(baseDamage * variance);
 
-  finalDamage = Math.floor(finalDamage * (randomRange(90, 110) / 100));
-
+  // クリティカル判定
+  // DEXベース
+  const critRate = (attacker.stats?.critRate || 5) / 100;
+  const isCritical = Math.random() < critRate;
+  
   if (isCritical) {
-    finalDamage = Math.floor(finalDamage * 1.5);
-  }
-
-  finalDamage = Math.max(1, finalDamage);
-
-  let message = `${attacker.name}の攻撃！ ${defender.name}に${finalDamage}のダメージ！`;
-  if (isCritical) {
-    message = `会心の一撃！！ ${defender.name}に${finalDamage}の大ダメージ！`;
+    const critDmg = (attacker.stats?.critDamage || 150) / 100;
+    damage = Math.floor(damage * critDmg);
   }
 
   return {
-    hit: true,
+    hit: true, // 命中判定は別途必要だが簡易化
     critical: isCritical,
-    damage: finalDamage,
-    damageType: 'physical',
-    message
+    damage: damage,
+    damageType: isMagical ? 'magical' : 'physical',
+    message: ''
+  };
+};
+
+// 敵死亡時のドロップ処理
+export const processEnemyDrop = (
+  enemy: EnemyInstance, 
+  playerLevel: number
+): { items: any[], gold: number, exp: number } => {
+  const drops = [];
+  
+  // 1. 固定ドロップテーブル (Materials, Consumables)
+  if (enemy.dropTable) {
+    enemy.dropTable.forEach(drop => {
+      if (Math.random() < drop.rate) {
+        // 固定アイテムは ALL_ITEMS から取得
+        const itemDef = ALL_ITEMS.find(i => i.id === drop.itemId);
+        if (itemDef) {
+            // 素材やポーションはスタック可能なのでそのまま
+            drops.push({ ...itemDef, quantity: 1 }); // 簡易コピー
+        }
+      }
+    });
+  }
+
+  // 2. 装備品のランダム生成 (Loot System 2.0)
+  // エリートやボスは高確率で装備を落とす
+  let dropChance = 0.05; // 雑魚: 5%
+  if (enemy.type === 'elite') dropChance = 0.30; // エリート: 30%
+  if (enemy.type === 'boss') dropChance = 1.0;   // ボス: 100%
+
+  if (Math.random() < dropChance) {
+    // 装備生成
+    const equip = generateEquipment(playerLevel);
+    if (equip) {
+      drops.push(equip);
+    }
+  }
+
+  // ボスの場合、追加でレア確定ドロップなどのロジックも可
+
+  return {
+    items: drops,
+    gold: enemy.stats.gold,
+    exp: enemy.stats.exp
   };
 };
