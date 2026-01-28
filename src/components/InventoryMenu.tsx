@@ -3,9 +3,10 @@ import { GameState, PlayerState } from '../types/gameState';
 import { Item, ItemStats, EnchantInstance } from '../types/item';
 import { calculatePlayerStats } from '../utils/stats';
 import { ALL_ENCHANTS } from '../data/enchants';
+import { getSetById, SetDef } from '../data/sets';
 import { 
   Shield, Sword, Zap, User, ArrowLeft, Trash2, 
-  Info, Sparkles, AlertTriangle 
+  Info, Sparkles, AlertTriangle, Layers
 } from 'lucide-react';
 
 interface InventoryMenuProps {
@@ -28,7 +29,7 @@ const InventoryMenu: React.FC<InventoryMenuProps> = ({ gameState, setGameState, 
         return;
       }
       if (item.requirements.stats) {
-        const stats = calculatePlayerStats(player); // 現在のステータス（装備込み）で判定するか、素で判定するかは設計次第。ここでは込みで。
+        const stats = calculatePlayerStats(player);
         if (item.requirements.stats.str && (stats.str || 0) < item.requirements.stats.str) {
           addLog(`STRが足りません (必要: ${item.requirements.stats.str})`, 'warning');
           return;
@@ -42,7 +43,6 @@ const InventoryMenu: React.FC<InventoryMenuProps> = ({ gameState, setGameState, 
           return;
         }
       }
-      // Job制限チェックは省略（必要に応じて追加）
     }
 
     setGameState(prev => {
@@ -52,25 +52,21 @@ const InventoryMenu: React.FC<InventoryMenuProps> = ({ gameState, setGameState, 
         item.type === 'armor' ? 'armor' :
         item.type === 'accessory' ? 'accessory' : null;
 
-      if (!equipSlot) return prev; // 装備不可アイテム
+      if (!equipSlot) return prev;
 
-      // 既存装備を外す
       const currentEquip = newPlayer.equipment[equipSlot];
       if (currentEquip) {
         newPlayer.inventory.push(currentEquip);
       }
 
-      // インベントリから対象アイテムを削除
-      const invIndex = newPlayer.inventory.findIndex(i => i.id === item.id); // uniqueIdがあればそちら推奨だが、現状id管理
+      const invIndex = newPlayer.inventory.findIndex(i => i.id === item.id);
       if (invIndex > -1) {
         newPlayer.inventory.splice(invIndex, 1);
       } else {
-        // uniqueIdでの検索フォールバック
         const uIndex = newPlayer.inventory.findIndex(i => i.uniqueId === item.uniqueId);
         if (uIndex > -1) newPlayer.inventory.splice(uIndex, 1);
       }
 
-      // 新装備セット
       newPlayer.equipment[equipSlot] = item;
       
       addLog(`${item.name}を装備しました`, 'success');
@@ -116,23 +112,16 @@ const InventoryMenu: React.FC<InventoryMenuProps> = ({ gameState, setGameState, 
     setSelectedItem(null);
   };
 
-  // アイテム使用 (消費アイテム)
   const handleUse = (item: Item) => {
-    // 消費アイテムのロジックは useItemSystem 等で処理するのが本筋だが、
-    // ここでは簡易的に親コンポーネント経由などが理想。
-    // 今回は「装備」画面としての機能にフォーカスし、使用は一旦Logのみとするか、
-    // 既存のuseShopなどを参考に実装が必要。
-    // ※今回は装備・詳細表示の実装フェーズのため省略し、Logを出す
     addLog(`${item.name}を使用しました（効果未実装）`, 'info');
   };
 
-  // レアリティごとの色クラス
   const getRarityColor = (rarity: Item['rarity']) => {
     switch (rarity) {
       case 'common': return 'text-slate-300 border-slate-600';
-      case 'uncommon': return 'text-green-400 border-green-600'; // Magic
-      case 'rare': return 'text-blue-400 border-blue-500';      // Rare
-      case 'epic': return 'text-purple-400 border-purple-500';  // Epic
+      case 'uncommon': return 'text-green-400 border-green-600';
+      case 'rare': return 'text-blue-400 border-blue-500';
+      case 'epic': return 'text-purple-400 border-purple-500';
       case 'legendary': return 'text-orange-400 border-orange-500';
       case 'godly': return 'text-yellow-400 border-yellow-500 shadow-[0_0_10px_rgba(250,204,21,0.5)]';
       default: return 'text-slate-300 border-slate-600';
@@ -150,14 +139,21 @@ const InventoryMenu: React.FC<InventoryMenuProps> = ({ gameState, setGameState, 
     }
   };
 
-  // エンチャント詳細表示
+  // 現在の装備からセットカウントを計算
+  const getEquippedSetCount = (setId: string): number => {
+    const equip = player.equipment;
+    let count = 0;
+    if (equip.mainHand?.setId === setId) count++;
+    if (equip.offHand?.setId === setId) count++;
+    if (equip.armor?.setId === setId) count++;
+    if (equip.accessory?.setId === setId) count++;
+    return count;
+  };
+
   const renderEnchant = (enchant: EnchantInstance) => {
     const def = ALL_ENCHANTS.find(e => e.id === enchant.defId);
     if (!def) return null;
-    
-    // 値がマイナスの場合は赤色にするなどの装飾も可能
     const isPositive = enchant.value > 0;
-    
     return (
       <div key={enchant.defId + enchant.roll} className="text-xs flex justify-between items-center text-slate-300 border-b border-slate-700/50 py-0.5 last:border-0">
         <span className="flex items-center gap-1">
@@ -171,21 +167,47 @@ const InventoryMenu: React.FC<InventoryMenuProps> = ({ gameState, setGameState, 
     );
   };
 
-  // アイテム詳細パネル
+  // セットボーナス表示
+  const renderSetBonuses = (setId: string) => {
+    const setDef = getSetById(setId);
+    if (!setDef) return null;
+
+    const count = getEquippedSetCount(setId);
+
+    return (
+      <div className="mb-4">
+        <div className="text-xs font-bold text-green-400 border-b border-green-900/50 mb-1 pb-1 flex items-center gap-1">
+           <Layers size={12} /> {setDef.name} Set ({count}/?)
+        </div>
+        <div className="space-y-1">
+          {setDef.bonuses.map((bonus, idx) => {
+            const isActive = count >= bonus.requiredCount;
+            return (
+              <div key={idx} className={`text-xs flex gap-2 ${isActive ? 'text-green-300' : 'text-slate-600'}`}>
+                <span className="font-mono">({bonus.requiredCount})</span>
+                <span>{bonus.description}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   const renderItemDetail = (item: Item) => {
     const rarityColor = getRarityColor(item.rarity);
     
     return (
       <div className="h-full flex flex-col p-4 bg-slate-900 border-l border-slate-700 overflow-y-auto">
-        <div className={`text-lg font-bold mb-1 ${rarityColor.split(' ')[0]}`}>
+        <div className={`text-lg font-bold mb-1 ${rarityColor.split(' ')[0]} flex flex-col`}>
           {item.name}
+          {item.isUnique && <span className="text-[10px] text-yellow-500 uppercase tracking-widest border border-yellow-500/50 rounded px-1 w-fit mt-1">Unique</span>}
         </div>
         <div className="text-xs text-slate-500 mb-4 flex justify-between">
           <span>{item.type.toUpperCase()} {item.subType !== 'none' && `- ${item.subType}`}</span>
           {item.tier && <span className="text-slate-400">Tier {item.tier}</span>}
         </div>
 
-        {/* アイコン（プレースホルダー） */}
         <div className="w-full h-32 bg-slate-950 rounded border border-slate-800 mb-4 flex items-center justify-center relative overflow-hidden">
             <div className={`absolute inset-0 opacity-20 ${getRarityBg(item.rarity)}`} />
             {item.type === 'weapon' ? <Sword size={48} className="text-slate-600" /> :
@@ -196,21 +218,22 @@ const InventoryMenu: React.FC<InventoryMenuProps> = ({ gameState, setGameState, 
 
         {/* 基礎ステータス */}
         <div className="mb-4 space-y-1">
-            <div className="text-xs font-bold text-slate-400 border-b border-slate-700 mb-1 pb-1">Base Stats</div>
+            <div className="text-xs font-bold text-slate-400 border-b border-slate-700 mb-1 pb-1">Stats</div>
             {item.stats && Object.entries(item.stats).map(([key, val]) => {
-                // Percent系や内部パラメータを除外して表示
-                if (key.includes('Percent') || val === 0) return null;
-                // エンチャントで強化された分が含まれている可能性があるため、色を変えるなどの工夫も可
+                if (val === 0) return null;
+                // 表示用にPercentを整形
+                const isPct = key.includes('Percent');
+                const label = key.replace('Percent', '');
                 return (
                     <div key={key} className="flex justify-between text-sm text-slate-300">
-                        <span className="capitalize">{key}</span>
-                        <span className="font-mono">{val > 0 ? '+' : ''}{val}</span>
+                        <span className="capitalize">{label}</span>
+                        <span className="font-mono">{val > 0 ? '+' : ''}{val}{isPct ? '%' : ''}</span>
                     </div>
                 );
             })}
         </div>
 
-        {/* エンチャント (Affixes) */}
+        {/* エンチャント */}
         {item.enchants && item.enchants.length > 0 && (
             <div className="mb-4">
                 <div className="text-xs font-bold text-purple-400 border-b border-purple-900/50 mb-1 pb-1 flex items-center gap-1">
@@ -221,6 +244,9 @@ const InventoryMenu: React.FC<InventoryMenuProps> = ({ gameState, setGameState, 
                 </div>
             </div>
         )}
+
+        {/* セットボーナス */}
+        {item.setId && renderSetBonuses(item.setId)}
 
         {/* 装備要件 */}
         {item.requirements && (
@@ -243,7 +269,6 @@ const InventoryMenu: React.FC<InventoryMenuProps> = ({ gameState, setGameState, 
           {item.description}
         </div>
 
-        {/* アクションボタン */}
         <div className="mt-4 grid grid-cols-2 gap-2">
             {item.type === 'consumable' ? (
                  <button onClick={() => handleUse(item)} className="bg-green-700 hover:bg-green-600 text-white py-2 rounded text-sm font-bold">使う</button>
@@ -267,7 +292,6 @@ const InventoryMenu: React.FC<InventoryMenuProps> = ({ gameState, setGameState, 
 
   return (
     <div className="absolute inset-0 bg-slate-950 flex flex-col z-30">
-      {/* Header */}
       <div className="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
         <div className="flex items-center gap-2">
             <User className="text-slate-400" />
@@ -279,10 +303,7 @@ const InventoryMenu: React.FC<InventoryMenuProps> = ({ gameState, setGameState, 
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* 左カラム: 装備スロットとインベントリグリッド */}
         <div className="flex-1 flex flex-col p-4 overflow-y-auto">
-            
-            {/* 現在の装備 */}
             <div className="mb-6">
                 <h3 className="text-sm font-bold text-slate-400 mb-2 uppercase tracking-wider">Equipped</h3>
                 <div className="grid grid-cols-4 gap-4">
@@ -305,11 +326,13 @@ const InventoryMenu: React.FC<InventoryMenuProps> = ({ gameState, setGameState, 
                             >
                                 {item ? (
                                     <>
-                                        {/* アイコン代わりの文字 */}
                                         <div className="text-2xl font-bold">{item.name.charAt(0)}</div>
                                         <div className="absolute bottom-1 text-[10px] w-full text-center truncate px-1">{item.name}</div>
                                         {item.enchants && item.enchants.length > 0 && (
                                             <div className="absolute top-1 right-1 text-purple-400"><Sparkles size={12} /></div>
+                                        )}
+                                        {item.setId && (
+                                            <div className="absolute top-1 left-1 text-green-400"><Layers size={12} /></div>
                                         )}
                                     </>
                                 ) : (
@@ -324,7 +347,6 @@ const InventoryMenu: React.FC<InventoryMenuProps> = ({ gameState, setGameState, 
                 </div>
             </div>
 
-            {/* インベントリ一覧 */}
             <div className="flex-1">
                 <div className="flex justify-between items-end mb-2">
                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Bag</h3>
@@ -352,9 +374,11 @@ const InventoryMenu: React.FC<InventoryMenuProps> = ({ gameState, setGameState, 
                             {item.enchants && item.enchants.length > 0 && (
                                 <div className="absolute top-0.5 right-0.5 text-purple-400"><Sparkles size={10} /></div>
                             )}
+                             {item.setId && (
+                                <div className="absolute top-0.5 left-0.5 text-green-400"><Layers size={10} /></div>
+                            )}
                         </div>
                     ))}
-                    {/* 空スロット表示 (埋める) */}
                     {Array.from({ length: Math.max(0, player.maxInventorySize - player.inventory.length) }).map((_, i) => (
                         <div key={`empty-${i}`} className="aspect-square rounded border border-slate-800 bg-slate-900/50" />
                     ))}
@@ -362,7 +386,6 @@ const InventoryMenu: React.FC<InventoryMenuProps> = ({ gameState, setGameState, 
             </div>
         </div>
 
-        {/* 右カラム: 詳細パネル */}
         <div className="w-80 border-l border-slate-800 bg-slate-950">
             {selectedItem ? (
                 renderItemDetail(selectedItem)
