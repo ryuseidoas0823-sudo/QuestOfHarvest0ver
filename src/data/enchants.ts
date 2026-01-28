@@ -7,7 +7,7 @@ export const ENCHANT_TABLE_A: EnchantDef[] = [
     name: 'of Power',
     table: 'offense',
     description: '物理攻撃力 +',
-    statsKey: 'attack',
+    statsKey: 'attack', // 固定値
     minVal: 2,
     maxVal: 20,
     isPercentage: false
@@ -17,7 +17,7 @@ export const ENCHANT_TABLE_A: EnchantDef[] = [
     name: 'Violent',
     table: 'offense',
     description: '物理攻撃力 +%',
-    statsKey: 'attack',
+    statsKey: 'attackPercent', // 割合
     minVal: 5,
     maxVal: 25,
     isPercentage: true
@@ -27,7 +27,7 @@ export const ENCHANT_TABLE_A: EnchantDef[] = [
     name: 'of Magic',
     table: 'offense',
     description: '魔法攻撃力 +',
-    statsKey: 'magicAttack',
+    statsKey: 'magicAttack', // 固定値
     minVal: 2,
     maxVal: 20,
     isPercentage: false
@@ -37,7 +37,7 @@ export const ENCHANT_TABLE_A: EnchantDef[] = [
     name: 'Sorcerous',
     table: 'offense',
     description: '魔法攻撃力 +%',
-    statsKey: 'magicAttack',
+    statsKey: 'magicAttackPercent', // 割合
     minVal: 5,
     maxVal: 25,
     isPercentage: true
@@ -50,7 +50,7 @@ export const ENCHANT_TABLE_A: EnchantDef[] = [
     statsKey: 'critRate',
     minVal: 1,
     maxVal: 10,
-    isPercentage: false // 率そのものを加算するためfalse扱い（%表記だが実数値加算）
+    isPercentage: false
   },
   {
     id: 'off_crit_dmg',
@@ -72,7 +72,6 @@ export const ENCHANT_TABLE_A: EnchantDef[] = [
     maxVal: 20,
     isPercentage: false
   },
-  // 属性追加ダメージ
   {
     id: 'off_dmg_fire',
     name: 'Flaming',
@@ -103,7 +102,6 @@ export const ENCHANT_TABLE_A: EnchantDef[] = [
     maxVal: 15,
     isPercentage: false
   },
-  // 状態異常付与
   {
     id: 'off_chance_bleed',
     name: 'Bloody',
@@ -133,7 +131,7 @@ export const ENCHANT_TABLE_B: EnchantDef[] = [
     name: 'of Health',
     table: 'defense',
     description: '最大HP +',
-    statsKey: 'hp',
+    statsKey: 'hp', // 固定値
     minVal: 10,
     maxVal: 100,
     isPercentage: false
@@ -143,7 +141,7 @@ export const ENCHANT_TABLE_B: EnchantDef[] = [
     name: 'Vital',
     table: 'defense',
     description: '最大HP +%',
-    statsKey: 'hp',
+    statsKey: 'hpMaxPercent', // 割合
     minVal: 5,
     maxVal: 20,
     isPercentage: true
@@ -153,7 +151,7 @@ export const ENCHANT_TABLE_B: EnchantDef[] = [
     name: 'Sturdy',
     table: 'defense',
     description: '物理防御 +',
-    statsKey: 'defense',
+    statsKey: 'defense', // 固定値
     minVal: 2,
     maxVal: 15,
     isPercentage: false
@@ -163,7 +161,7 @@ export const ENCHANT_TABLE_B: EnchantDef[] = [
     name: 'Fortified',
     table: 'defense',
     description: '物理防御 +%',
-    statsKey: 'defense',
+    statsKey: 'defensePercent', // 割合
     minVal: 5,
     maxVal: 25,
     isPercentage: true
@@ -173,10 +171,20 @@ export const ENCHANT_TABLE_B: EnchantDef[] = [
     name: 'Warded',
     table: 'defense',
     description: '魔法防御 +',
-    statsKey: 'magicDefense',
+    statsKey: 'magicDefense', // 固定値
     minVal: 2,
     maxVal: 15,
     isPercentage: false
+  },
+  {
+    id: 'def_mdef_pct',
+    name: 'Mystic Guard',
+    table: 'defense',
+    description: '魔法防御 +%',
+    statsKey: 'magicDefensePercent', // 割合 (新設)
+    minVal: 5,
+    maxVal: 25,
+    isPercentage: true
   },
   {
     id: 'def_eva',
@@ -188,7 +196,6 @@ export const ENCHANT_TABLE_B: EnchantDef[] = [
     maxVal: 10,
     isPercentage: false
   },
-  // 耐性
   {
     id: 'def_res_poison',
     name: 'Antidote',
@@ -298,7 +305,7 @@ export const ENCHANT_TABLE_C: EnchantDef[] = [
     name: 'Quick',
     table: 'utility',
     description: '行動速度アップ',
-    statsKey: 'speed', // CT速度
+    statsKey: 'speed',
     minVal: 2,
     maxVal: 10,
     isPercentage: false
@@ -321,7 +328,6 @@ export const ALL_ENCHANTS = [
   ...ENCHANT_TABLE_C
 ];
 
-// テーブルごとの取得ヘルパー
 export const getEnchantsByTable = (table: EnchantDef['table']) => {
   switch (table) {
     case 'offense': return ENCHANT_TABLE_A;
