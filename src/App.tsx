@@ -19,7 +19,7 @@ import { Tutorial } from './components/Tutorial';
 import { DungeonScene, DungeonSceneHandle } from './components/DungeonScene';
 
 import { useGameCore } from './hooks/useGameCore';
-import { useTurnSystem } from './hooks/useTurnSystem';
+import { useTurnSystem, VisualEventType } from './hooks/useTurnSystem';
 import { usePlayer } from './hooks/usePlayer';
 import { useDungeon } from './hooks/useDungeon';
 import { useEventSystem } from './hooks/useEventSystem';
@@ -53,12 +53,35 @@ function App() {
   // --- Refs ---
   const dungeonSceneRef = useRef<DungeonSceneHandle>(null);
 
+  // --- Visual Event Handler ---
+  // ロジック側から視覚効果を呼び出すためのコールバック
+  const handleVisualEvent = useCallback((type: VisualEventType, pos: Position, value?: string | number, color?: string) => {
+      if (!dungeonSceneRef.current) return;
+
+      switch (type) {
+          case 'damage':
+          case 'heal':
+          case 'miss':
+              if (value !== undefined) {
+                  dungeonSceneRef.current.addDamageText(value.toString(), pos.x, pos.y, color);
+              }
+              break;
+          case 'effect':
+              // ヒットエフェクトなど
+              dungeonSceneRef.current.addHitEffect(pos.x, pos.y, color || '#ffff00');
+              break;
+      }
+  }, []);
+
   // --- Hooks Initialization ---
   // 各システムフックの初期化
   const { addLog } = useGameCore(gameState, setGameState);
   const { gainExp, upgradeStat } = usePlayer(setGameState, addLog);
   const { movePlayer, generateNewDungeon, enterDungeon, exitDungeon } = useDungeon(setGameState, addLog);
-  const turnSystem = useTurnSystem(gameState, setGameState, addLog);
+  
+  // useTurnSystemにvisualEventHandlerを渡す
+  const turnSystem = useTurnSystem(gameState, setGameState, addLog, handleVisualEvent);
+  
   const eventSystem = useEventSystem(gameState, setGameState, addLog);
   const itemSystem = useItemSystem(setGameState, addLog);
   const shopSystem = useShop(setGameState, addLog);
@@ -71,7 +94,6 @@ function App() {
       if (screen === 'dungeon' && !gameState.isGameOver && !showInventory && !showStatus && !showPauseMenu) {
         if (!targeting.isTargeting) {
             // 移動処理
-            // 方向入力として処理
             handleMove(dx, dy); 
         } else {
             // ターゲットカーソル移動
@@ -83,8 +105,7 @@ function App() {
         if (targeting.isTargeting) {
             targeting.confirmTarget();
         } else if (gameState.currentEvent) {
-            // イベント進行
-            eventSystem.handleEventChoice(0); // 仮: 最初の選択肢
+            eventSystem.handleEventChoice(0);
         }
     },
     onCancel: () => {
@@ -103,7 +124,6 @@ function App() {
 
   // --- Audio Management ---
   useEffect(() => {
-    // 画面や状況に応じたBGM再生
     if (screen === 'title') {
       playBGM('theme');
     } else if (screen === 'town') {
@@ -133,7 +153,6 @@ function App() {
     if (savedData) {
       playSE('decide');
       setGameState(savedData);
-      // セーブデータ内の状態に応じて適切な画面へ復帰
       if (savedData.dungeon && savedData.dungeon.floor > 0) {
           setScreen('dungeon');
       } else {
@@ -150,7 +169,6 @@ function App() {
 
   const handleJobSelect = (jobId: string) => {
     playSE('decide');
-    // ジョブデータの適用ロジックが必要だが、ここでは簡易的にID設定のみ
     setGameState(prev => ({ ...prev, player: { ...prev.player, job: jobId } }));
     setScreen('godSelect');
   };
@@ -158,15 +176,13 @@ function App() {
   const handleGodSelect = (godId: string) => {
     playSE('decide');
     setGameState(prev => ({ ...prev, player: { ...prev.player, god: godId } }));
-    
-    // ゲーム開始処理完了
     setScreen('town');
     setShowTutorial(true);
   };
 
   const handleGoToDungeon = () => {
     playSE('stairs');
-    enterDungeon(); // ダンジョン生成または階層移動
+    enterDungeon();
     setScreen('dungeon');
   };
 
@@ -176,17 +192,12 @@ function App() {
     setScreen('town');
   };
 
-  const handleGameOver = () => {
-      setScreen('result');
-  };
-
   const handleReturnToTitle = () => {
       stopBGM();
       setScreen('title');
       setShowPauseMenu(false);
   };
 
-  // ダンジョン内移動ハンドラ
   const handleMove = (dx: number, dy: number) => {
       if (turnSystem.isProcessingTurn) return;
       if (gameState.isGameOver) return;
@@ -197,30 +208,30 @@ function App() {
       movePlayer(targetX, targetY, turnSystem.handlePlayerMove);
   };
 
-  // マウス/タッチ操作による移動
   const handleDungeonClick = (x: number, y: number) => {
       if (turnSystem.isProcessingTurn || gameState.isGameOver) return;
       
       if (targeting.isTargeting) {
-          // ターゲットモード中はカーソル移動などを検討するが、
-          // 現状のuseTargetingは相対移動メインのため、ここでは何もしないか
-          // タップした位置の敵を選択するロジックを追加可能
-          // 簡易実装: クリックした位置に敵がいれば攻撃を試みる
           const enemy = gameState.enemies.find(e => e.position.x === x && e.position.y === y);
           if (enemy) {
-              targeting.confirmTarget(); // ※本来はID指定が必要だが、targetingフックの状態依存
+              targeting.confirmTarget();
           }
       } else {
-          // 通常移動: プレイヤーからの差分を計算
           const dx = x - gameState.player.position.x;
           const dy = y - gameState.player.position.y;
           
-          // 隣接マスへの移動のみ許可（簡易実装）
-          // 将来的にはパスファインディングで目的地まで移動させると良い
+          // 敵をクリックしたら攻撃モードへ（簡易実装：隣接していれば即攻撃、遠ければ移動）
+          const enemy = gameState.enemies.find(e => e.position.x === x && e.position.y === y);
+          if (enemy) {
+             const dist = Math.abs(dx) + Math.abs(dy);
+             if (dist === 1) {
+                 turnSystem.handlePlayerAttack(enemy.id);
+                 return;
+             }
+          }
+
           if (Math.abs(dx) + Math.abs(dy) === 1) {
               handleMove(dx, dy);
-          } else if (dx === 0 && dy === 0) {
-              // 自分自身をクリック＝足元を調べる、または待機？
           }
       }
   };
@@ -252,21 +263,17 @@ function App() {
     return <ResultScreen gameState={gameState} onReturnToTitle={handleReturnToTitle} />;
   }
 
-  // Main Game Loop UI (Town or Dungeon)
+  // Main Game Loop UI
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden select-none">
       
-      {/* 1. Game World Layer */}
       {screen === 'dungeon' ? (
         <div className="relative w-full h-full flex items-center justify-center">
-            {/* Dungeon Renderer */}
             <DungeonScene 
                 ref={dungeonSceneRef}
                 gameState={gameState}
                 onCellClick={handleDungeonClick}
             />
-            
-            {/* ターゲティングオーバーレイ */}
             {targeting.isTargeting && (
                 <div className="absolute inset-0 pointer-events-none">
                     <TargetingOverlay 
@@ -294,7 +301,6 @@ function App() {
         />
       )}
 
-      {/* 2. HUD Layer */}
       <GameHUD 
         gameState={gameState}
         onOpenInventory={() => setShowInventory(true)}
@@ -302,7 +308,6 @@ function App() {
         onOpenSkills={() => setShowSkills(true)}
       />
 
-      {/* 3. Modal/Menu Layer */}
       {showInventory && (
         <InventoryMenu 
             player={gameState.player}
@@ -347,7 +352,6 @@ function App() {
         />
       )}
 
-      {/* 4. Event/Dialogue Layer */}
       {gameState.currentEvent && (
         <EventModal 
             event={gameState.currentEvent}
@@ -362,12 +366,10 @@ function App() {
         />
       )}
 
-      {/* 5. Tutorial */}
       {showTutorial && (
           <Tutorial onClose={() => setShowTutorial(false)} />
       )}
 
-      {/* 6. Message Log (Overlay) */}
       <div className="fixed bottom-4 left-4 w-96 max-h-48 overflow-y-auto pointer-events-none fade-mask z-20">
           <div className="flex flex-col gap-1 justify-end min-h-full">
             {gameState.logs.slice(-10).map((log) => (
