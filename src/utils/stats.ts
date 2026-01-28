@@ -79,9 +79,15 @@ export const calculatePlayerStats = (player: PlayerState): PlayerStats & ItemSta
 
   // セットアイテムのカウント用
   const setCounts: { [setId: string]: number } = {};
+  
+  // ユニーク装備チェック用フラグ
+  let hasBerserkerAxe = false;
 
   equipmentList.forEach(item => {
     if (!item) return;
+
+    // ユニーク判定
+    if (item.id === 'unique_berserker_axe') hasBerserkerAxe = true;
 
     // セットカウント
     if (item.setId) {
@@ -172,6 +178,17 @@ export const calculatePlayerStats = (player: PlayerState): PlayerStats & ItemSta
   totalStats.evasion = (totalStats.evasion || 0) + statsFromAttributes.evasion;
   totalStats.critRate = (totalStats.critRate || 0) + statsFromAttributes.critRate;
   totalStats.hitRate = (totalStats.hitRate || 0) + statsFromAttributes.hitRate;
+
+  // --- Unique Effects Implementation ---
+  
+  // 狂戦士の斧: HPが低下するほど攻撃速度(Speed)が上昇（最大+50%）
+  // プレイヤーの現在HP(player.hp)を参照して補正をかける
+  if (hasBerserkerAxe && player.maxHp > 0) {
+    const hpRatio = player.hp / player.maxHp; // 1.0 (満タン) ～ 0.0 (死)
+    const lostRatio = 1.0 - hpRatio;
+    const berserkBonus = Math.floor(totalStats.speed * (lostRatio * 0.5)); // 最大50%上昇
+    totalStats.speed += berserkBonus;
+  }
 
   return totalStats;
 };
