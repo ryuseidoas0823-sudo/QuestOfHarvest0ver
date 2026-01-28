@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { TitleScreen } from './components/TitleScreen';
 import { NameInputScreen } from './components/NameInputScreen';
 import { JobSelectScreen } from './components/JobSelectScreen';
@@ -16,6 +16,7 @@ import { DialogueWindow } from './components/DialogueWindow';
 import { TargetingOverlay } from './components/TargetingOverlay';
 import { PixelSprite } from './components/PixelSprite';
 import { Tutorial } from './components/Tutorial';
+import { DungeonScene, DungeonSceneHandle } from './components/DungeonScene';
 
 import { useGameCore } from './hooks/useGameCore';
 import { useTurnSystem } from './hooks/useTurnSystem';
@@ -49,6 +50,9 @@ function App() {
   const [showPauseMenu, setShowPauseMenu] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
 
+  // --- Refs ---
+  const dungeonSceneRef = useRef<DungeonSceneHandle>(null);
+
   // --- Hooks Initialization ---
   // 各システムフックの初期化
   const { addLog } = useGameCore(gameState, setGameState);
@@ -67,9 +71,7 @@ function App() {
       if (screen === 'dungeon' && !gameState.isGameOver && !showInventory && !showStatus && !showPauseMenu) {
         if (!targeting.isTargeting) {
             // 移動処理
-            const newPos = { x: gameState.player.position.x + dx, y: gameState.player.position.y + dy };
-            // 移動ロジックは本来 useDungeon 等にあるべきだが、簡易的にここで判定して movePlayer を呼ぶ
-            // ※ここでは movePlayer の実装に依存するが、方向入力として処理
+            // 方向入力として処理
             handleMove(dx, dy); 
         } else {
             // ターゲットカーソル移動
@@ -132,8 +134,6 @@ function App() {
       playSE('decide');
       setGameState(savedData);
       // セーブデータ内の状態に応じて適切な画面へ復帰
-      // 基本的には街かダンジョンだが、安全のため街に戻すか、保存時のフラグを見る
-      // ここでは簡易的に「ダンジョンデータがあればダンジョン、なければ街」とする
       if (savedData.dungeon && savedData.dungeon.floor > 0) {
           setScreen('dungeon');
       } else {
@@ -150,9 +150,8 @@ function App() {
 
   const handleJobSelect = (jobId: string) => {
     playSE('decide');
-    // ジョブデータの適用（初期ステータスや装備など）はここで処理
-    // ※ 簡易実装: usePlayer等にジョブ適用ロジックがある想定
-    setGameState(prev => ({ ...prev, player: { ...prev.player, job: jobId } })); // 必要に応じて詳細設定
+    // ジョブデータの適用ロジックが必要だが、ここでは簡易的にID設定のみ
+    setGameState(prev => ({ ...prev, player: { ...prev.player, job: jobId } }));
     setScreen('godSelect');
   };
 
@@ -198,6 +197,34 @@ function App() {
       movePlayer(targetX, targetY, turnSystem.handlePlayerMove);
   };
 
+  // マウス/タッチ操作による移動
+  const handleDungeonClick = (x: number, y: number) => {
+      if (turnSystem.isProcessingTurn || gameState.isGameOver) return;
+      
+      if (targeting.isTargeting) {
+          // ターゲットモード中はカーソル移動などを検討するが、
+          // 現状のuseTargetingは相対移動メインのため、ここでは何もしないか
+          // タップした位置の敵を選択するロジックを追加可能
+          // 簡易実装: クリックした位置に敵がいれば攻撃を試みる
+          const enemy = gameState.enemies.find(e => e.position.x === x && e.position.y === y);
+          if (enemy) {
+              targeting.confirmTarget(); // ※本来はID指定が必要だが、targetingフックの状態依存
+          }
+      } else {
+          // 通常移動: プレイヤーからの差分を計算
+          const dx = x - gameState.player.position.x;
+          const dy = y - gameState.player.position.y;
+          
+          // 隣接マスへの移動のみ許可（簡易実装）
+          // 将来的にはパスファインディングで目的地まで移動させると良い
+          if (Math.abs(dx) + Math.abs(dy) === 1) {
+              handleMove(dx, dy);
+          } else if (dx === 0 && dy === 0) {
+              // 自分自身をクリック＝足元を調べる、または待機？
+          }
+      }
+  };
+
   // --- Render ---
 
   if (screen === 'title') {
@@ -232,27 +259,22 @@ function App() {
       {/* 1. Game World Layer */}
       {screen === 'dungeon' ? (
         <div className="relative w-full h-full flex items-center justify-center">
-            {/* Dungeon Renderer would go here - using visualManager or direct canvas/div rendering */}
-            {/* 簡易的なグリッド表示の代わり */}
-            <div className="relative">
-                {/* マップ描画 (renderer.tsの内容をコンポーネント化したものと想定) */}
-                {/* プレイヤーや敵の表示 */}
-                {/* ここは実装量が多いので、既存のメインロジックに任せるか、別途Rendererコンポーネントが必要 */}
-                {/* 本サンプルでは省略し、HUDやメニューの統合を示す */}
-                <div className="text-slate-500 text-center mt-20">
-                    Dungeon View Check Renderer.ts
-                    <br/>
-                    (Rendering logic is handled by Canvas or Map Component)
-                </div>
-            </div>
+            {/* Dungeon Renderer */}
+            <DungeonScene 
+                ref={dungeonSceneRef}
+                gameState={gameState}
+                onCellClick={handleDungeonClick}
+            />
             
             {/* ターゲティングオーバーレイ */}
             {targeting.isTargeting && (
-                <TargetingOverlay 
-                    gameState={gameState} 
-                    cursorPos={targeting.cursorPos} 
-                    validTargets={targeting.validTargets}
-                />
+                <div className="absolute inset-0 pointer-events-none">
+                    <TargetingOverlay 
+                        gameState={gameState} 
+                        cursorPos={targeting.cursorPos} 
+                        validTargets={targeting.validTargets}
+                    />
+                </div>
             )}
         </div>
       ) : (
@@ -268,7 +290,7 @@ function App() {
                     player: { ...prev.player, hp: prev.player.maxHp, mp: prev.player.maxMp } 
                 }));
             }}
-            onSave={() => setShowPauseMenu(true)} // 街でもメニュー開けるように
+            onSave={() => setShowPauseMenu(true)}
         />
       )}
 
@@ -346,7 +368,7 @@ function App() {
       )}
 
       {/* 6. Message Log (Overlay) */}
-      <div className="fixed bottom-4 left-4 w-96 max-h-48 overflow-y-auto pointer-events-none fade-mask">
+      <div className="fixed bottom-4 left-4 w-96 max-h-48 overflow-y-auto pointer-events-none fade-mask z-20">
           <div className="flex flex-col gap-1 justify-end min-h-full">
             {gameState.logs.slice(-10).map((log) => (
                 <div key={log.id} className={`text-sm font-bold drop-shadow-md animate-slide-in ${
