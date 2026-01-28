@@ -82,118 +82,131 @@ const getRandomMove = (enemy: Enemy, gameState: GameState): Position => {
 
 // AI: ボス (Minotaur - Aggressive)
 const getBossMinotaurMove = (enemy: Enemy, gameState: GameState): Position => {
-    // HPが減ると発狂モードで倍速移動...などの拡張が可能
-    // 基本は接近戦思考
     return getChaseMove(enemy, gameState);
 };
 
 // --- メインAI関数 ---
 export const processEnemyTurn = (gameState: GameState): GameState => {
   let { enemies, player, messages } = gameState;
-  let playerHp = player.stats.hp;
+  let playerHp = player.stats.hp; // 現在HP
+  let playerGold = player.gold;   // ゴールド（愚者の黄金鎧用）
   const newMessages = [...messages];
+
+  // ユニーク効果チェック: 愚者の黄金鎧
+  const hasFoolsGold = player.equipment.armor?.id === 'unique_fools_gold';
 
   const newEnemies = enemies.map(enemy => {
     // 状態異常チェック
-    const isStunned = enemy.statusEffects?.some(e => e.type === 'stun');
+    const isStunned = enemy.statusEffects?.some((e: any) => e.type === 'stun');
     if (isStunned) return enemy;
 
     const dist = getDistance(enemy.position, player.position);
 
     // --- スキル使用判定 ---
-    // 行動可能な場合、一定確率でスキルを使用する
-    // クールダウン管理が必要
     let skillUsed = false;
     let currentCooldowns = { ...(enemy.cooldowns || {}) };
 
     if (enemy.skills && enemy.skills.length > 0) {
         for (const skill of enemy.skills) {
-            // CDチェック
             const cd = currentCooldowns[skill.id] || 0;
             if (cd > 0) continue;
-
-            // 射程チェック
             if (dist > skill.range) continue;
-
-            // 確率チェック
             if (Math.random() > skill.prob) continue;
 
-            // スキル発動！
             skillUsed = true;
             newMessages.push({ text: `${enemy.name}${skill.message}`, type: 'danger' });
-            
-            // クールダウン設定
             currentCooldowns[skill.id] = skill.cooldown;
 
-            // 効果処理
             let damage = 0;
             if (skill.type === 'attack') {
                 damage = Math.floor(enemy.attack * (skill.damageMult || 1.0));
-                // 範囲攻撃ならプレイヤー周囲も...（今回は簡易的にプレイヤー単体 or 全体）
                 if (skill.areaRadius) {
-                    newMessages.push({ text: `範囲攻撃！(プレイヤー以外への被害は未実装)`, type: 'warning' });
+                    newMessages.push({ text: `範囲攻撃！`, type: 'warning' });
                 }
             } else if (skill.type === 'heal') {
-                // 自己回復 (enemy.hpを更新する必要があるが、map内なのでreturnで返す)
-                // ここでは簡易的に回復メッセージのみで、実際の回復は後述のreturn objectで処理したいが
-                // map関数内での処理フローが複雑になるため、damageを負の値にしてハックする
-                damage = -50; // 仮の回復量
-                newMessages.push({ text: `HPが回復した！`, type: 'info' });
+                damage = 0;
+                newMessages.push({ text: `${enemy.name}のHPが回復した！(AIロジック未実装)`, type: 'info' });
             } else if (skill.type === 'debuff') {
-                // スタンなど
                 if (skill.statusEffect === 'stun') {
-                    // プレイヤーをスタンさせる処理が必要（GameState更新）
-                    // ここではメッセージのみ
                     newMessages.push({ text: `あなたはスタンした！(未実装)`, type: 'danger' });
                 }
             }
 
-            // ダメージ適用
-            // 回復スキルの場合はHP回復処理を入れるべきだが、
-            // ここではプレイヤーへのダメージのみを扱う
+            // ダメージ適用ロジック (共通化)
             if (damage > 0) {
-                // 防御計算
-                const playerDef = 0;
-                const finalDmg = Math.max(1, damage - playerDef);
+                const playerDef = player.stats.defense || 0;
+                let finalDmg = Math.max(1, damage - playerDef);
+
+                // --- 愚者の黄金鎧 (Fool's Gold Armor) Effect ---
+                if (hasFoolsGold) {
+                    const goldLoss = finalDmg * 2; // 被ダメの200%を失う
+                    if (playerGold >= goldLoss) {
+                        playerGold -= goldLoss;
+                        newMessages.push({ text: `黄金の輝きがダメージを吸収した！ (-${goldLoss} G)`, type: 'warning' });
+                        finalDmg = 0; // ダメージ無効化
+                    } else {
+                        // ゴールドが尽きたら即死
+                        playerGold = 0;
+                        finalDmg = 9999;
+                        newMessages.push({ text: `金貨が尽きた... 黄金の呪いが発動！`, type: 'danger' });
+                    }
+                }
+                // ---------------------------------------------
+
                 playerHp -= finalDmg;
-                newMessages.push({ text: `${finalDmg}のダメージを受けた！`, type: 'warning' });
+                if (finalDmg > 0) {
+                    newMessages.push({ text: `${finalDmg}のダメージを受けた！`, type: 'warning' });
+                }
                 
-                // 状態異常付与 (Burn/Poison)
-                if (skill.statusEffect && Math.random() < 0.7) { // 70%付与
+                if (skill.statusEffect && Math.random() < 0.7 && finalDmg > 0) {
                     newMessages.push({ text: `${skill.statusEffect.toUpperCase()}状態になった！`, type: 'danger' });
-                    // TODO: player.statusEffects に push
                 }
             }
 
-            break; // 1ターンに1スキルのみ
+            break; // 1ターンに1スキル
         }
     }
     
-    // スキルのCD減少処理
     Object.keys(currentCooldowns).forEach(k => {
         if (currentCooldowns[k] > 0) currentCooldowns[k]--;
     });
 
     if (skillUsed) {
-        return {
-            ...enemy,
-            cooldowns: currentCooldowns
-        };
+        return { ...enemy, cooldowns: currentCooldowns };
     }
 
     // --- 通常攻撃判定 ---
-    // スキルを使わなかった、または使えなかった場合
     let attackRange = 1;
     if (enemy.aiType === 'ranged' || enemy.race === 'plant') attackRange = 4;
     if (enemy.aiType === 'boss_goliath') attackRange = 6;
 
     if (dist <= attackRange) {
-        // 通常攻撃
         let damage = Math.max(1, enemy.attack);
         damage = Math.floor(damage * (0.9 + Math.random() * 0.2));
         
-        playerHp -= damage;
-        newMessages.push({ text: `${enemy.name}の攻撃！ ${damage}のダメージ！`, type: 'warning' });
+        // 防御計算（簡易）
+        const playerDef = player.stats.defense || 0;
+        let finalDmg = Math.max(1, damage - playerDef);
+
+        // --- 愚者の黄金鎧 (Fool's Gold Armor) Effect (通常攻撃版) ---
+        if (hasFoolsGold) {
+            const goldLoss = finalDmg * 2;
+            if (playerGold >= goldLoss) {
+                playerGold -= goldLoss;
+                newMessages.push({ text: `黄金の鎧が守ってくれた！ (-${goldLoss} G)`, type: 'warning' });
+                finalDmg = 0;
+            } else {
+                playerGold = 0;
+                finalDmg = 9999;
+                newMessages.push({ text: `金貨が尽き、呪いが身を蝕む！`, type: 'danger' });
+            }
+        }
+        // -----------------------------------------------------
+
+        playerHp -= finalDmg;
+        if (finalDmg > 0) {
+            newMessages.push({ text: `${enemy.name}の攻撃！ ${finalDmg}のダメージ！`, type: 'warning' });
+        }
 
         return { ...enemy, cooldowns: currentCooldowns };
     }
@@ -206,7 +219,6 @@ export const processEnemyTurn = (gameState: GameState): GameState => {
         case 'random': nextPos = getRandomMove(enemy, gameState); break;
         case 'boss_minotaur': nextPos = getBossMinotaurMove(enemy, gameState); break;
         case 'boss_goliath': 
-            // 30%の確率で動く
             if (Math.random() < 0.3) nextPos = getChaseMove(enemy, gameState);
             break;
         default: nextPos = getChaseMove(enemy, gameState); break;
@@ -224,6 +236,8 @@ export const processEnemyTurn = (gameState: GameState): GameState => {
       enemies: newEnemies,
       player: {
           ...player,
+          gold: playerGold, // 更新されたゴールド
+          hp: Math.max(0, playerHp), // ここはState表示用の一時反映（useTurnSystemでstats.hpも更新される必要があるが簡易同期）
           stats: { ...player.stats, hp: Math.max(0, playerHp) }
       },
       messages: newMessages
