@@ -2,18 +2,19 @@ import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, f
 import { GameState } from '../types/gameState';
 import { TILE_SIZE } from '../config';
 import { SpriteManager } from '../assets/spriteManager';
-import { VisualManager, AttackSlash, ClawEffect } from '../utils/visualManager'; // ClawEffectを追加
+import { VisualManager, AttackSlash, ClawEffect, HealEffect } from '../utils/visualManager';
 
 interface Props {
   gameState: GameState;
   onCellClick: (x: number, y: number) => void;
 }
 
-// 外部公開メソッドの型定義 (variantを追加)
+// 外部公開メソッドの型定義 (playHealAnimationを追加)
 export interface DungeonSceneHandle {
     addDamageText: (text: string, x: number, y: number, color?: string) => void;
     addHitEffect: (x: number, y: number, color?: string) => void;
     playAttackAnimation: (x: number, y: number, direction: string, variant?: 'slash' | 'claw') => void;
+    playHealAnimation: (x: number, y: number) => void;
 }
 
 interface RenderObject {
@@ -47,7 +48,6 @@ export const DungeonScene = forwardRef<DungeonSceneHandle, Props>(({ gameState, 
         const y = tileY * TILE_SIZE + TILE_SIZE / 2;
         visualManagerRef.current.addHitEffect(x, y, color);
     },
-    // variant 対応
     playAttackAnimation: (tileX, tileY, direction, variant = 'slash') => {
         const x = tileX * TILE_SIZE + TILE_SIZE / 2;
         const y = tileY * TILE_SIZE + TILE_SIZE / 2;
@@ -57,12 +57,19 @@ export const DungeonScene = forwardRef<DungeonSceneHandle, Props>(({ gameState, 
         } else if (variant === 'claw') {
             visualManagerRef.current.add(new ClawEffect(x, y));
         }
+    },
+    // 新規追加: 回復エフェクト
+    playHealAnimation: (tileX, tileY) => {
+        const x = tileX * TILE_SIZE + TILE_SIZE / 2;
+        const y = tileY * TILE_SIZE + TILE_SIZE / 2;
+        visualManagerRef.current.add(new HealEffect(x, y));
+        // 合わせてテキストも出す
+        visualManagerRef.current.addDamageText("HEAL", x, y - 20, "#44ff44");
     }
   }));
 
-  // ... (以下、Resize, Update, Renderループは変更なし)
-  // 以前のDungeonScene.tsxと同じ内容を維持
-  // render関数内の visualManagerRef.current.draw() が拡張されたクラスを自動的に処理します。
+  // ... (以下、Resize, Update, Renderループ)
+  // 変更なしですが、contextのためにRenderループ等も記述します
 
   useEffect(() => {
     const handleResize = () => {
@@ -149,8 +156,18 @@ export const DungeonScene = forwardRef<DungeonSceneHandle, Props>(({ gameState, 
                      spriteManagerRef.current.drawSprite(ctx, 'wall', drawX, drawY, TILE_SIZE);
                 } else {
                      spriteManagerRef.current.drawSprite(ctx, 'floor', drawX, drawY, TILE_SIZE);
+                     
                      if (cell.type === 'stairs_down') {
                          spriteManagerRef.current.drawSprite(ctx, 'stairs', drawX, drawY, TILE_SIZE);
+                     }
+                     // 宝箱の描画を追加
+                     if (cell.type === 'chest') {
+                         // 仮で宝箱アイコン（黄色い四角に装飾）
+                         ctx.fillStyle = '#DAA520'; // GoldenRod
+                         ctx.fillRect(drawX + 8, drawY + 8, TILE_SIZE - 16, TILE_SIZE - 16);
+                         ctx.strokeStyle = '#FFD700';
+                         ctx.lineWidth = 2;
+                         ctx.strokeRect(drawX + 8, drawY + 8, TILE_SIZE - 16, TILE_SIZE - 16);
                      }
                 }
                 ctx.globalAlpha = 1.0;
