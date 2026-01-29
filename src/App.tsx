@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { DungeonScene, DungeonSceneHandle } from './components/DungeonScene';
 import { GameHUD } from './components/GameHUD';
 import { useTurnSystem, VisualEventType } from './hooks/useTurnSystem';
@@ -15,7 +15,6 @@ const App: React.FC = () => {
   const dungeonSceneRef = useRef<DungeonSceneHandle>(null);
 
   // --- Visual Event Handler (Wiring Hub) ---
-  // ロジック層(Hooks)からの視覚効果要求を、描画層(Components)へルーティングする
   const handleVisualEvent = useCallback((type: VisualEventType, pos: Position, value?: string | number, color?: string) => {
     if (!dungeonSceneRef.current) return;
 
@@ -30,17 +29,18 @@ const App: React.FC = () => {
         dungeonSceneRef.current.addHitEffect(pos.x, pos.y, color);
         break;
       case 'attack':
-        // 新規追加: 攻撃モーションの配線
-        // value引数を方向(direction)として扱う規約
+        // value=direction, color=variant ('slash' | 'claw')
         if (typeof value === 'string') {
-            dungeonSceneRef.current.playAttackAnimation(pos.x, pos.y, value);
+            // color引数をvariantとして利用。未指定なら 'slash'
+            const variant = (color === 'claw') ? 'claw' : 'slash';
+            dungeonSceneRef.current.playAttackAnimation(pos.x, pos.y, value, variant);
         }
         break;
     }
   }, []);
 
   // --- Logic Hooks ---
-  const { performPlayerAttack, isProcessing } = useTurnSystem(
+  const { performPlayerAttack, processEnemyTurn, isProcessing, setIsProcessing } = useTurnSystem(
     gameState, 
     setGameState, 
     logManager.addLog,
@@ -51,16 +51,31 @@ const App: React.FC = () => {
     gameState,
     setGameState,
     logManager.addLog,
-    performPlayerAttack // 敵がいる場合の攻撃アクションとして渡す
+    performPlayerAttack
   );
+
+  // --- Turn Management ---
+  // プレイヤーの行動が終わった後、敵のターンへ
+  useEffect(() => {
+    if (isProcessing) {
+        // 少し待ってから敵ターンを実行（演出用ウェイト）
+        const timer = setTimeout(() => {
+            processEnemyTurn();
+        }, 300);
+        return () => clearTimeout(timer);
+    }
+  }, [isProcessing, processEnemyTurn]);
 
   // --- Event Handlers ---
   const onCellClick = useCallback((x: number, y: number) => {
     if (isProcessing) return;
     
-    // 簡易的な移動・攻撃ロジック
-    handleMove(x, y);
-  }, [isProcessing, handleMove]);
+    // 移動または攻撃処理（内部で isProcessing = true になる）
+    const actionTaken = handleMove(x, y);
+    if (actionTaken) {
+        setIsProcessing(true);
+    }
+  }, [isProcessing, handleMove, setIsProcessing]);
 
   return (
     <div className="w-full h-screen bg-black relative overflow-hidden font-sans select-none text-white">
@@ -76,8 +91,6 @@ const App: React.FC = () => {
         gameState={gameState} 
         logs={logManager.logs} 
       />
-      
-      {/* 3. Modal/Menu Layer (Inventory, Town, etc. - 省略) */}
     </div>
   );
 };
