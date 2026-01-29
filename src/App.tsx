@@ -5,16 +5,20 @@ import { useTurnSystem, VisualEventType } from './hooks/useTurnSystem';
 import { useGameCore } from './hooks/useGameCore';
 import { useDungeon } from './hooks/useDungeon';
 import { useItemSystem } from './hooks/useItemSystem';
-import { usePlayer } from './hooks/usePlayer'; // 追加
+import { usePlayer } from './hooks/usePlayer';
 import { Position } from './types/gameState';
 import { InventoryMenu } from './components/InventoryMenu';
+import { StatusUpgradeMenu } from './components/StatusUpgradeMenu'; // 追加
 
 // メインコンポーネント: 状態保持と配線のみを担当
 const App: React.FC = () => {
   // --- Core Hooks & State ---
   const { gameState, setGameState, logManager } = useGameCore();
-  const [showInventory, setShowInventory] = useState(false);
   
+  // UI表示フラグ
+  const [showInventory, setShowInventory] = useState(false);
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+
   // --- Refs ---
   const dungeonSceneRef = useRef<DungeonSceneHandle>(null);
 
@@ -44,9 +48,8 @@ const App: React.FC = () => {
 
   // --- Logic Hooks ---
   
-  // Player System (New)
-  // レベルアップ処理などを担当
-  const { gainExp } = usePlayer(
+  // Player System
+  const { gainExp, upgradeStat } = usePlayer(
     gameState,
     setGameState,
     logManager.addLog,
@@ -62,14 +65,13 @@ const App: React.FC = () => {
   );
 
   // Turn System
-  // 依存関係として addItem, gainExp を注入
   const { performPlayerAttack, processEnemyTurn, isProcessing, setIsProcessing } = useTurnSystem(
     gameState, 
     setGameState, 
     logManager.addLog,
     handleVisualEvent,
-    addItem, // ドロップ用
-    gainExp  // 経験値用
+    addItem, 
+    gainExp
   );
   
   // Dungeon System
@@ -78,7 +80,7 @@ const App: React.FC = () => {
     setGameState,
     logManager.addLog,
     performPlayerAttack,
-    addItem, // 宝箱用
+    addItem,
     handleVisualEvent
   );
 
@@ -94,15 +96,16 @@ const App: React.FC = () => {
 
   // --- Event Handlers ---
   const onCellClick = useCallback((x: number, y: number) => {
-    if (isProcessing || showInventory) return;
+    if (isProcessing || showInventory || showStatusMenu) return;
     
     const actionTaken = handleMove(x, y);
     if (actionTaken) {
         setIsProcessing(true);
     }
-  }, [isProcessing, showInventory, handleMove, setIsProcessing]);
+  }, [isProcessing, showInventory, showStatusMenu, handleMove, setIsProcessing]);
 
   const toggleInventory = () => setShowInventory(!showInventory);
+  const toggleStatusMenu = () => setShowStatusMenu(!showStatusMenu);
 
   return (
     <div className="w-full h-screen bg-black relative overflow-hidden font-sans select-none text-white">
@@ -119,17 +122,31 @@ const App: React.FC = () => {
         logs={logManager.logs} 
       />
       
-      {/* 簡易インベントリボタン */}
-      <div className="absolute bottom-4 right-4 z-50">
+      {/* メニューボタン群 */}
+      <div className="absolute bottom-4 right-4 z-40 flex gap-2">
+          {/* レベルアップ可能な場合、ボタンを目立たせる */}
+          <button 
+            className={`
+              border-2 px-4 py-2 rounded font-bold transition-colors
+              ${gameState.player.statPoints > 0 
+                ? 'bg-yellow-700 border-yellow-500 text-yellow-100 animate-pulse' 
+                : 'bg-gray-800 border-gray-600 hover:bg-gray-700'}
+            `}
+            onClick={toggleStatusMenu}
+          >
+            STATUS {gameState.player.statPoints > 0 && <span className="ml-1 text-yellow-300">(!)</span>}
+          </button>
+
           <button 
             className="bg-gray-800 border-2 border-gray-600 px-4 py-2 rounded hover:bg-gray-700"
             onClick={toggleInventory}
           >
-            ITEM ({inventory.length})
+            ITEM
           </button>
       </div>
 
       {/* 3. Modal Layer */}
+      {/* インベントリ */}
       {showInventory && (
           <div className="absolute inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
               <InventoryMenu 
@@ -138,6 +155,17 @@ const App: React.FC = () => {
                 onEquip={equipItem}
                 onClose={toggleInventory}
               />
+          </div>
+      )}
+
+      {/* ステータス画面 */}
+      {showStatusMenu && (
+          <div className="absolute inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
+            <StatusUpgradeMenu 
+              player={gameState.player}
+              onUpgrade={upgradeStat}
+              onClose={toggleStatusMenu}
+            />
           </div>
       )}
     </div>
