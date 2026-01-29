@@ -1,3 +1,5 @@
+// ... existing imports ...
+
 export interface VisualEffect {
   id: string;
   isDead: boolean;
@@ -6,9 +8,8 @@ export interface VisualEffect {
 }
 
 // ... existing FloatingText, Particle, Shockwave classes ...
-// (以前のコードのFloatingText, Particle, Shockwaveはそのまま維持してください)
-// ここでは省略せず、import用にクラス定義が必要なため、
-// 以前の内容を含めつつ ClawEffect を追加した完全版を提示します。
+// 前回のAttackSlash, ClawEffectも含めて維持してください。
+// ここでは省略せず、HealEffectを追加した完全な形を提供します。
 
 export class FloatingText implements VisualEffect {
   id: string;
@@ -20,7 +21,6 @@ export class FloatingText implements VisualEffect {
   life: number;
   maxLife: number;
   velocity: { x: number; y: number };
-
   constructor(text: string, x: number, y: number, color: string = '#ffffff') {
     this.id = crypto.randomUUID();
     this.text = text;
@@ -192,7 +192,6 @@ export class AttackSlash implements VisualEffect {
   }
 }
 
-// --- 新規追加: 敵の爪攻撃エフェクト ---
 export class ClawEffect implements VisualEffect {
   id: string;
   isDead: boolean = false;
@@ -201,7 +200,6 @@ export class ClawEffect implements VisualEffect {
   life: number;
   maxLife: number;
   size: number;
-
   constructor(x: number, y: number) {
     this.id = crypto.randomUUID();
     this.x = x;
@@ -210,37 +208,104 @@ export class ClawEffect implements VisualEffect {
     this.maxLife = 200;
     this.size = 20;
   }
+  update(deltaTime: number) {
+    this.life -= deltaTime;
+    if (this.life <= 0) this.isDead = true;
+  }
+  draw(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number) {
+    const drawX = this.x - cameraX;
+    const drawY = this.y - cameraY;
+    const progress = 1 - (this.life / this.maxLife);
+    ctx.save();
+    ctx.translate(drawX, drawY);
+    ctx.strokeStyle = `rgba(255, 50, 50, ${1 - progress})`;
+    ctx.lineWidth = 2;
+    const swipeLen = this.size * 1.5 * progress;
+    const startX = -this.size / 2;
+    const startY = -this.size / 2;
+    for(let i = 0; i < 3; i++) {
+        const offset = (i - 1) * 8;
+        ctx.beginPath();
+        ctx.moveTo(startX + offset, startY);
+        ctx.lineTo(startX + offset + swipeLen, startY + swipeLen);
+        ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+// --- 新規追加: 回復エフェクト ---
+export class HealEffect implements VisualEffect {
+  id: string;
+  isDead: boolean = false;
+  x: number;
+  y: number;
+  life: number;
+  maxLife: number;
+  
+  // 上昇するパーティクル群
+  particles: {x: number, y: number, vy: number, size: number, life: number, offset: number}[] = [];
+
+  constructor(x: number, y: number) {
+    this.id = crypto.randomUUID();
+    this.x = x;
+    this.y = y;
+    this.life = 800;
+    this.maxLife = 800;
+
+    // 5〜8個の十字パーティクルを生成
+    for(let i=0; i<6; i++) {
+        this.particles.push({
+            x: (Math.random() - 0.5) * 30, // 横のばらつき
+            y: (Math.random() - 0.5) * 10,
+            vy: -0.5 - Math.random() * 1.5, // 上昇速度
+            size: 4 + Math.random() * 4,
+            life: 1.0,
+            offset: Math.random() * 200 // 出現のタイミングずらし
+        });
+    }
+  }
 
   update(deltaTime: number) {
     this.life -= deltaTime;
+    
+    // パーティクルの更新
+    this.particles.forEach(p => {
+        if (this.life < this.maxLife - p.offset) {
+            p.y += p.vy;
+            p.life -= 0.03; // フェードアウト
+        }
+    });
+
     if (this.life <= 0) this.isDead = true;
   }
 
   draw(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number) {
     const drawX = this.x - cameraX;
     const drawY = this.y - cameraY;
-    const progress = 1 - (this.life / this.maxLife); // 0 -> 1
 
     ctx.save();
     ctx.translate(drawX, drawY);
     
-    // 赤黒い爪痕
-    ctx.strokeStyle = `rgba(255, 50, 50, ${1 - progress})`;
-    ctx.lineWidth = 2;
-    
-    // 3本の線を描画
-    // 左上から右下へ引き裂くような動き
-    const swipeLen = this.size * 1.5 * progress;
-    const startX = -this.size / 2;
-    const startY = -this.size / 2;
+    this.particles.forEach(p => {
+        if (this.life >= this.maxLife - p.offset || p.life <= 0) return;
 
-    for(let i = 0; i < 3; i++) {
-        const offset = (i - 1) * 8; // -8, 0, 8
+        ctx.globalAlpha = p.life;
+        ctx.fillStyle = '#44ff44'; // 明るい緑
+        ctx.strokeStyle = '#006600';
+        ctx.lineWidth = 1;
+        
+        // 十字の描画
+        const s = p.size;
+        const w = s / 3;
+        
         ctx.beginPath();
-        ctx.moveTo(startX + offset, startY);
-        ctx.lineTo(startX + offset + swipeLen, startY + swipeLen);
-        ctx.stroke();
-    }
+        // 縦棒
+        ctx.fillRect(p.x - w/2, p.y - s/2, w, s);
+        // 横棒
+        ctx.fillRect(p.x - s/2, p.y - w/2, s, w);
+        ctx.fill();
+    });
 
     ctx.restore();
   }
