@@ -1,137 +1,90 @@
-import { useState, useCallback } from 'react';
-import { DungeonData, GameState, Enemy } from '../types/gameState';
-import { Position } from '../types/input';
-import { generateDungeon } from '../dungeonGenerator';
-import { ENEMY_DEFINITIONS, EnemyDefinition } from '../data/enemies';
-
-// 敵IDの生成用
-const generateId = () => Math.random().toString(36).substr(2, 9);
-
-// 階層ごとの出現敵テーブル (ボス以外)
-const FLOOR_ENEMIES: Record<string, string[]> = {
-  '1-4': ['slime', 'goblin', 'wolf'],
-  '6-9': ['skeleton', 'zombie', 'ghost'],
-  '11-14': ['poison_flower', 'lizardman', 'harpy'],
-  '16-19': ['minotaur', 'dark_knight', 'arch_demon'],
-  // Default
-  'default': ['slime']
-};
-
-// 階層ごとのボス定義
-const BOSS_ENEMIES: Record<number, string> = {
-  5: 'baby_dragon',
-  10: 'goliath',
-  15: 'amphisbaena',
-  20: 'asterios' // ラスボス想定
-};
+import { useCallback } from 'react';
+import { GameState, Position } from '../types/gameState';
+import { TILE_SIZE } from '../config';
+import { LogManager } from './useGameCore';
+import { EnemyInstance } from '../types/enemy';
+// アイテム生成用
+import { generateLoot } from '../utils/lootGenerator';
+import { Item } from '../types/item';
+import { VisualEventType } from './useTurnSystem';
 
 export const useDungeon = (
+  gameState: GameState,
   setGameState: React.Dispatch<React.SetStateAction<GameState>>,
-  addLog: (message: string, type?: any) => void
+  addLog: LogManager['addLog'],
+  onPlayerAttack: (enemy: EnemyInstance) => void,
+  addItem: (item: Item) => void, // インベントリへの追加用
+  onVisualEvent: (type: VisualEventType, pos: Position, value?: string | number, color?: string) => void
 ) => {
-
-  // 敵のスポーンロジック
-  const spawnEnemies = useCallback((floor: number, rooms: any[], playerPos: Position): Enemy[] => {
-    const enemies: Enemy[] = [];
-
-    // --- ボスフロアの処理 ---
-    if (BOSS_ENEMIES[floor]) {
-      const bossId = BOSS_ENEMIES[floor];
-      const bossDef = ENEMY_DEFINITIONS[bossId];
-      
-      if (bossDef) {
-        // ボスは部屋（アリーナ）の中央に配置
-        // generateBossArenaでは rooms[0] がアリーナ
-        const arena = rooms[0];
-        const bossPos = {
-          x: Math.floor(arena.x + arena.w / 2),
-          y: Math.floor(arena.y + arena.h / 2)
-        };
-
-        enemies.push({
-          id: generateId(),
-          ...bossDef,
-          position: bossPos,
-          statusEffects: []
-        });
-        
-        // 取り巻き（Minions）を少し出す場合
-        // const minionCount = 2;
-        // ...
-      }
-      return enemies;
+  
+  // 移動処理
+  const handleMove = useCallback((x: number, y: number) => {
+    // 範囲外チェック
+    if (x < 0 || x >= gameState.dungeon.width || y < 0 || y >= gameState.dungeon.height) {
+      return false;
     }
 
-    // --- 通常フロアの処理 ---
-    
-    // 現在の階層に適した敵リストを取得
-    let availableEnemies = FLOOR_ENEMIES['default'];
-    if (floor <= 4) availableEnemies = FLOOR_ENEMIES['1-4'];
-    else if (floor <= 9) availableEnemies = FLOOR_ENEMIES['6-9'];
-    else if (floor <= 14) availableEnemies = FLOOR_ENEMIES['11-14'];
-    else availableEnemies = FLOOR_ENEMIES['16-19'];
+    const targetCell = gameState.dungeon.grid[y][x];
 
-    // 各部屋に敵を配置
-    rooms.forEach((room, index) => {
-      // 最初の部屋（プレイヤーがいる）は敵を少なくするか無しにする
-      if (index === 0) return;
+    // 壁チェック
+    if (targetCell.type === 'wall') {
+      addLog('壁がある。', 'warning');
+      return false;
+    }
 
-      // 部屋の大きさに応じて敵の数を決定 (1〜3体)
-      const enemyCount = Math.floor(Math.random() * 3) + 1;
+    // 敵チェック
+    const enemy = gameState.enemies.find(e => e.position.x === x && e.position.y === y);
+    if (enemy) {
+      // 敵がいる場合は攻撃
+      onPlayerAttack(enemy);
+      return true; // 行動消費あり
+    }
 
-      for (let i = 0; i < enemyCount; i++) {
-        const enemyKey = availableEnemies[Math.floor(Math.random() * availableEnemies.length)];
-        const enemyDef = ENEMY_DEFINITIONS[enemyKey];
+    // --- 宝箱チェック (新規追加) ---
+    if (targetCell.type === 'chest') {
+        // アイテム生成 (階層レベルを渡す想定だが、今は1固定)
+        const loot = generateLoot(1);
+        addItem(loot);
+        
+        // 演出
+        onVisualEvent('effect', {x, y}, undefined, '#FFD700'); // 金色のエフェクト
+        onVisualEvent('text', {x, y}, 'GET!', '#FFD700');
 
-        if (enemyDef) {
-          // 部屋内のランダムな位置
-          const ex = Math.floor(Math.random() * (room.w - 2)) + room.x + 1;
-          const ey = Math.floor(Math.random() * (room.h - 2)) + room.y + 1;
+        // 宝箱を開けたので床にする
+        // (本来は 'chest_open' などのタイプにして画像を変えるのが良いが、まずは床にして消す)
+        setGameState(prev => {
+            const newGrid = [...prev.dungeon.grid];
+            newGrid[y] = [...newGrid[y]];
+            newGrid[y][x] = { ...newGrid[y][x], type: 'floor' };
+            
+            return {
+                ...prev,
+                dungeon: {
+                    ...prev.dungeon,
+                    grid: newGrid
+                }
+            };
+        });
+        
+        return true; // 行動消費あり（宝箱を開ける時間）
+    }
 
-          enemies.push({
-            id: generateId(),
-            ...enemyDef,
-            position: { x: ex, y: ey },
-            statusEffects: []
-          });
-        }
-      }
-    });
-
-    return enemies;
-  }, []);
-
-  // ダンジョン生成と初期化
-  const initializeDungeon = useCallback((floor: number) => {
-    // マップ生成
-    const dungeonData = generateDungeon(floor);
-    
-    // 敵スポーン
-    const enemies = spawnEnemies(floor, dungeonData.rooms, dungeonData.playerStart);
-
-    // GameState更新
+    // 移動実行
     setGameState(prev => ({
       ...prev,
-      dungeon: {
-        floor: floor,
-        map: dungeonData.map,
-        rooms: dungeonData.rooms,
-        stairs: dungeonData.stairs
-      },
       player: {
         ...prev.player,
-        position: dungeonData.playerStart
-      },
-      enemies: enemies,
-      messages: [
-        ...prev.messages, 
-        { text: `${floor}階層に到達した。`, type: 'info' },
-        ...(BOSS_ENEMIES[floor] ? [{ text: '強力な気配を感じる...', type: 'danger' }] : [])
-      ]
+        position: { x, y }
+      }
     }));
-  }, [setGameState, spawnEnemies]);
+    
+    // 視界更新などはsetGameState内で別途行うか、useEffectで検知して行う設計が望ましいが、
+    // 既存実装に合わせて座標更新のみとする（GameLogic側で視界更新されている前提）
+
+    return true; // 行動成功
+  }, [gameState, setGameState, addLog, onPlayerAttack, addItem, onVisualEvent]);
 
   return {
-    initializeDungeon
+    handleMove
   };
 };
