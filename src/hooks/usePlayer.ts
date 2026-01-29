@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 import { GameState, Position } from '../types/gameState';
 import { LogManager } from './useGameCore';
 import { VisualEventType } from './useTurnSystem';
-// レベル計算用ユーティリティ（既存ファイルにある想定、なければ簡易計算）
 import { calculateNextLevelExp } from '../utils/level';
 
 export const usePlayer = (
@@ -12,6 +11,7 @@ export const usePlayer = (
   onVisualEvent: (type: VisualEventType, pos: Position, value?: string | number, color?: string) => void
 ) => {
 
+  // 経験値獲得とレベルアップ
   const gainExp = useCallback((amount: number) => {
     setGameState(prev => {
       const player = prev.player;
@@ -21,30 +21,27 @@ export const usePlayer = (
       let newMaxMp = player.maxMp;
       let newHp = player.hp;
       let newMp = player.mp;
-      let newStats = { ...player.stats };
+      let newStatPoints = player.statPoints;
 
-      // 次のレベルまでの必要経験値（簡易式: level * 100）
-      // 本来は src/utils/level.ts のロジックを使用
+      // 次のレベルまでの必要経験値
       let nextLevelExp = calculateNextLevelExp(newLevel);
 
       let leveledUp = false;
 
-      // レベルアップ判定（複数レベルアップ対応）
+      // レベルアップ判定
       while (newExp >= nextLevelExp) {
         newExp -= nextLevelExp;
         newLevel++;
         leveledUp = true;
         nextLevelExp = calculateNextLevelExp(newLevel);
 
-        // ステータス上昇（簡易実装）
-        // 実際にはジョブごとの成長率などを参照
-        newMaxHp += 10;
-        newMaxMp += 5;
-        newStats.str += 1;
-        newStats.vit += 1;
-        newStats.dex += 1;
-        newStats.agi += 1;
-        newStats.int += 1;
+        // 成長処理:
+        // 1. HP/MPは自動成長 (VIT/INTの影響はStats計算時に反映されるが、基礎値も少し上げる)
+        newMaxHp += 5;
+        newMaxMp += 2;
+        
+        // 2. ステータスポイント付与 (1レベルにつき3ポイントなど)
+        newStatPoints += 3;
       }
 
       if (leveledUp) {
@@ -52,13 +49,9 @@ export const usePlayer = (
         newHp = newMaxHp;
         newMp = newMaxMp;
 
-        // ログと演出
-        addLog(`レベルが ${newLevel} に上がった！`, 'success');
-        // 遅延させてログを出すと読みやすい
-        setTimeout(() => addLog('最大HPとMPが上昇し、全回復した。'), 100);
-
-        onVisualEvent('text', player.position, 'LEVEL UP!', '#FFD700'); // 金色テキスト
-        onVisualEvent('heal', player.position); // 回復エフェクトを流用して祝福演出
+        addLog(`レベルが ${newLevel} に上がった！ (SP +${newStatPoints - player.statPoints})`, 'success');
+        onVisualEvent('text', player.position, 'LEVEL UP!', '#FFD700');
+        onVisualEvent('heal', player.position);
       } else {
         addLog(`${amount} の経験値を獲得。`);
       }
@@ -73,13 +66,47 @@ export const usePlayer = (
           maxMp: newMaxMp,
           hp: newHp,
           mp: newMp,
-          stats: newStats
+          statPoints: newStatPoints
         }
       };
     });
   }, [setGameState, addLog, onVisualEvent]);
 
+  // ステータス割り振り
+  const upgradeStat = useCallback((statKey: keyof GameState['player']['stats']) => {
+    setGameState(prev => {
+      const player = prev.player;
+      
+      if (player.statPoints <= 0) {
+        return prev;
+      }
+
+      const newStats = { ...player.stats };
+      newStats[statKey] = (newStats[statKey] || 0) + 1;
+      
+      // 副次効果の反映 (VITが上がればMaxHPも増やす等)
+      let newMaxHp = player.maxHp;
+      let newMaxMp = player.maxMp;
+      
+      if (statKey === 'vit') newMaxHp += 2; // VIT 1につきHP+2
+      if (statKey === 'int') newMaxMp += 1; // INT 1につきMP+1
+
+      return {
+        ...prev,
+        player: {
+          ...player,
+          stats: newStats,
+          maxHp: newMaxHp,
+          maxMp: newMaxMp,
+          // 現在値も少し回復させるか、そのままにするか。今回はMaxのみ上昇
+          statPoints: player.statPoints - 1
+        }
+      };
+    });
+  }, [setGameState]);
+
   return {
-    gainExp
+    gainExp,
+    upgradeStat
   };
 };
