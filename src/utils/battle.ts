@@ -1,96 +1,111 @@
-import { GameState, PlayerState } from '../types/gameState';
-import { EnemyInstance } from '../types/enemy';
-import { CombatResult } from '../types/combat';
-import { generateEquipment } from './lootGenerator';
-import { ALL_ITEMS } from '../data/items';
+import { Stats } from '../types/gameState';
 
-// ... existing code ...
-// (注: 元のファイル全体がないため、ここで主要なロジックを再定義またはオーバーライドします。
-// 本来は差分適用ですが、Loot生成部分は独立性が高いため、ヘルパー関数として提供します)
+/**
+ * 戦闘計算ユーティリティ
+ * * 計算式:
+ * 物理攻撃力 (P.ATK) = STR * 2 + DEX * 0.5 + (装備ATK)
+ * 物理防御力 (P.DEF) = VIT * 1.5 + STR * 0.5 + (装備DEF)
+ * 命中率 = 95 + (攻撃側DEX - 防御側AGI) * 0.5 (%)
+ * クリティカル率 = 5 + (攻撃側DEX * 0.2) + (攻撃側LUK * 0.1) (%)
+ */
 
-export const calculateDamage = (
-  attacker: PlayerState | EnemyInstance,
-  defender: PlayerState | EnemyInstance,
-  skillMultiplier: number = 1.0,
-  isMagical: boolean = false
-): CombatResult => {
-  // 簡易計算式 (Stat.tsのロジックが統合されたPlayerStateを持つ前提)
-  // 実際には stats.ts で計算された最終ステータスを使用すべきですが、
-  // ここでは簡易的に attacker.stats などを参照する想定
+// ステータスオブジェクトから攻撃力を算出するヘルパー
+const getAttackPower = (stats: Stats): number => {
+  // atkが直接定義されている場合はそれを使用（敵キャラ等）
+  // 定義されていない場合はSTR, DEXから算出（プレイヤー等）
+  if (stats.atk !== undefined) return stats.atk;
   
-  // Note: プレイヤーの場合は stats.ts の結果が反映されているべき
-  // 敵の場合は固定値
-
-  const atk = isMagical ? attacker.magicAttack : attacker.attack;
-  const def = isMagical ? defender.magicDefense : defender.defense;
-
-  // 基本ダメージ: (攻撃力 * スキル倍率) - (防御力 / 2)
-  // ランダム幅: ±10%
-  let baseDamage = (atk * skillMultiplier) - (def * 0.5);
-  baseDamage = Math.max(1, baseDamage);
-  
-  const variance = 0.9 + Math.random() * 0.2; // 0.9 ~ 1.1
-  let damage = Math.floor(baseDamage * variance);
-
-  // クリティカル判定
-  // DEXベース
-  const critRate = (attacker.stats?.critRate || 5) / 100;
-  const isCritical = Math.random() < critRate;
-  
-  if (isCritical) {
-    const critDmg = (attacker.stats?.critDamage || 150) / 100;
-    damage = Math.floor(damage * critDmg);
-  }
-
-  return {
-    hit: true, // 命中判定は別途必要だが簡易化
-    critical: isCritical,
-    damage: damage,
-    damageType: isMagical ? 'magical' : 'physical',
-    message: ''
-  };
+  const str = stats.str || 0;
+  const dex = stats.dex || 0;
+  return Math.floor(str * 2 + dex * 0.5);
 };
 
-// 敵死亡時のドロップ処理
-export const processEnemyDrop = (
-  enemy: EnemyInstance, 
-  playerLevel: number
-): { items: any[], gold: number, exp: number } => {
-  const drops = [];
+// ステータスオブジェクトから防御力を算出するヘルパー
+const getDefensePower = (stats: Stats): number => {
+  // defが直接定義されている場合はそれを使用
+  if (stats.def !== undefined) return stats.def;
   
-  // 1. 固定ドロップテーブル (Materials, Consumables)
-  if (enemy.dropTable) {
-    enemy.dropTable.forEach(drop => {
-      if (Math.random() < drop.rate) {
-        // 固定アイテムは ALL_ITEMS から取得
-        const itemDef = ALL_ITEMS.find(i => i.id === drop.itemId);
-        if (itemDef) {
-            // 素材やポーションはスタック可能なのでそのまま
-            drops.push({ ...itemDef, quantity: 1 }); // 簡易コピー
-        }
-      }
-    });
+  const vit = stats.vit || 0;
+  const str = stats.str || 0;
+  return Math.floor(vit * 1.5 + str * 0.5);
+};
+
+/**
+ * 命中判定
+ * @param attacker 攻撃側のステータス
+ * @param defender 防御側のステータス
+ * @returns 命中したかどうか
+ */
+export const isHit = (attacker: Stats, defender: Stats): boolean => {
+  // 基本命中率
+  let hitRate = 95;
+  
+  // DEXとAGIによる補正
+  const attackerDex = attacker.dex || 10;
+  const defenderAgi = defender.agi || 10;
+  
+  // 相手の方が素早いと命中率が下がる
+  hitRate += (attackerDex - defenderAgi) * 0.5;
+
+  // 下限50%、上限100%（必中スキル等の例外を除く）
+  hitRate = Math.max(50, Math.min(100, hitRate));
+
+  return Math.random() * 100 < hitRate;
+};
+
+/**
+ * クリティカル判定
+ * @param attacker 攻撃側のステータス
+ * @returns クリティカルかどうか
+ */
+export const isCritical = (attacker: Stats): boolean => {
+  // 基本クリティカル率 5%
+  let critRate = 5;
+  
+  // DEXによる補正 (DEX 10ごとに +2%)
+  const dex = attacker.dex || 10;
+  critRate += dex * 0.2;
+  
+  // LUKがあれば補正（未実装なら0）
+  // critRate += (attacker.luk || 0) * 0.1;
+
+  // 上限を設定してもよい
+  critRate = Math.min(50, critRate);
+
+  return Math.random() * 100 < critRate;
+};
+
+/**
+ * ダメージ計算
+ * @param attacker 攻撃側のステータス
+ * @param defender 防御側のステータス
+ * @param isCritical クリティカルヒットかどうか
+ * @returns 最終ダメージ値
+ */
+export const calculateDamage = (attacker: Stats, defender: Stats, isCritical: boolean): number => {
+  const atk = getAttackPower(attacker);
+  const def = getDefensePower(defender);
+
+  // 基礎ダメージ = 攻撃力 - 防御力/2
+  // (防御力を完全に引くとダメージが通りにくすぎるため、係数を調整)
+  let damage = atk - (def * 0.7);
+
+  // 最低ダメージ保証 (1〜レベル相当など、ここではシンプルに)
+  // 攻撃力が低すぎても、1〜3程度のダメージは通るようにする
+  if (damage < 1) {
+    damage = 1 + Math.random() * 2;
   }
 
-  // 2. 装備品のランダム生成 (Loot System 2.0)
-  // エリートやボスは高確率で装備を落とす
-  let dropChance = 0.05; // 雑魚: 5%
-  if (enemy.type === 'elite') dropChance = 0.30; // エリート: 30%
-  if (enemy.type === 'boss') dropChance = 1.0;   // ボス: 100%
+  // 乱数補正 (0.9倍 〜 1.1倍)
+  // ダメージに揺らぎを持たせる
+  const variance = 0.9 + Math.random() * 0.2;
+  damage *= variance;
 
-  if (Math.random() < dropChance) {
-    // 装備生成
-    const equip = generateEquipment(playerLevel);
-    if (equip) {
-      drops.push(equip);
-    }
+  // クリティカル補正 (1.5倍)
+  if (isCritical) {
+    damage *= 1.5;
+    // オプション: 防御力を一部無視する計算にするのもあり
   }
 
-  // ボスの場合、追加でレア確定ドロップなどのロジックも可
-
-  return {
-    items: drops,
-    gold: enemy.stats.gold,
-    exp: enemy.stats.exp
-  };
+  return Math.floor(damage);
 };
