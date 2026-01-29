@@ -1,97 +1,85 @@
 import { useCallback } from 'react';
-import { GameState, PlayerState, PlayerStats } from '../types/gameState';
-import { getExpRequiredForNextLevel } from '../utils/level';
-import { calculatePlayerStats } from '../utils/stats';
+import { GameState, Position } from '../types/gameState';
+import { LogManager } from './useGameCore';
+import { VisualEventType } from './useTurnSystem';
+// レベル計算用ユーティリティ（既存ファイルにある想定、なければ簡易計算）
+import { calculateNextLevelExp } from '../utils/level';
 
 export const usePlayer = (
+  gameState: GameState,
   setGameState: React.Dispatch<React.SetStateAction<GameState>>,
-  addLog: (text: string, type?: 'info' | 'success' | 'warning' | 'danger') => void
+  addLog: LogManager['addLog'],
+  onVisualEvent: (type: VisualEventType, pos: Position, value?: string | number, color?: string) => void
 ) => {
 
-  // 経験値獲得とレベルアップ処理
   const gainExp = useCallback((amount: number) => {
     setGameState(prev => {
-      let player = { ...prev.player };
-      let exp = player.exp + amount;
-      let level = player.level;
+      const player = prev.player;
+      let newExp = player.exp + amount;
+      let newLevel = player.level;
+      let newMaxHp = player.maxHp;
+      let newMaxMp = player.maxMp;
+      let newHp = player.hp;
+      let newMp = player.mp;
+      let newStats = { ...player.stats };
+
+      // 次のレベルまでの必要経験値（簡易式: level * 100）
+      // 本来は src/utils/level.ts のロジックを使用
+      let nextLevelExp = calculateNextLevelExp(newLevel);
+
       let leveledUp = false;
-      let skillPointsGained = 0;
-      let statPointsGained = 0;
 
-      // 複数レベルアップに対応
-      while (exp >= getExpRequiredForNextLevel(level)) {
-        exp -= getExpRequiredForNextLevel(level);
-        level++;
+      // レベルアップ判定（複数レベルアップ対応）
+      while (newExp >= nextLevelExp) {
+        newExp -= nextLevelExp;
+        newLevel++;
         leveledUp = true;
-        
-        // レベルアップボーナス
-        const sp = 1; // スキルポイント
-        const ap = 5; // ステータスポイント
-        
-        player.skillPoints += sp;
-        player.statPoints += ap;
-        skillPointsGained += sp;
-        statPointsGained += ap;
+        nextLevelExp = calculateNextLevelExp(newLevel);
+
+        // ステータス上昇（簡易実装）
+        // 実際にはジョブごとの成長率などを参照
+        newMaxHp += 10;
+        newMaxMp += 5;
+        newStats.str += 1;
+        newStats.vit += 1;
+        newStats.dex += 1;
+        newStats.agi += 1;
+        newStats.int += 1;
       }
-
-      player.exp = exp;
-      player.level = level;
-
-      // ステータス再計算（最大HP/MPの更新のため）
-      const newStats = calculatePlayerStats(player);
-      player.stats = newStats;
 
       if (leveledUp) {
-        // 全回復
-        player.hp = newStats.maxHp;
-        player.mp = newStats.maxMp;
-        
-        addLog(`レベルが ${level} に上がった！`, 'success');
-        addLog(`ステータスポイント+${statPointsGained}, スキルポイント+${skillPointsGained} を獲得。`, 'info');
+        // レベルアップ時は全回復
+        newHp = newMaxHp;
+        newMp = newMaxMp;
+
+        // ログと演出
+        addLog(`レベルが ${newLevel} に上がった！`, 'success');
+        // 遅延させてログを出すと読みやすい
+        setTimeout(() => addLog('最大HPとMPが上昇し、全回復した。'), 100);
+
+        onVisualEvent('text', player.position, 'LEVEL UP!', '#FFD700'); // 金色テキスト
+        onVisualEvent('heal', player.position); // 回復エフェクトを流用して祝福演出
+      } else {
+        addLog(`${amount} の経験値を獲得。`);
       }
 
       return {
         ...prev,
-        player
+        player: {
+          ...player,
+          level: newLevel,
+          exp: newExp,
+          maxHp: newMaxHp,
+          maxMp: newMaxMp,
+          hp: newHp,
+          mp: newMp,
+          stats: newStats
+        }
       };
     });
-  }, [setGameState, addLog]);
-
-  // ステータスポイントの割り振り
-  const upgradeStat = useCallback((statKey: keyof Pick<PlayerStats, 'str' | 'vit' | 'dex' | 'agi' | 'int' | 'wis'>, amount: number = 1) => {
-    setGameState(prev => {
-      const player = { ...prev.player };
-
-      if (player.statPoints < amount) {
-        // UI側で制御するが、念のため
-        return prev;
-      }
-
-      // ベースステータスを加算
-      player[statKey] = (player[statKey] || 0) + amount;
-      player.statPoints -= amount;
-
-      // ステータス再計算
-      const newStats = calculatePlayerStats(player);
-      
-      // 最大HP/MPが増えた分だけ現在値も回復させる（親切設計）
-      const hpDiff = newStats.maxHp - player.stats.maxHp;
-      const mpDiff = newStats.maxMp - player.stats.maxMp;
-      
-      if (hpDiff > 0) player.hp += hpDiff;
-      if (mpDiff > 0) player.mp += mpDiff;
-
-      player.stats = newStats;
-
-      return {
-        ...prev,
-        player
-      };
-    });
-  }, [setGameState]);
+  }, [setGameState, addLog, onVisualEvent]);
 
   return {
-    gainExp,
-    upgradeStat
+    gainExp
   };
 };
