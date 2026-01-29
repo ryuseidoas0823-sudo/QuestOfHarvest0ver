@@ -6,7 +6,10 @@ import { VisualManager, Shockwave } from '../utils/visualManager';
 
 // 設定定数
 const TILE_SIZE = 32; // 1タイルのピクセルサイズ
-const PIXEL_SCALE = 2; // ドット絵の1ピクセルを画面上で何ピクセルにするか（16x16ドット絵 * 2 = 32px）
+const PIXEL_SCALE = 2; // ドット絵の1ピクセルを画面上で何ピクセルにするか
+
+// 補間スピード (0.0 ~ 1.0)
+const LERP_SPEED = 0.2; 
 
 // 外部からVisualManagerを操作するためのハンドル
 export interface DungeonSceneHandle {
@@ -20,7 +23,6 @@ interface Props {
 }
 
 // --- Pixel Art Data Definitions ---
-// .: 透明, x: 黒/輪郭, w: 白, r: 赤, b: 青, g: 緑, y: 黄/金, s: 肌色, c: 銀/鉄
 const PALETTE: { [key: string]: string } = {
     '.': 'rgba(0,0,0,0)',
     'x': '#0f172a', // Outline (dark slate)
@@ -161,6 +163,15 @@ export const DungeonScene = forwardRef<DungeonSceneHandle, Props>(({ gameState, 
   // エフェクト管理
   const visualManagerRef = useRef<VisualManager>(new VisualManager());
 
+  // 視覚的な位置管理（スムーズな移動用）
+  const visualPosRef = useRef({ 
+      player: { x: 0, y: 0 },
+      enemies: new Map<string, { x: number, y: number }>()
+  });
+
+  // 初期化フラグ（最初の位置合わせ用）
+  const initializedRef = useRef(false);
+
   // 親コンポーネントへのメソッド公開
   useImperativeHandle(ref, () => ({
     addDamageText: (text, tileX, tileY, color) => {
@@ -206,24 +217,83 @@ export const DungeonScene = forwardRef<DungeonSceneHandle, Props>(({ gameState, 
     const deltaTime = timestamp - lastTimeRef.current;
     lastTimeRef.current = timestamp;
 
+    // フレームレート補正（60fps基準）
+    const timeScale = deltaTime / 16.67;
+
     visualManagerRef.current.update(deltaTime);
 
-    // --- 画面クリア ---
-    ctx.fillStyle = '#020617'; // slate-950 (より暗い背景)
+    // --- 1. 座標補間ロジック (Smooth Movement) ---
+    
+    // Player
+    const targetPlayerX = gameState.player.position.x * TILE_SIZE;
+    const targetPlayerY = gameState.player.position.y * TILE_SIZE;
+
+    // 初回実行時やフロア移動時は瞬時に合わせる
+    if (!initializedRef.current) {
+        visualPosRef.current.player.x = targetPlayerX;
+        visualPosRef.current.player.y = targetPlayerY;
+        initializedRef.current = true;
+    }
+
+    const pdx = targetPlayerX - visualPosRef.current.player.x;
+    const pdy = targetPlayerY - visualPosRef.current.player.y;
+
+    // 距離が遠すぎる場合（フロア移動など）はワープ
+    if (Math.abs(pdx) > TILE_SIZE * 3 || Math.abs(pdy) > TILE_SIZE * 3) {
+        visualPosRef.current.player.x = targetPlayerX;
+        visualPosRef.current.player.y = targetPlayerY;
+    } else {
+        // 線形補間
+        visualPosRef.current.player.x += pdx * LERP_SPEED * timeScale;
+        visualPosRef.current.player.y += pdy * LERP_SPEED * timeScale;
+    }
+    
+    // Enemies
+    const currentEnemyIds = new Set<string>();
+    gameState.enemies.forEach(enemy => {
+        currentEnemyIds.add(enemy.id);
+        const targetX = enemy.position.x * TILE_SIZE;
+        const targetY = enemy.position.y * TILE_SIZE;
+        
+        if (!visualPosRef.current.enemies.has(enemy.id)) {
+            // 新規敵は即座に配置
+            visualPosRef.current.enemies.set(enemy.id, { x: targetX, y: targetY });
+        } else {
+            const vPos = visualPosRef.current.enemies.get(enemy.id)!;
+            const edx = targetX - vPos.x;
+            const edy = targetY - vPos.y;
+            
+            if (Math.abs(edx) > TILE_SIZE * 3 || Math.abs(edy) > TILE_SIZE * 3) {
+                vPos.x = targetX;
+                vPos.y = targetY;
+            } else {
+                vPos.x += edx * LERP_SPEED * timeScale;
+                vPos.y += edy * LERP_SPEED * timeScale;
+            }
+        }
+    });
+
+    // 存在しなくなった敵の視覚データをクリーンアップ
+    for (const id of visualPosRef.current.enemies.keys()) {
+        if (!currentEnemyIds.has(id)) {
+            visualPosRef.current.enemies.delete(id);
+        }
+    }
+
+
+    // --- 2. 描画開始 ---
+
+    // 画面クリア
+    ctx.fillStyle = '#020617'; // slate-950
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    // ctx.imageSmoothingEnabled = false; // ドット絵をくっきりさせる
 
     // --- カメラ計算 ---
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     
-    const playerPixelX = gameState.player.position.x * TILE_SIZE;
-    const playerPixelY = gameState.player.position.y * TILE_SIZE;
-
-    // スムーズなカメラ追従のために、現在位置と目標位置を補間できると良いが、
-    // ここでは即時追従
-    const cameraX = Math.floor(playerPixelX - centerX + (TILE_SIZE / 2));
-    const cameraY = Math.floor(playerPixelY - centerY + (TILE_SIZE / 2));
+    // カメラは「補間されたプレイヤー位置」を追従するため、カメラワークもスムーズになる
+    const cameraX = Math.floor(visualPosRef.current.player.x - centerX + (TILE_SIZE / 2));
+    const cameraY = Math.floor(visualPosRef.current.player.y - centerY + (TILE_SIZE / 2));
 
     // --- マップ描画 ---
     const { map, visited } = gameState.dungeon;
@@ -262,32 +332,37 @@ export const DungeonScene = forwardRef<DungeonSceneHandle, Props>(({ gameState, 
     // --- 敵描画 ---
     gameState.enemies.forEach(enemy => {
         if (!visited[enemy.position.y][enemy.position.x]) return;
-        const screenX = Math.floor(enemy.position.x * TILE_SIZE - cameraX);
-        const screenY = Math.floor(enemy.position.y * TILE_SIZE - cameraY);
+        
+        // 補間された位置を使用
+        const vPos = visualPosRef.current.enemies.get(enemy.id) || { 
+            x: enemy.position.x * TILE_SIZE, 
+            y: enemy.position.y * TILE_SIZE 
+        };
+
+        const screenX = Math.floor(vPos.x - cameraX);
+        const screenY = Math.floor(vPos.y - cameraY);
         
         if (isOnScreen(screenX, screenY, canvas.width, canvas.height)) {
-            // 敵IDに応じてスプライトを変える（簡易ロジック）
             let sprite = SPRITES.slime;
             if (enemy.id.includes('bat')) sprite = SPRITES.bat;
             if (enemy.id.includes('skeleton') || enemy.id.includes('boss')) sprite = SPRITES.skeleton;
             
-            // 敵アニメーション (ふわふわ)
             const bob = Math.sin(timestamp / 200) * 2;
             drawEnemyWithHP(ctx, enemy, sprite, screenX, screenY + bob);
         }
     });
 
     // --- プレイヤー描画 ---
-    const screenPlayerX = Math.floor(playerPixelX - cameraX);
-    const screenPlayerY = Math.floor(playerPixelY - cameraY);
-    // プレイヤーアニメーション (歩行っぽい揺れ)
+    // 補間された位置を使用
+    const screenPlayerX = Math.floor(visualPosRef.current.player.x - cameraX);
+    const screenPlayerY = Math.floor(visualPosRef.current.player.y - cameraY);
     const playerBob = Math.abs(Math.sin(timestamp / 150)) * 2;
     drawSprite(ctx, SPRITES.player, screenPlayerX, screenPlayerY - playerBob);
 
     // --- エフェクト描画 ---
     visualManagerRef.current.draw(ctx, cameraX, cameraY);
     
-    // --- ビネット効果（視界の隅を暗くする） ---
+    // --- ビネット効果 ---
     const gradient = ctx.createRadialGradient(centerX, centerY, canvas.height * 0.3, centerX, centerY, canvas.height * 0.8);
     gradient.addColorStop(0, 'rgba(0,0,0,0)');
     gradient.addColorStop(1, 'rgba(0,0,0,0.6)');
@@ -312,10 +387,10 @@ export const DungeonScene = forwardRef<DungeonSceneHandle, Props>(({ gameState, 
 
     const centerX = dimensions.width / 2;
     const centerY = dimensions.height / 2;
-    const playerPixelX = gameState.player.position.x * TILE_SIZE;
-    const playerPixelY = gameState.player.position.y * TILE_SIZE;
-    const cameraX = playerPixelX - centerX + (TILE_SIZE / 2);
-    const cameraY = playerPixelY - centerY + (TILE_SIZE / 2);
+    
+    // クリック判定は視覚位置（カメラ位置）をベースにする必要がある
+    const cameraX = visualPosRef.current.player.x - centerX + (TILE_SIZE / 2);
+    const cameraY = visualPosRef.current.player.y - centerY + (TILE_SIZE / 2);
 
     const worldX = clickX + cameraX;
     const worldY = clickY + cameraY;
