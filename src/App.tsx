@@ -4,15 +4,16 @@ import { GameHUD } from './components/GameHUD';
 import { useTurnSystem, VisualEventType } from './hooks/useTurnSystem';
 import { useGameCore } from './hooks/useGameCore';
 import { useDungeon } from './hooks/useDungeon';
-import { useItemSystem } from './hooks/useItemSystem'; // 追加
+import { useItemSystem } from './hooks/useItemSystem';
+import { usePlayer } from './hooks/usePlayer'; // 追加
 import { Position } from './types/gameState';
-import { InventoryMenu } from './components/InventoryMenu'; // インベントリUIがあれば使う
+import { InventoryMenu } from './components/InventoryMenu';
 
 // メインコンポーネント: 状態保持と配線のみを担当
 const App: React.FC = () => {
   // --- Core Hooks & State ---
   const { gameState, setGameState, logManager } = useGameCore();
-  const [showInventory, setShowInventory] = useState(false); // インベントリ表示フラグ
+  const [showInventory, setShowInventory] = useState(false);
   
   // --- Refs ---
   const dungeonSceneRef = useRef<DungeonSceneHandle>(null);
@@ -35,7 +36,7 @@ const App: React.FC = () => {
             dungeonSceneRef.current.playAttackAnimation(pos.x, pos.y, value, variant);
         }
         break;
-      case 'heal': // 新規追加
+      case 'heal':
         dungeonSceneRef.current.playHealAnimation(pos.x, pos.y);
         break;
     }
@@ -43,7 +44,16 @@ const App: React.FC = () => {
 
   // --- Logic Hooks ---
   
-  // Item System (New)
+  // Player System (New)
+  // レベルアップ処理などを担当
+  const { gainExp } = usePlayer(
+    gameState,
+    setGameState,
+    logManager.addLog,
+    handleVisualEvent
+  );
+  
+  // Item System
   const { inventory, addItem, useItem, equipItem } = useItemSystem(
       gameState,
       setGameState,
@@ -52,11 +62,14 @@ const App: React.FC = () => {
   );
 
   // Turn System
+  // 依存関係として addItem, gainExp を注入
   const { performPlayerAttack, processEnemyTurn, isProcessing, setIsProcessing } = useTurnSystem(
     gameState, 
     setGameState, 
     logManager.addLog,
-    handleVisualEvent
+    handleVisualEvent,
+    addItem, // ドロップ用
+    gainExp  // 経験値用
   );
   
   // Dungeon System
@@ -89,8 +102,6 @@ const App: React.FC = () => {
     }
   }, [isProcessing, showInventory, handleMove, setIsProcessing]);
 
-  // キーボード操作でインベントリを開くなどの処理が必要だが、
-  // 今回は仮に画面右下にボタンを置くか、InventoryMenuを表示する
   const toggleInventory = () => setShowInventory(!showInventory);
 
   return (
@@ -121,10 +132,9 @@ const App: React.FC = () => {
       {/* 3. Modal Layer */}
       {showInventory && (
           <div className="absolute inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
-              {/* InventoryMenuコンポーネントがあれば使用、なければ簡易表示 */}
               <InventoryMenu 
                 inventory={inventory}
-                onUse={(item) => { useItem(item); }} // 使用時にターン経過させるなら setIsProcessing(true) も必要
+                onUse={(item) => { useItem(item); }}
                 onEquip={equipItem}
                 onClose={toggleInventory}
               />
