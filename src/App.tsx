@@ -4,12 +4,15 @@ import { GameHUD } from './components/GameHUD';
 import { useTurnSystem, VisualEventType } from './hooks/useTurnSystem';
 import { useGameCore } from './hooks/useGameCore';
 import { useDungeon } from './hooks/useDungeon';
+import { useItemSystem } from './hooks/useItemSystem'; // 追加
 import { Position } from './types/gameState';
+import { InventoryMenu } from './components/InventoryMenu'; // インベントリUIがあれば使う
 
 // メインコンポーネント: 状態保持と配線のみを担当
 const App: React.FC = () => {
   // --- Core Hooks & State ---
   const { gameState, setGameState, logManager } = useGameCore();
+  const [showInventory, setShowInventory] = useState(false); // インベントリ表示フラグ
   
   // --- Refs ---
   const dungeonSceneRef = useRef<DungeonSceneHandle>(null);
@@ -20,8 +23,6 @@ const App: React.FC = () => {
 
     switch (type) {
       case 'damage':
-        dungeonSceneRef.current.addDamageText(String(value), pos.x, pos.y, color);
-        break;
       case 'text':
         dungeonSceneRef.current.addDamageText(String(value), pos.x, pos.y, color);
         break;
@@ -29,17 +30,28 @@ const App: React.FC = () => {
         dungeonSceneRef.current.addHitEffect(pos.x, pos.y, color);
         break;
       case 'attack':
-        // value=direction, color=variant ('slash' | 'claw')
         if (typeof value === 'string') {
-            // color引数をvariantとして利用。未指定なら 'slash'
             const variant = (color === 'claw') ? 'claw' : 'slash';
             dungeonSceneRef.current.playAttackAnimation(pos.x, pos.y, value, variant);
         }
+        break;
+      case 'heal': // 新規追加
+        dungeonSceneRef.current.playHealAnimation(pos.x, pos.y);
         break;
     }
   }, []);
 
   // --- Logic Hooks ---
+  
+  // Item System (New)
+  const { inventory, addItem, useItem, equipItem } = useItemSystem(
+      gameState,
+      setGameState,
+      logManager.addLog,
+      handleVisualEvent
+  );
+
+  // Turn System
   const { performPlayerAttack, processEnemyTurn, isProcessing, setIsProcessing } = useTurnSystem(
     gameState, 
     setGameState, 
@@ -47,18 +59,19 @@ const App: React.FC = () => {
     handleVisualEvent
   );
   
+  // Dungeon System
   const { handleMove } = useDungeon(
     gameState,
     setGameState,
     logManager.addLog,
-    performPlayerAttack
+    performPlayerAttack,
+    addItem, // 宝箱用
+    handleVisualEvent
   );
 
   // --- Turn Management ---
-  // プレイヤーの行動が終わった後、敵のターンへ
   useEffect(() => {
     if (isProcessing) {
-        // 少し待ってから敵ターンを実行（演出用ウェイト）
         const timer = setTimeout(() => {
             processEnemyTurn();
         }, 300);
@@ -68,14 +81,17 @@ const App: React.FC = () => {
 
   // --- Event Handlers ---
   const onCellClick = useCallback((x: number, y: number) => {
-    if (isProcessing) return;
+    if (isProcessing || showInventory) return;
     
-    // 移動または攻撃処理（内部で isProcessing = true になる）
     const actionTaken = handleMove(x, y);
     if (actionTaken) {
         setIsProcessing(true);
     }
-  }, [isProcessing, handleMove, setIsProcessing]);
+  }, [isProcessing, showInventory, handleMove, setIsProcessing]);
+
+  // キーボード操作でインベントリを開くなどの処理が必要だが、
+  // 今回は仮に画面右下にボタンを置くか、InventoryMenuを表示する
+  const toggleInventory = () => setShowInventory(!showInventory);
 
   return (
     <div className="w-full h-screen bg-black relative overflow-hidden font-sans select-none text-white">
@@ -91,6 +107,29 @@ const App: React.FC = () => {
         gameState={gameState} 
         logs={logManager.logs} 
       />
+      
+      {/* 簡易インベントリボタン */}
+      <div className="absolute bottom-4 right-4 z-50">
+          <button 
+            className="bg-gray-800 border-2 border-gray-600 px-4 py-2 rounded hover:bg-gray-700"
+            onClick={toggleInventory}
+          >
+            ITEM ({inventory.length})
+          </button>
+      </div>
+
+      {/* 3. Modal Layer */}
+      {showInventory && (
+          <div className="absolute inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
+              {/* InventoryMenuコンポーネントがあれば使用、なければ簡易表示 */}
+              <InventoryMenu 
+                inventory={inventory}
+                onUse={(item) => { useItem(item); }} // 使用時にターン経過させるなら setIsProcessing(true) も必要
+                onEquip={equipItem}
+                onClose={toggleInventory}
+              />
+          </div>
+      )}
     </div>
   );
 };
