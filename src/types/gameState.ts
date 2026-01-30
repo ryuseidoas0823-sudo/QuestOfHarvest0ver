@@ -1,44 +1,149 @@
-import { DungeonState } from './dungeon';
+import { Position } from './input';
+import { Item, Equipment, ItemInstance } from './item';
 import { EnemyInstance } from './enemy';
 
-export interface Position {
-  x: number;
-  y: number;
-}
-
 export interface Stats {
-  str: number; // Strength: 物理攻撃力
-  dex: number; // Dexterity: 命中率、クリティカル、短剣攻撃力
-  agi: number; // Agility: 回避率、行動順
-  vit: number; // Vitality: 最大HP、物理防御
-  int: number; // Intelligence: 最大MP、魔法攻撃/防御
-  luk?: number; // Luck: クリティカル、ドロップ率（任意）
-  
-  // 計算済みまたは固定値（敵など）
-  atk?: number;
-  def?: number;
-}
-
-export interface Player {
-  position: Position;
-  stats: Stats;
   hp: number;
   maxHp: number;
   mp: number;
   maxMp: number;
+  
+  str: number;
+  vit: number;
+  dex: number;
+  agi: number;
+  int: number;
+  wis: number;
+
+  attack: number;
+  defense: number;
+  magicAttack: number;
+  magicDefense: number;
+  speed: number;
+  
+  hitRate: number;
+  evasion: number;
+  critRate: number;
+  
+  // 必要に応じて追加
+  [key: string]: number | undefined; 
+}
+
+export interface PlayerState {
+  name: string;
+  job: string;
+  god: string;
+  
   level: number;
   exp: number;
-  statPoints: number; // ステータス割り振りポイント
-  name: string;
+  
+  // 現在値
+  hp: number;
+  maxHp: number; // Statsにもあるがショートカットとして
+  mp: number;
+  maxMp: number;
+  
+  stats: Stats; // 計算済みの最終ステータス
+  position: Position;
+  
   gold: number;
-  jobId: string; // 職業ID
+  
+  inventory: (Item | null)[];
+  maxInventorySize: number;
+  
+  equipment: {
+    mainHand: Equipment | null;
+    offHand: Equipment | null;
+    armor: Equipment | null;
+    accessory: Equipment | null;
+  };
+
+  skillPoints: number;
+  statPoints: number;
+  
+  skills: Record<string, number>; // ID -> Level
+  mastery: Record<string, number>; // JobID -> Level
+  
+  statusEffects: any[];
+}
+
+export interface DungeonState {
+  floor: number;
+  map: number[][]; // 0:壁, 1:床...
+  visited: boolean[][];
+  items: ItemInstance[];
+}
+
+export interface LogEntry {
+  id: string;
+  text: string;
+  type: 'info' | 'success' | 'warning' | 'danger';
+  timestamp: number;
+}
+
+// イベント等の定義（簡易）
+export interface GameEvent {
+  id: string;
+  title: string;
+  description: string;
+  choices: { text: string, actionId: string }[];
+}
+
+export interface Dialogue {
+  id: string;
+  speaker: string;
+  text: string;
 }
 
 export interface GameState {
+  player: PlayerState;
   dungeon: DungeonState;
-  player: Player;
   enemies: EnemyInstance[];
-  turn: number;
+  logs: LogEntry[];
+  
+  currentEvent: GameEvent | null;
+  activeDialogue: Dialogue | null;
+  
   isGameOver: boolean;
-  floorLevel: number; // 現在の階層
 }
+
+export const INITIAL_GAME_STATE: GameState = {
+    player: {
+        name: '',
+        job: 'none',
+        god: 'none',
+        level: 1,
+        exp: 0,
+        hp: 100,
+        maxHp: 100,
+        mp: 50,
+        maxMp: 50,
+        stats: {
+            hp: 100, maxHp: 100, mp: 50, maxMp: 50,
+            str: 5, vit: 5, dex: 5, agi: 5, int: 5, wis: 5,
+            attack: 10, defense: 5, magicAttack: 10, magicDefense: 5, speed: 10,
+            hitRate: 95, evasion: 5, critRate: 5
+        },
+        position: { x: 1, y: 1 },
+        gold: 0,
+        inventory: Array(20).fill(null),
+        maxInventorySize: 20,
+        equipment: { mainHand: null, offHand: null, armor: null, accessory: null },
+        skillPoints: 0,
+        statPoints: 0,
+        skills: {},
+        mastery: {},
+        statusEffects: []
+    },
+    dungeon: {
+        floor: 0,
+        map: [],
+        visited: [],
+        items: []
+    },
+    enemies: [],
+    logs: [],
+    currentEvent: null,
+    activeDialogue: null,
+    isGameOver: false
+};
