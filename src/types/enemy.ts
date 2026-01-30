@@ -13,26 +13,25 @@ export interface EnemyStats {
   exp: number;
 }
 
-// マスタデータとしての敵定義
+// Master data definition
 export interface Enemy {
   id: string;
   name: string;
-  symbol: string; // アスキーアート用など
+  symbol: string; // For ASCII art fallback
   color: string;
   stats: EnemyStats;
   aiType: EnemyAI;
-  skills?: string[]; // スキルIDの配列
-  dropTable?: any[]; // ドロップ定義
+  skills?: string[]; // Array of skill IDs
+  dropTable?: any[]; // Drop definition
 }
 
-// ゲーム内に実体化した敵
+// Instance in game
 export interface EnemyInstance extends Enemy {
   uniqueId: string;
   position: Position;
-  // インスタンス固有の現在HPなどはstatsをコピーして持つか、別途持つ
-  // ここではstats自体をコピーしてインスタンスプロパティとして扱う想定
+  // Instance specific current HP etc.
   stats: EnemyStats; 
-  statusEffects: any[]; // StatusEffect型があればそれを使う
+  statusEffects: any[]; // Use StatusEffect type if available
   cooldowns: Record<string, number>;
   isAggro: boolean;
 }
