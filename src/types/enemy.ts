@@ -1,51 +1,38 @@
-import { StatusEffect, CooldownState } from './combat';
+import { Position } from './input';
 
-export type EnemyType = 'normal' | 'elite' | 'boss';
-export type EnemyRace = 'beast' | 'humanoid' | 'undead' | 'construct' | 'plant' | 'demon' | 'dragon';
-export type EnemyAI = 'chase' | 'ranged' | 'stationary' | 'random' | 'boss_minotaur' | 'boss_goliath';
+export type EnemyAI = 'chase' | 'ranged' | 'random' | 'boss_minotaur' | 'boss_goliath';
 
 export interface EnemyStats {
   hp: number;
   maxHp: number;
-  mp: number;
-  maxMp: number;
   attack: number;
   defense: number;
   magicAttack: number;
   magicDefense: number;
   speed: number;
   exp: number;
-  gold: number;
 }
 
-export interface EnemyDefinition {
+// マスタデータとしての敵定義
+export interface Enemy {
   id: string;
   name: string;
-  type: EnemyType;
-  race: EnemyRace;
-  symbol: string; // ASCII symbol or sprite ID
+  symbol: string; // アスキーアート用など
   color: string;
   stats: EnemyStats;
-  ai: EnemyAI;
-  skills: string[]; // Skill IDs
-  dropTable: {
-    itemId: string;
-    rate: number; // 0.0 - 1.0
-  }[];
-  resistances?: {
-    [key: string]: number; // damage multiplier (e.g. 0.5 for 50% resistance)
-  };
-  weaknesses?: {
-    [key: string]: number; // damage multiplier (e.g. 1.5 for 50% weakness)
-  };
+  aiType: EnemyAI;
+  skills?: string[]; // スキルIDの配列
+  dropTable?: any[]; // ドロップ定義
 }
 
-export interface EnemyInstance extends EnemyDefinition {
+// ゲーム内に実体化した敵
+export interface EnemyInstance extends Enemy {
   uniqueId: string;
-  x: number;
-  y: number;
-  ct: number; // Charge Time
-  statusEffects: StatusEffect[]; // 更新: 新しい型定義を使用
-  cooldowns: CooldownState;
-  isAggro: boolean; // Has noticed player
+  position: Position;
+  // インスタンス固有の現在HPなどはstatsをコピーして持つか、別途持つ
+  // ここではstats自体をコピーしてインスタンスプロパティとして扱う想定
+  stats: EnemyStats; 
+  statusEffects: any[]; // StatusEffect型があればそれを使う
+  cooldowns: Record<string, number>;
+  isAggro: boolean;
 }
