@@ -25,7 +25,7 @@ export interface Stats {
   evasion: number;
   critRate: number;
   
-  // 必要に応じて追加
+  // Index signature for flexible access
   [key: string]: number | undefined; 
 }
 
@@ -37,13 +37,13 @@ export interface PlayerState {
   level: number;
   exp: number;
   
-  // 現在値
+  // Current values
   hp: number;
-  maxHp: number; // Statsにもあるがショートカットとして
+  maxHp: number; // Shortcut to stats.maxHp
   mp: number;
   maxMp: number;
   
-  stats: Stats; // 計算済みの最終ステータス
+  stats: Stats; // Calculated final stats
   position: Position;
   
   gold: number;
@@ -69,7 +69,7 @@ export interface PlayerState {
 
 export interface DungeonState {
   floor: number;
-  map: number[][]; // 0:壁, 1:床...
+  map: number[][]; // 0:wall, 1:floor...
   visited: boolean[][];
   items: ItemInstance[];
 }
@@ -81,7 +81,7 @@ export interface LogEntry {
   timestamp: number;
 }
 
-// イベント等の定義（簡易）
+// Event definitions
 export interface GameEvent {
   id: string;
   title: string;
