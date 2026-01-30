@@ -20,7 +20,7 @@ export interface ItemStats {
   wis?: number;
   critRate?: number;
   evasion?: number;
-  // ...他必要なステータス
+  // ...other stats as needed
 }
 
 export interface Enchant {
@@ -42,21 +42,21 @@ export interface Item {
   quantity: number;
   icon?: string;
   
-  // 装備品固有
+  // Equipment specific
   baseStats?: ItemStats;
-  stats?: ItemStats; // エンチャント込みの合計
+  stats?: ItemStats; // Total including enchants
   enchants?: Enchant[];
   setId?: string;
   
-  // 消費アイテム固有
-  effectValue?: number; // 回復量など
+  // Consumable specific
+  effectValue?: number; // Heal amount etc.
 }
 
 export interface Equipment extends Item {
   type: 'weapon' | 'armor' | 'accessory';
 }
 
-// ダンジョンに落ちているアイテム
+// Item dropped in dungeon
 export interface ItemInstance extends Item {
   position: Position;
 }
